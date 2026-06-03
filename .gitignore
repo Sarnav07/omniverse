@@ -1,0 +1,59 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+.idea/
+.vscode/
+
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Rust / Stylus
+target/
+contracts-stylus/target/
+*.wasm
+*.wat
+
+# Foundry / Solidity
+contracts-sol/cache/
+contracts-sol/out/
+contracts-sol/broadcast/
+contracts-sol/coverage/
+contracts-sol/coverage.json
+contracts-sol/lcov.info
+
+# Node / frontend / indexer
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+.vercel/
+.parcel-cache/
+coverage/
+
+# Ponder / local databases
+.ponder/
+ponder.sqlite*
+*.sqlite
+*.sqlite3
+
+# Generated artifacts / temporary files
+tmp/
+temp/
+.cache/
+cache/
