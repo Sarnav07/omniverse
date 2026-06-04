@@ -71,8 +71,15 @@ contract OmniverseMathSolidity is IOmniverseMath {
         for (uint256 i = 0; i < MAX_ITER; i++) {
             int256 fVal = _invariantAt(x1, y1, ell);
             uint256 fAbs = _abs(fVal);
-            if (fAbs < EPSILON || hi - lo <= 1) {
-                return fVal > 0 ? y1 + 1 : y1;
+            if (fAbs < EPSILON) {
+                y1 = fVal > 0 ? y1 + 1 : y1;
+                require(y1 > 0, "solveSwap: degenerate");
+                return y1;
+            }
+            if (hi - lo <= 1) {
+                // Bracket-collapse: return hi (pool-favoring UP rounding, matching Rust).
+                require(hi > 0, "solveSwap: degenerate");
+                return hi;
             }
 
             int256 z = ((int256(y1) - int256(x1)) * WAD_I) / int256(ell);

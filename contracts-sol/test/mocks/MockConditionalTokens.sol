@@ -14,13 +14,21 @@ contract MockConditionalTokens is IConditionalTokens {
     mapping(bytes32 => uint256) public override payoutDenominator;
     mapping(bytes32 => mapping(uint256 => uint256)) internal _payoutNumerators;
 
+    // Track oracle per conditionId so reportPayouts can verify msg.sender.
+    mapping(bytes32 => address) public oracleOf;
+    // Track questionId → conditionId for resolution lookups.
+    mapping(bytes32 => bytes32) internal _questionCondition;
+
     function payoutNumerators(bytes32 conditionId, uint256 index) external view override returns (uint256) {
         return _payoutNumerators[conditionId][index];
     }
 
     function prepareCondition(address oracle, bytes32 questionId, uint256 outcomeSlotCount) external {
         require(outcomeSlotCount == 2, "CTF: binary only");
-        prepared[getConditionId(oracle, questionId, outcomeSlotCount)] = true;
+        bytes32 cid = getConditionId(oracle, questionId, outcomeSlotCount);
+        prepared[cid] = true;
+        oracleOf[cid] = oracle;
+        _questionCondition[_oracleQuestionKey(oracle, questionId)] = cid;
     }
 
     function getConditionId(address oracle, bytes32 questionId, uint256 outcomeSlotCount)
@@ -91,13 +99,32 @@ contract MockConditionalTokens is IConditionalTokens {
         }
     }
 
-    function reportPayouts(bytes32 conditionId, uint256 winningIndexSet) external {
-        require(winningIndexSet == 1 || winningIndexSet == 2, "CTF: winner");
-        payoutIndexSet[conditionId] = winningIndexSet;
-        // Binary partition: index set 1 (YES) -> outcome slot 0, index set 2 (NO) -> slot 1.
-        payoutDenominator[conditionId] = 1;
-        _payoutNumerators[conditionId][0] = winningIndexSet == 1 ? 1 : 0;
-        _payoutNumerators[conditionId][1] = winningIndexSet == 2 ? 1 : 0;
+    /// @notice Matches the real Gnosis CTF signature: keyed by questionId, payout
+    ///         numerator array. The conditionId is derived from (msg.sender, questionId, 2)
+    ///         because the real CTF only accepts reportPayouts from the oracle address that
+    ///         was named in prepareCondition.
+    function reportPayouts(bytes32 questionId, uint256[] calldata payouts) external {
+        require(payouts.length == 2, "CTF: binary");
+        bytes32 cid = _questionCondition[_oracleQuestionKey(msg.sender, questionId)];
+        require(cid != bytes32(0), "CTF: condition not prepared or wrong oracle");
+
+        // Store payout numerators.
+        uint256 denom = payouts[0] + payouts[1];
+        require(denom > 0, "CTF: zero payouts");
+        payoutDenominator[cid] = denom;
+        _payoutNumerators[cid][0] = payouts[0];
+        _payoutNumerators[cid][1] = payouts[1];
+
+        // Derive winning index set for the simplified redeemPositions logic.
+        // Binary: payouts[0] > 0 means slot 0 (YES / indexSet 1) wins.
+        if (payouts[0] > 0 && payouts[1] == 0) {
+            payoutIndexSet[cid] = 1;
+        } else if (payouts[1] > 0 && payouts[0] == 0) {
+            payoutIndexSet[cid] = 2;
+        } else {
+            // Split resolution: pick slot 0 as "winner" for demo simplicity.
+            payoutIndexSet[cid] = 1;
+        }
     }
 
     function getCollectionId(bytes32 parentCollectionId, bytes32 conditionId, uint256 indexSet)
@@ -157,5 +184,9 @@ contract MockConditionalTokens is IConditionalTokens {
         if (to.code.length == 0) return;
         bytes4 retval = IERC1155Receiver(to).onERC1155Received(operator, from, id, amount, data);
         require(retval == IERC1155Receiver.onERC1155Received.selector, "ERC1155: rejected");
+    }
+
+    function _oracleQuestionKey(address oracle, bytes32 questionId) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(oracle, questionId));
     }
 }

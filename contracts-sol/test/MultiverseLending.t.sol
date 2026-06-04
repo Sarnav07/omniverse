@@ -28,7 +28,9 @@ contract MultiverseLendingTest is Test {
     MockPriceOracle internal oracle;
     MultiverseLending internal lending;
 
-    bytes32 internal conditionId = keccak256("eth-flips-50k");
+    bytes32 internal questionId = keccak256("eth-flips-50k");
+    address internal resolver = address(0xDEAD);
+    bytes32 internal conditionId;
     uint256 internal yesWethId;
     uint256 internal yesUsdcId;
     uint256 internal noUsdcId;
@@ -43,6 +45,10 @@ contract MultiverseLendingTest is Test {
         usdc = new MockERC20("USD Coin", "USDC");
         oracle = new MockPriceOracle(ETH_PRICE);
         expiry = block.timestamp + 30 days;
+
+        // Prepare condition: resolver is the oracle so reportPayouts routes correctly.
+        ctf.prepareCondition(resolver, questionId, 2);
+        conditionId = ctf.getConditionId(resolver, questionId, 2);
 
         wethPool = new PmAmmPool({
             math_: IOmniverseMath(address(math)),
@@ -471,7 +477,17 @@ contract MultiverseLendingTest is Test {
         lending.borrow(debt);
     }
 
-    function _resolve(uint256 winningIndexSet) internal {
-        ctf.reportPayouts(conditionId, winningIndexSet);
+    function _resolve(uint256 winningSlot) internal {
+        // Build payout vector: winningSlot 1 → [1,0] (YES wins), 2 → [0,1] (NO wins).
+        uint256[] memory payouts = new uint256[](2);
+        if (winningSlot == 1) {
+            payouts[0] = 1;
+            payouts[1] = 0;
+        } else {
+            payouts[0] = 0;
+            payouts[1] = 1;
+        }
+        vm.prank(resolver);
+        ctf.reportPayouts(questionId, payouts);
     }
 }

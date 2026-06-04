@@ -9,13 +9,22 @@ import {MockERC20} from "./mocks/MockERC20.sol";
 contract ConditionalTokensTest is Test {
     MockConditionalTokens internal ctf;
     MockERC20 internal collateral;
-    bytes32 internal conditionId = keccak256("condition");
+
+    address internal oracle = address(0xDEAD);
+    bytes32 internal questionId = keccak256("condition");
+    bytes32 internal conditionId;
     uint256 internal yesId;
     uint256 internal noId;
 
     function setUp() public {
         ctf = new MockConditionalTokens();
         collateral = new MockERC20("Collateral", "COL");
+
+        // Prepare condition via the oracle so reportPayouts will work.
+        vm.prank(oracle); // not strictly needed for prepareCondition, but set up oracle
+        ctf.prepareCondition(oracle, questionId, 2);
+        conditionId = ctf.getConditionId(oracle, questionId, 2);
+
         yesId = CtfPositionLib.yesPositionId(address(collateral), conditionId);
         noId = CtfPositionLib.noPositionId(address(collateral), conditionId);
         collateral.mint(address(this), 1_000e18);
@@ -52,7 +61,13 @@ contract ConditionalTokensTest is Test {
 
     function testRedeemWinnerOneToOneAndLoserZero() public {
         ctf.splitPosition(address(collateral), bytes32(0), conditionId, CtfPositionLib.binaryPartition(), 100e18);
-        ctf.reportPayouts(conditionId, 1);
+
+        // Resolve as oracle with payout vector [1, 0] → YES wins.
+        uint256[] memory payouts = new uint256[](2);
+        payouts[0] = 1;
+        payouts[1] = 0;
+        vm.prank(oracle);
+        ctf.reportPayouts(questionId, payouts);
 
         uint256[] memory indexSets = new uint256[](2);
         indexSets[0] = 1;

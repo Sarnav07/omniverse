@@ -32,12 +32,14 @@ interface IConditionalTokens {
         uint256[] calldata indexSets
     ) external;
 
+    function reportPayouts(bytes32 questionId, uint256[] calldata payouts) external;
+
     function getCollectionId(bytes32 parentCollectionId, bytes32 conditionId, uint256 indexSet)
         external
-        pure
+        view
         returns (bytes32);
 
-    function getPositionId(address collateralToken, bytes32 collectionId) external pure returns (uint256);
+    function getPositionId(address collateralToken, bytes32 collectionId) external view returns (uint256);
 
     function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data) external;
 

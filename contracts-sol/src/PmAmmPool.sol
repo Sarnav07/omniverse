@@ -47,6 +47,7 @@ contract PmAmmPool is IERC1155Receiver {
     mapping(address => uint256) public sharesOf;
 
     uint256 private _entered = 1;
+    bool private _expectingDeposit;
 
     event Rebalanced(uint256 xActive, uint256 yActive, uint256 ellActive, uint256 lambdaWad, uint256 blockNumber);
     event OmniverseTrade(
@@ -169,8 +170,10 @@ contract PmAmmPool is IERC1155Receiver {
         yActive += yesAmount;
         _assertKernelBounds(xActive, yActive, ellActive);
 
+        _expectingDeposit = true;
         conditionalTokens.safeTransferFrom(msg.sender, address(this), yesPositionId, yesAmount, "");
         conditionalTokens.safeTransferFrom(msg.sender, address(this), noPositionId, noAmount, "");
+        _expectingDeposit = false;
 
         emit LiquidityAdded(msg.sender, yesAmount, noAmount, mintedShares);
     }
@@ -238,6 +241,7 @@ contract PmAmmPool is IERC1155Receiver {
     function onERC1155Received(address, address, uint256 id, uint256, bytes calldata) external view returns (bytes4) {
         if (msg.sender != address(conditionalTokens)) revert InvalidToken();
         if (id != yesPositionId && id != noPositionId) revert InvalidPosition();
+        if (!_expectingDeposit) revert InvalidPosition();
         return ERC1155_RECEIVED;
     }
 
@@ -247,6 +251,7 @@ contract PmAmmPool is IERC1155Receiver {
         returns (bytes4)
     {
         if (msg.sender != address(conditionalTokens)) revert InvalidToken();
+        if (!_expectingDeposit) revert InvalidPosition();
         for (uint256 i = 0; i < ids.length; i++) {
             if (ids[i] != yesPositionId && ids[i] != noPositionId) revert InvalidPosition();
         }
@@ -276,7 +281,9 @@ contract PmAmmPool is IERC1155Receiver {
 
         (uint256 priceWad, int256 gapWad) = _assertInvariantAndPrice();
 
+        _expectingDeposit = true;
         conditionalTokens.safeTransferFrom(msg.sender, address(this), noPositionId, noIn, "");
+        _expectingDeposit = false;
         conditionalTokens.safeTransferFrom(address(this), msg.sender, yesPositionId, yesOut, "");
 
         emit OmniverseTrade(
@@ -303,7 +310,9 @@ contract PmAmmPool is IERC1155Receiver {
 
         (uint256 priceWad, int256 gapWad) = _assertInvariantAndPrice();
 
+        _expectingDeposit = true;
         conditionalTokens.safeTransferFrom(msg.sender, address(this), yesPositionId, yesIn, "");
+        _expectingDeposit = false;
         conditionalTokens.safeTransferFrom(address(this), msg.sender, noPositionId, noOut, "");
 
         emit OmniverseTrade(
