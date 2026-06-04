@@ -59,6 +59,10 @@ pub fn lambda_star_gaussian(gamma_prime: U256, p_true: U256) -> U256 {
         return LAMBDA_MIN;
     }
 
+    // Bound gamma_prime so gamma_prime * WAD cannot overflow U256 downstream.
+    let max_gamma = U256::from(1_000_000u64) * WAD; // 1e24
+    assert!(gamma_prime <= max_gamma, "lambdaStarGaussian: gamma_prime too large");
+
     // z = Φ⁻¹(p_true)
     let z = phi_inv(p_true);
 

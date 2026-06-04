@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 contract MockOmniverseMath {
+    uint256 public constant PHI_CONST = 398_942_280_401_432_677;
+
     uint256 public lambda = 0.5e18;
     uint256 public price = 0.5e18;
 
@@ -14,7 +16,7 @@ contract MockOmniverseMath {
     }
 
     function phi(int256) external pure returns (uint256) {
-        return 398_942_280_401_432_677;
+        return PHI_CONST;
     }
 
     function Phi(int256) external view returns (uint256) {
@@ -25,9 +27,10 @@ contract MockOmniverseMath {
         return 0;
     }
 
+    /// @dev On-curve y for constant P=price, Q=PHI_CONST: y = (ell*Q - x1*P)/(WAD-P).
     function solveSwap(uint256 x1, uint256 y0, uint256 ell) external view returns (uint256 y1) {
         require(x1 <= type(uint128).max && y0 <= type(uint128).max && ell <= type(uint128).max, "MATH_TOUCHED_OOB");
-        return y0 == 0 ? 0 : y0 - 1;
+        return ((ell * PHI_CONST) - (x1 * price)) / (1e18 - price);
     }
 
     function poolValue(int256) external pure returns (uint256) {

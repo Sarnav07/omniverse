@@ -14,7 +14,7 @@ const L_MIN: U256 = U256::from_limbs([1_000_000u64, 0, 0, 0]); // 1e6 wei
 const EPSILON: U256 = U256::from_limbs([10_000u64, 0, 0, 0]); // 1e4 wei
 
 /// Maximum Newton iterations before reverting.
-const MAX_ITER: u32 = 40;
+const MAX_ITER: u32 = 100;
 
 /// Solve for y1 given x1 and ell, such that the pm-AMM invariant holds:
 ///   f(y) = (y - x1) · Φ((y - x1)/ℓ) + ℓ · φ((y - x1)/ℓ) - y = 0
@@ -30,10 +30,9 @@ pub fn solve_swap(x1: U256, y0: U256, ell: U256) -> U256 {
     // Floor liquidity
     let ell = if ell < L_MIN { L_MIN } else { ell };
 
-    // Bracket: y must be in [0, x1 + y0 + ell] approximately.
-    // Use generous bounds.
+    // Bracket: the root lies in [0, x1 + 5*ell] (max (y-x)/ell over the domain ~3.57).
     let mut lo = U256::ZERO;
-    let mut hi = x1 + y0 + ell;
+    let mut hi = x1 + U256::from(5u8) * ell;
 
     // Initial guess: current y-reserve
     let mut y = y0;
@@ -82,7 +81,8 @@ pub fn solve_swap(x1: U256, y0: U256, ell: U256) -> U256 {
         // f'(y) = Φ(z) - 1 (always in (-WAD, 0) as WAD-scaled)
         let f_prime = u256_to_i256(big_phi_z) - WAD_I;
 
-        // Guard: if f_prime is zero (shouldn't happen since Φ(z) < 1 for finite z)
+        // Guard: f_prime can hit zero on large-|z| inputs, since big_phi saturates
+        // to WAD for z >= 8, making Φ(z) - 1 = 0. Bisection fallback handles it.
         if f_prime.is_zero() {
             // Fall back to bisection
             // f decreasing: f>0 → lo=y, f<0 → hi=y
@@ -99,6 +99,12 @@ pub fn solve_swap(x1: U256, y0: U256, ell: U256) -> U256 {
 
         // Update bracket based on sign of f (f is monotonically decreasing)
         if f_val.is_positive() { lo = y; } else { hi = y; }
+
+        // Bracket collapsed: root is pinned to within 1 wei. f is decreasing so the
+        // root lies in [lo, hi]; return hi (output reserve rounds up, pool-favoring).
+        if hi - lo <= U256::from(1u8) {
+            return hi;
+        }
 
         // Bisection guard: if Newton sends y out of bounds, bisect instead.
         if y_next_i.is_negative() || y_next_i > u256_to_i256(hi) || y_next_i < u256_to_i256(lo) {

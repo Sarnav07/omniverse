@@ -123,14 +123,19 @@ This interface has **two implementations**:
 
 ```solidity
 event OmniverseTrade(
-    address indexed market,
+    uint256 indexed marketId,
     address indexed trader,
-    uint8 side,          // 0=buyYes, 1=buyNo, 2=sellYes, 3=sellNo
-    uint256 size,        // one-sided (NOT double-counted)
-    uint256 price,       // probability after trade
-    uint256 blockNumber
+    uint8 side,            // 0=buyYes 1=sellYes 2=buyNo 3=sellNo
+    uint256 size,          // one-sided notional (amount in; NOT double-counted)
+    uint256 priceWad,      // probability after the trade (WAD)
+    uint256 ellWad,        // active liquidity L_t used (WAD)
+    uint256 lambdaWad,     // active fraction λ (WAD)
+    int256 gapWad,         // ln(P_active / P_full) (WAD); 0 until the gap is wired on-chain
+    uint64 timestamp
 );
 ```
+
+This 9-field schema is frozen and is the single source of truth for the indexer; it matches `IMPLEMENTATION_PLAN.md`. `gapWad` is emitted as 0 until the kernel exposes `ln` and the gap is computed on-chain.
 
 ### 3.4 Pool State
 

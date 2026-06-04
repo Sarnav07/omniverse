@@ -60,6 +60,6 @@ Tests cover:
 
 ## Build Artifacts
 
-- **WASM size**: 115KB (uncompressed), well within 128KB Stylus limit
+- **WASM size**: ~20.5 KB compressed (brotli) — under the 24 KB Stylus on-chain limit. (~115 KB uncompressed.)
 - **Zero floats**: All arithmetic uses U256/I256 integer operations
 - **Profile**: `opt-level=z`, LTO, `panic=abort`, strip — minimal binary

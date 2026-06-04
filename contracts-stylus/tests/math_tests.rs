@@ -334,6 +334,47 @@ mod tests {
         assert!(y1 > U256::ZERO, "should produce nonzero y1");
     }
 
+    #[test]
+    fn test_solve_swap_large_sell_root_above_old_bracket() {
+        // Regression for the bracket bug: the root sits well above y0 + ell,
+        // which the previous `x1 + y0 + ell` bound excluded.
+        let ell = u(1_000_000_000_000_000_000);
+        let x1 = u(10_000_000_000_000_000);
+        let y0 = u(10_000_000_000_000_000);
+        let y1 = solve_swap(x1, y0, ell);
+        // Root is ~1.95 WAD, above the old bracket of ~1.02 WAD.
+        assert!(y1 > u(1_900_000_000_000_000_000), "root should be ~1.95 WAD, got {}", y1);
+        // And it must actually satisfy the invariant.
+        let x1_i = u256_to_i256(x1);
+        let ell_i = u256_to_i256(ell);
+        let diff = u256_to_i256(y1) - x1_i;
+        let z = wad_div(diff, ell_i);
+        let f = wad_mul(diff, u256_to_i256(big_phi(z)))
+              + wad_mul(ell_i, u256_to_i256(phi(z)))
+              - u256_to_i256(y1);
+        assert!(i256_abs(f) < u(1_000_000), "invariant not satisfied: |f| = {}", i256_abs(f));
+    }
+
+    #[test]
+    fn test_solve_swap_deep_tail_large_buy() {
+        // Large buy on a unit-L pool drives the root deep into the tail (z very
+        // negative), exercising the higher iteration budget and the bracket-collapse
+        // exit. Must converge (no panic) and stay on-curve.
+        let ell = u(1_000_000_000_000_000_000);
+        let y0 = u(398_942_280_401_432_677);
+        let x1 = u(50_000_000_000_000_000_000); // big buy: x1 = 50 WAD
+        let y1 = solve_swap(x1, y0, ell);
+
+        let x1_i = u256_to_i256(x1);
+        let ell_i = u256_to_i256(ell);
+        let diff = u256_to_i256(y1) - x1_i;
+        let z = wad_div(diff, ell_i);
+        let f = wad_mul(diff, u256_to_i256(big_phi(z)))
+              + wad_mul(ell_i, u256_to_i256(phi(z)))
+              - u256_to_i256(y1);
+        assert!(i256_abs(f) < u(1_000_000), "invariant not satisfied: |f| = {}", i256_abs(f));
+    }
+
     // ── pool_value tests ─────────────────────────────────────────────────────
 
     #[test]
@@ -417,5 +458,14 @@ mod tests {
             assert!(result >= u(50_000_000_000_000_000), "lambda < 0.05 at p={}", p_val);
             assert!(result <= WAD, "lambda > 1.0 at p={}", p_val);
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_lambda_star_gamma_too_large() {
+        // gamma_prime above the 1e24 bound must revert before the internal overflow.
+        let gamma_prime = u(2_000_000) * WAD; // 2e24, over the bound
+        let p_true = u(500_000_000_000_000_000); // 0.5
+        lambda_star_gaussian(gamma_prime, p_true);
     }
 }

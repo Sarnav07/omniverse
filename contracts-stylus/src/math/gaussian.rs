@@ -287,20 +287,7 @@ fn halley_step(z: I256, p: U256) -> I256 {
         return z;
     }
 
-    // Numerator: error * φ(z)  (but we want to subtract error/φ-like correction)
-    // Halley: z_new = z - error / (φ(z) - z·error/(2·something))
-    // Standard form: z_new = z - (error / φ(z)) * (1 / (1 - z·error/(2·φ(z)²)))
-    // Simplified: z_new = z - error·φ(z) / denom
-    // where denom = φ(z)² + z·error/2
-
-    // Wait, the standard Halley for CDF inversion is:
-    // z_new = z - (Φ(z) - p) / φ(z) * correction
-    // but the form given in the spec is:
-    // z_new = z - (error * φ(z)) / (φ(z)² + 0.5 * z * error)
-    // Let me verify: that's error * phi / (phi^2 + 0.5*z*error)
-    // = error / (phi + 0.5*z*error/phi)
-    // This is Halley's method applied to the normal CDF.
-
+    // Halley step: z_new = z - error·φ(z) / (φ(z)² + z·error/2)
     let numer = wad_mul(error, phi_i);
 
     z - wad_div(numer, denom)

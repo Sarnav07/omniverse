@@ -67,11 +67,11 @@ pub fn i256_abs(x: I256) -> U256 {
 /// Convert U256 to I256 (panics if > I256::MAX).
 #[inline]
 pub fn u256_to_i256(x: U256) -> I256 {
-    I256::try_from(x).unwrap()
+    I256::try_from(x).expect("u256_to_i256: value exceeds I256::MAX")
 }
 
 /// Convert I256 to U256 (panics if negative).
 #[inline]
 pub fn i256_to_u256(x: I256) -> U256 {
-    x.try_into().unwrap()
+    x.try_into().expect("i256_to_u256: value is negative")
 }
