@@ -105,8 +105,14 @@ contract PmAmmPool is IERC1155Receiver {
         conditionalTokens = conditionalTokens_;
         collateralToken = collateralToken_;
         conditionId = conditionId_;
-        yesPositionId = CtfPositionLib.yesPositionId(collateralToken_, conditionId_);
-        noPositionId = CtfPositionLib.noPositionId(collateralToken_, conditionId_);
+        // Read the ids straight from the CTF: real Gnosis collection ids come from
+        // alt_bn128 point math, not a hash, so they can't be recomputed off-chain.
+        yesPositionId = conditionalTokens_.getPositionId(
+            collateralToken_, conditionalTokens_.getCollectionId(bytes32(0), conditionId_, CtfPositionLib.YES_INDEX_SET)
+        );
+        noPositionId = conditionalTokens_.getPositionId(
+            collateralToken_, conditionalTokens_.getCollectionId(bytes32(0), conditionId_, CtfPositionLib.NO_INDEX_SET)
+        );
         marketId = marketId_;
         L0 = l0;
         T = expiry;

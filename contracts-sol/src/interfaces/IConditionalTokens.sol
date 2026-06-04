@@ -4,6 +4,11 @@ pragma solidity ^0.8.24;
 interface IConditionalTokens {
     function prepareCondition(address oracle, bytes32 questionId, uint256 outcomeSlotCount) external;
 
+    function getConditionId(address oracle, bytes32 questionId, uint256 outcomeSlotCount)
+        external
+        pure
+        returns (bytes32);
+
     function splitPosition(
         address collateralToken,
         bytes32 parentCollectionId,
@@ -49,4 +54,8 @@ interface IConditionalTokens {
     function isApprovedForAll(address account, address operator) external view returns (bool);
 
     function balanceOf(address account, uint256 id) external view returns (uint256);
+
+    function payoutDenominator(bytes32 conditionId) external view returns (uint256);
+
+    function payoutNumerators(bytes32 conditionId, uint256 index) external view returns (uint256);
 }

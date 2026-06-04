@@ -11,10 +11,24 @@ contract MockConditionalTokens is IConditionalTokens {
     mapping(address => mapping(address => bool)) public override isApprovedForAll;
     mapping(bytes32 => bool) public prepared;
     mapping(bytes32 => uint256) public payoutIndexSet;
+    mapping(bytes32 => uint256) public override payoutDenominator;
+    mapping(bytes32 => mapping(uint256 => uint256)) internal _payoutNumerators;
+
+    function payoutNumerators(bytes32 conditionId, uint256 index) external view override returns (uint256) {
+        return _payoutNumerators[conditionId][index];
+    }
 
     function prepareCondition(address oracle, bytes32 questionId, uint256 outcomeSlotCount) external {
         require(outcomeSlotCount == 2, "CTF: binary only");
-        prepared[keccak256(abi.encodePacked(oracle, questionId, outcomeSlotCount))] = true;
+        prepared[getConditionId(oracle, questionId, outcomeSlotCount)] = true;
+    }
+
+    function getConditionId(address oracle, bytes32 questionId, uint256 outcomeSlotCount)
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(oracle, questionId, outcomeSlotCount));
     }
 
     function splitPosition(
@@ -80,6 +94,10 @@ contract MockConditionalTokens is IConditionalTokens {
     function reportPayouts(bytes32 conditionId, uint256 winningIndexSet) external {
         require(winningIndexSet == 1 || winningIndexSet == 2, "CTF: winner");
         payoutIndexSet[conditionId] = winningIndexSet;
+        // Binary partition: index set 1 (YES) -> outcome slot 0, index set 2 (NO) -> slot 1.
+        payoutDenominator[conditionId] = 1;
+        _payoutNumerators[conditionId][0] = winningIndexSet == 1 ? 1 : 0;
+        _payoutNumerators[conditionId][1] = winningIndexSet == 2 ? 1 : 0;
     }
 
     function getCollectionId(bytes32 parentCollectionId, bytes32 conditionId, uint256 indexSet)
