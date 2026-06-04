@@ -6,6 +6,8 @@ contract MockOmniverseMath {
 
     uint256 public lambda = 0.5e18;
     uint256 public price = 0.5e18;
+    uint256 public poolValueReturn = 398_942_280_401_432_677;
+    uint256 public nextPoolValueReturn;
 
     function setLambda(uint256 lambda_) external {
         lambda = lambda_;
@@ -13,6 +15,14 @@ contract MockOmniverseMath {
 
     function setPrice(uint256 price_) external {
         price = price_;
+    }
+
+    function setPoolValue(uint256 value) external {
+        poolValueReturn = value;
+    }
+
+    function setNextPoolValue(uint256 value) external {
+        nextPoolValueReturn = value;
     }
 
     function phi(int256) external pure returns (uint256) {
@@ -33,8 +43,9 @@ contract MockOmniverseMath {
         return ((ell * PHI_CONST) - (x1 * price)) / (1e18 - price);
     }
 
-    function poolValue(int256) external pure returns (uint256) {
-        return 398_942_280_401_432_677;
+    function poolValue(int256 z) external view returns (uint256) {
+        if (z != 0 && nextPoolValueReturn != 0) return nextPoolValueReturn;
+        return poolValueReturn;
     }
 
     function lambdaStarGaussian(uint256, uint256) external view returns (uint256) {
