@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  },
+  "include": ["ponder-env.d.ts", "ponder.config.ts", "ponder.schema.ts", "src/**/*.ts", "abis/**/*.ts"],
+  "exclude": ["node_modules"]
+}
