@@ -1,0 +1,918 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { motion } from "motion/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { WalletButton } from "@/components/wallet-button";
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import PmAmmPoolAbi from '@/abis/PmAmmPool.abi.json';
+import MultiverseLendingAbi from '@/abis/MultiverseLending.abi.json';
+import ResolverAbi from '@/abis/Resolver.abi.json';
+import { CONTRACT_ADDRESSES } from '@/config/contracts';
+import { toast } from "sonner";
+import { useQuery } from 'urql';
+
+const MARKET_BY_ID_QUERY = `
+  query MarketById($id: String!) {
+    market(id: $id) {
+      id
+      questionId
+      lastPriceWeth
+      totalVolumeWeth
+      resolved
+      createdAt
+    }
+  }
+`;
+
+export const Route = createFileRoute("/markets/$id")({
+  head: ({ params }) => ({
+    meta: [
+      { title: `${params.id} — Execution Terminal · Omniverse` },
+      {
+        name: "description",
+        content:
+          "Institutional execution terminal. Drop intent, route through the solver mesh, settle without forced exits.",
+      },
+      { property: "og:title", content: `${params.id} — Execution Terminal` },
+      {
+        property: "og:description",
+        content: "Drag capital. Drop intent. Settle without typing a digit.",
+      },
+    ],
+  }),
+  component: TerminalPage,
+});
+
+/* ───────────────────────────── mock market ───────────────────────────── */
+
+const MOCK_MARKET = {
+  symbol: "BTC≥100k",
+  question: "btc settles above 100k by q4",
+  category: "macro",
+  yes: 0.84,
+  tvl: "$182.4m",
+  volume24: "$24.8m",
+  expiry: "2026·12·31",
+  latency: "218ms",
+};
+
+function TerminalPage() {
+  const { id } = Route.useParams();
+  type TerminalTab = "swap" | "borrow" | "manage" | "provide" | "redeem";
+  const [tab, setTab] = useState<TerminalTab>("borrow");
+
+  const [result] = useQuery({
+    query: MARKET_BY_ID_QUERY,
+    variables: { id },
+  });
+  const { data, fetching } = result;
+
+  const MARKET = useMemo(() => {
+    const item = data?.market;
+    const mock = MOCK_MARKET;
+    if (!item) return mock;
+    const yesPrice = Number(item.lastPriceWeth) / 1e18;
+    const vol = Number(item.totalVolumeWeth) / 1e18;
+    return {
+      ...mock,
+      yes: yesPrice > 0 ? yesPrice : mock.yes,
+      volume24: vol > 0 ? `$${(vol / 1000000).toFixed(1)}m` : mock.volume24,
+    };
+  }, [data]);
+
+  return (
+    <div className="relative h-screen w-screen overflow-hidden bg-abyss text-foreground">
+      <div className="noise-overlay" />
+
+      {/* TOP BAR (40px) */}
+      <header className="relative z-20 flex h-10 items-center justify-between border-b border-white/[0.06] px-6">
+        <div className="flex items-center gap-5">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="grid h-5 w-5 place-items-center rounded-sm border border-white/15 bg-white/[0.02]">
+              <div className="h-1 w-1 rounded-full bg-white" />
+            </div>
+            <span className="text-[12px] tracking-tight text-white/90">omniverse</span>
+          </Link>
+          <div className="h-3 w-px bg-white/10" />
+          <Link to="/markets" className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45 ease-precision hover:text-white">
+            ← markets
+          </Link>
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/30">
+            / {id}
+          </span>
+        </div>
+        <div className="flex items-center gap-5 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+          <span>latency · <span className="text-[#00FFAA]">{MARKET.latency}</span></span>
+          <span>block · 21·482·113</span>
+          <span className="flex items-center gap-1.5">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inset-0 animate-ping rounded-full bg-[#00FFAA]/60" />
+              <span className="relative h-1.5 w-1.5 rounded-full bg-[#00FFAA]" />
+            </span>
+            live
+          </span>
+          <div className="h-3 w-px bg-white/10" />
+          <WalletButton />
+        </div>
+      </header>
+
+      {/* MARKET HEADER STRIP (64px) */}
+      <section className="relative z-10 flex h-16 items-center justify-between border-b border-white/[0.06] px-6">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <span className="grid h-6 w-6 place-items-center rounded-sm border border-white/15 bg-white/[0.02]">
+              <span className="h-1 w-1 rounded-full bg-white/80" />
+            </span>
+            <span className="tabular text-[11px] uppercase tracking-[0.22em] text-white/65">
+              {MARKET.symbol}
+            </span>
+          </div>
+          <h1 className="text-[15px] font-light tracking-[-0.01em] text-white/90">
+            {MARKET.question}
+          </h1>
+          <span className="rounded-full border border-white/10 px-2.5 py-0.5 tabular text-[9px] uppercase tracking-[0.22em] text-white/45">
+            {MARKET.category}
+          </span>
+        </div>
+        <div className="flex items-center gap-7">
+          <StripStat label="yes" value={MARKET.yes.toFixed(2)} accent />
+          <StripStat label="no" value={(1 - MARKET.yes).toFixed(2)} />
+          <StripStat label="tvl" value={MARKET.tvl} />
+          <StripStat label="24h vol" value={MARKET.volume24} />
+          <StripStat label="expiry" value={MARKET.expiry} />
+        </div>
+      </section>
+
+      {/* DUAL PANE */}
+      <main className="relative z-10 grid h-[calc(100vh-104px)] grid-cols-[1.857fr_1fr]">
+        {/* LEFT — Probability Canvas */}
+        <section className="relative border-r border-white/[0.06]">
+          <ProbabilityCanvas mu={MARKET.yes} />
+        </section>
+
+        {/* RIGHT — Intent Engine */}
+        <section className="relative flex flex-col">
+          {/* tab strip */}
+          <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-6 py-4">
+            <span className="shrink-0 tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
+              / 03 · intent engine
+            </span>
+            <div className="relative flex overflow-x-auto rounded-full border border-white/10 bg-white/[0.015] p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {(["swap", "borrow", "manage", "provide", "redeem"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className="relative z-10 shrink-0 rounded-full px-3 py-1.5 tabular text-[10px] uppercase tracking-[0.2em]"
+                >
+                  {tab === t && (
+                    <motion.span
+                      layoutId="seg-pill"
+                      className="absolute inset-0 rounded-full bg-white/[0.06]"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className={`relative ${tab === t ? "text-white" : "text-white/45"}`}>
+                    {t}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {tab === "swap" && <SwapTab />}
+          {tab === "borrow" && <IntentEngine mode="execute" />}
+          {tab === "manage" && <ManageTab />}
+          {tab === "provide" && <IntentEngine mode="provide" />}
+          {tab === "redeem" && <RedeemTab />}
+        </section>
+      </main>
+    </div>
+  );
+}
+
+/* ─────────────────────────── strip stat ─────────────────────────── */
+
+function StripStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="flex flex-col items-end">
+      <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/35">{label}</span>
+      <span
+        className={`tabular text-[14px] font-light ${accent ? "text-[#00FFAA]" : "text-white/95"}`}
+        style={accent ? { textShadow: "0 0 14px rgba(0,255,170,0.35)" } : undefined}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/* ─────────────────────── probability canvas ─────────────────────── */
+
+function ProbabilityCanvas({ mu }: { mu: number }) {
+  const W = 1000;
+  const H = 600;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hover, setHover] = useState<{ x: number; p: number; depth: number; lambda: number } | null>(null);
+
+  // Build a gaussian-ish curve centered roughly at mu
+  const { path, fill } = useMemo(() => {
+    const sigma = 0.14;
+    const peakY = 80; // top padding for peak
+    const baseY = H - 60;
+    const pts: { x: number; y: number; p: number }[] = [];
+    for (let i = 0; i <= 200; i++) {
+      const p = i / 200; // probability 0..1
+      const x = 40 + (W - 80) * p;
+      const g = Math.exp(-Math.pow(p - mu, 2) / (2 * sigma * sigma));
+      const y = baseY - g * (baseY - peakY);
+      pts.push({ x, y, p });
+    }
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1];
+      const b = pts[i];
+      const cx = (a.x + b.x) / 2;
+      d += ` Q ${cx} ${a.y}, ${b.x} ${b.y}`;
+    }
+    const f = `${d} L ${pts[pts.length - 1].x} ${baseY} L ${pts[0].x} ${baseY} Z`;
+    return { path: d, fill: f };
+  }, [mu]);
+
+  const muX = 40 + (W - 80) * mu;
+
+  function onMove(e: React.MouseEvent<SVGSVGElement>) {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const xRel = (e.clientX - rect.left) / rect.width;
+    const xSvg = xRel * W;
+    const p = Math.max(0, Math.min(1, (xSvg - 40) / (W - 80)));
+    const sigma = 0.14;
+    const g = Math.exp(-Math.pow(p - mu, 2) / (2 * sigma * sigma));
+    setHover({
+      x: xSvg,
+      p,
+      depth: Math.round(g * 24_800_000 + 480_000),
+      lambda: 0.42 + g * 0.36,
+    });
+  }
+
+  return (
+    <div className="relative h-full w-full overflow-hidden">
+      {/* corner labels */}
+      <div className="pointer-events-none absolute left-6 top-5 z-10">
+        <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
+          / 02 · probability canvas
+        </span>
+        <div className="mt-1.5 font-display text-[28px] font-light leading-none tracking-[-0.02em] text-white/85">
+          P<sub className="text-[11px] text-white/40">true</sub> · gaussian band
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute right-6 top-5 z-10 flex items-center gap-3 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+        <span>σ · 0.14</span>
+        <span>μ · {mu.toFixed(2)}</span>
+        <span className="text-[#00FFAA]">depth · live</span>
+      </div>
+
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full"
+        onMouseMove={onMove}
+        onMouseLeave={() => setHover(null)}
+      >
+        <defs>
+          <linearGradient id="gauss-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.10)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          </linearGradient>
+          <linearGradient id="gauss-stroke" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.25)" />
+            <stop offset="50%" stopColor="rgba(255,255,255,0.95)" />
+            <stop offset="100%" stopColor="rgba(0,255,170,0.85)" />
+          </linearGradient>
+        </defs>
+
+        {/* baseline */}
+        <line x1="40" y1={H - 60} x2={W - 40} y2={H - 60} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+
+        {/* probability ticks (0, .25, .5, .75, 1) */}
+        {[0, 0.25, 0.5, 0.75, 1].map((p) => {
+          const x = 40 + (W - 80) * p;
+          return (
+            <g key={p}>
+              <line x1={x} y1={H - 60} x2={x} y2={H - 54} stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+              <text x={x} y={H - 38} textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.35)" fontFamily="Geist Mono, monospace" letterSpacing="0.16em">
+                {p.toFixed(2)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* fill */}
+        <path d={fill} fill="url(#gauss-fill)" />
+        {/* line */}
+        <path d={path} stroke="url(#gauss-stroke)" strokeWidth="1.25" fill="none" />
+
+        {/* μ vertical line */}
+        <line x1={muX} y1="80" x2={muX} y2={H - 60} stroke="rgba(255,255,255,0.6)" strokeWidth="1" strokeDasharray="2 4" />
+        <text x={muX + 8} y={92} fontSize="10" fill="rgba(255,255,255,0.55)" fontFamily="Geist Mono, monospace" letterSpacing="0.16em">
+          μ · {mu.toFixed(2)}
+        </text>
+
+        {/* crosshair */}
+        {hover && (
+          <g pointerEvents="none">
+            <line x1={hover.x} y1="40" x2={hover.x} y2={H - 60} stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+            {/* connector */}
+            <line
+              x1={hover.x}
+              y1={H / 2 - 40}
+              x2={Math.min(hover.x + 120, W - 220)}
+              y2={H / 2 - 110}
+              stroke="rgba(255,255,255,0.2)"
+              strokeWidth="0.75"
+            />
+          </g>
+        )}
+      </svg>
+
+      {/* frosted tooltip */}
+      {hover && (
+        <div
+          className="pointer-events-none absolute z-10 omni-glass-heavy rounded-lg px-4 py-3"
+          style={{
+            left: `min(${(Math.min(hover.x + 120, W - 220) / W) * 100}%, calc(100% - 220px))`,
+            top: `${((600 / 2 - 130) / 600) * 100}%`,
+            width: 200,
+          }}
+        >
+          <div className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">probability</div>
+          <div className="tabular mt-0.5 text-[18px] font-light text-white">{hover.p.toFixed(3)}</div>
+          <div className="mt-2 border-t border-white/5 pt-2">
+            <div className="flex items-center justify-between">
+              <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">liquidity depth</span>
+              <span className="tabular text-[11px] text-white/85">${(hover.depth / 1_000_000).toFixed(2)}m</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">λ* activeness</span>
+              <span className="tabular text-[11px] text-[#00FFAA]" style={{ textShadow: "0 0 10px rgba(0,255,170,0.35)" }}>
+                {hover.lambda.toFixed(3)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────── intent engine ───────────────────────── */
+
+function IntentEngine({ mode }: { mode: "provide" | "execute" }) {
+  const [collateral, setCollateral] = useState("250000");
+  const [borrow, setBorrow] = useState("180000");
+  const [sideYes, setSideYes] = useState(true);
+
+  // Same-leg validation: ratio must stay ≤ 0.85
+  const c = parseFloat(collateral) || 0;
+  const b = parseFloat(borrow) || 0;
+  const ratio = c > 0 ? b / c : 0;
+  const valid = ratio > 0 && ratio <= 0.85;
+
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const signing = isPending || isConfirming;
+
+  useEffect(() => {
+    if (isPending) toast.loading('Waiting for wallet...', { id: 'tx-intent' });
+    else if (isConfirming) toast.loading('Transaction submitted...', { id: 'tx-intent' });
+    else if (isSuccess) toast.success('Transaction confirmed', { id: 'tx-intent' });
+  }, [isPending, isConfirming, isSuccess]);
+
+  function onSign() {
+    if (!valid || signing) return;
+    writeContract({
+      address: mode === 'provide' ? CONTRACT_ADDRESSES.PmAmmPool : CONTRACT_ADDRESSES.MultiverseLending,
+      abi: mode === 'provide' ? PmAmmPoolAbi : MultiverseLendingAbi,
+      functionName: mode === 'provide' ? 'addLiquidity' : 'borrow',
+      args: [BigInt(Math.floor(c * 1e6)), BigInt(Math.floor(b * 1e6))],
+    }, { onError: (err) => toast.error(err.message, { id: 'tx-intent' }) });
+  }
+
+  return (
+    <div className="relative flex flex-1 flex-col overflow-hidden">
+      {/* side toggle */}
+      <div className="grid grid-cols-2 border-b border-white/[0.06]">
+        <button
+          onClick={() => setSideYes(true)}
+          className={`relative flex items-center justify-between px-6 py-4 ease-precision ${
+            sideYes ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"
+          }`}
+        >
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">side</span>
+          <span className={`tabular text-[14px] ${sideYes ? "text-[#00FFAA]" : "text-white/40"}`}
+            style={sideYes ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" } : undefined}>
+            yes · 0.84
+          </span>
+          {sideYes && <span className="absolute inset-x-0 bottom-0 h-px bg-[#00FFAA]/60" />}
+        </button>
+        <button
+          onClick={() => setSideYes(false)}
+          className={`relative flex items-center justify-between border-l border-white/[0.06] px-6 py-4 ease-precision ${
+            !sideYes ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"
+          }`}
+        >
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">side</span>
+          <span className={`tabular text-[14px] ${!sideYes ? "text-white" : "text-white/40"}`}>no · 0.16</span>
+          {!sideYes && <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />}
+        </button>
+      </div>
+
+      {/* INPUT MATRIX */}
+      <div className="relative flex-1 px-6 pt-6">
+        <BigInput
+          label={mode === "provide" ? "deposit" : "collateral"}
+          symbol="usdc"
+          value={collateral}
+          onChange={setCollateral}
+        />
+
+        {/* connector */}
+        <ConnectorLine valid={valid} />
+
+        <BigInput
+          label={mode === "provide" ? "paired" : "borrow against"}
+          symbol="weth"
+          value={borrow}
+          onChange={setBorrow}
+        />
+
+        {/* validation row */}
+        <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4">
+          <div className="flex items-center gap-2">
+            <span className={`h-1.5 w-1.5 rounded-full ${valid ? "bg-[#00FFAA]" : "bg-[#FF4D5E]"} ${valid ? "" : "animate-pulse"}`}
+              style={{
+                boxShadow: valid
+                  ? "0 0 10px rgba(0,255,170,0.5)"
+                  : "0 0 10px rgba(255,77,94,0.5)",
+              }}
+            />
+            <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/55">
+              {valid ? "same-leg verified" : "leg mismatch · ltv > 0.85"}
+            </span>
+          </div>
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/40">
+            ltv · {ratio.toFixed(2)}
+          </span>
+        </div>
+
+        {/* fee preview */}
+        <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
+          <PreviewCell label="solver fee" value="0.04%" />
+          <PreviewCell label="protocol" value="0.02%" />
+          <PreviewCell label="route" value="3 hops" />
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="border-t border-white/[0.06] p-6">
+        <button
+          onClick={onSign}
+          disabled={!valid || signing}
+          className={`group relative flex h-12 w-full items-center justify-center overflow-hidden rounded-full border ease-precision ${
+            valid
+              ? "border-white/25 bg-white/[0.04] hover:border-white/40 hover:bg-white/[0.07]"
+              : "cursor-not-allowed border-white/10 bg-white/[0.01]"
+          }`}
+          style={{ backdropFilter: "blur(14px)" }}
+        >
+          {signing ? (
+            <span className="flex items-center gap-3">
+              <span
+                className="h-3.5 w-3.5 animate-spin rounded-full border border-white/30 border-t-white"
+                aria-hidden
+              />
+              <span className="tabular text-[11px] uppercase tracking-[0.32em] text-white/80">
+                routing to solvers
+              </span>
+            </span>
+          ) : (
+            <span className={`tabular text-[12px] uppercase tracking-[0.32em] ${valid ? "text-white" : "text-white/30"}`}>
+              sign intent
+            </span>
+          )}
+        </button>
+        <div className="mt-3 flex items-center justify-between tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+          <span>est. settlement · 218ms</span>
+          <span>42 solvers competing</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BigInput({
+  label,
+  symbol,
+  value,
+  onChange,
+}: {
+  label: string;
+  symbol: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  // Scale font size as user types
+  const len = value.length;
+  const size = Math.max(28, 48 - Math.max(0, len - 6) * 2);
+
+  return (
+    <div className="flex items-end justify-between">
+      <div className="flex-1">
+        <span className="tabular text-[10px] uppercase tracking-[0.24em] text-white/40">{label}</span>
+        <div className="mt-1 flex items-baseline gap-2">
+          <input
+            value={value}
+            onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))}
+            inputMode="decimal"
+            className="tabular w-full bg-transparent font-light tracking-[-0.02em] text-white outline-none placeholder:text-white/15"
+            style={{ fontSize: size, lineHeight: 1 }}
+            placeholder="0"
+          />
+        </div>
+      </div>
+      <div className="flex flex-col items-end pb-2">
+        <span className="rounded-full border border-white/15 bg-white/[0.02] px-3 py-1 tabular text-[10px] uppercase tracking-[0.22em] text-white/75">
+          {symbol}
+        </span>
+        <span className="mt-1.5 tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+          balance · 482.4k
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ConnectorLine({ valid }: { valid: boolean }) {
+  return (
+    <div className="relative my-4 h-10">
+      <svg viewBox="0 0 320 40" className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+        <path
+          d="M 40 4 C 100 4, 100 36, 160 36 S 220 4, 280 4"
+          stroke={valid ? "rgba(0,255,170,0.55)" : "rgba(255,77,94,0.6)"}
+          strokeWidth="1"
+          fill="none"
+          strokeDasharray={valid ? "0" : "3 4"}
+          style={{ transition: "stroke 0.3s var(--ease-precision)" }}
+        />
+        <circle cx="40" cy="4" r="2" fill={valid ? "#00FFAA" : "#FF4D5E"} />
+        <circle cx="280" cy="4" r="2" fill={valid ? "#00FFAA" : "#FF4D5E"} />
+      </svg>
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-abyss px-2.5 py-0.5 tabular text-[9px] uppercase tracking-[0.22em] text-white/45">
+        {valid ? "linked" : "mismatch"}
+      </div>
+    </div>
+  );
+}
+
+function PreviewCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">{label}</span>
+      <span className="tabular mt-1 text-[12px] text-white/85">{value}</span>
+    </div>
+  );
+}
+
+/* ─────────────────────────── swap tab ─────────────────────────── */
+
+function SwapTab() {
+  const [amount, setAmount] = useState("10000");
+  const [side, setSide] = useState<"yes" | "no">("yes");
+  const price = side === "yes" ? 0.84 : 0.16;
+  const out = ((parseFloat(amount) || 0) / price).toFixed(2);
+  const fee = ((parseFloat(amount) || 0) * 0.0006).toFixed(2);
+
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const signing = isPending || isConfirming;
+
+  useEffect(() => {
+    if (isPending) toast.loading('Waiting for wallet...', { id: 'tx-swap' });
+    else if (isConfirming) toast.loading('Transaction submitted...', { id: 'tx-swap' });
+    else if (isSuccess) toast.success('Transaction confirmed', { id: 'tx-swap' });
+  }, [isPending, isConfirming, isSuccess]);
+
+  function onSwap() {
+    if (signing) return;
+    writeContract({
+      address: CONTRACT_ADDRESSES.PmAmmPool,
+      abi: PmAmmPoolAbi,
+      functionName: side === 'yes' ? 'buyYes' : 'buyNo',
+      args: [BigInt(Math.floor(parseFloat(amount) * 1e6))],
+    }, { onError: (err) => toast.error(err.message, { id: 'tx-swap' }) });
+  }
+
+  return (
+    <div className="relative flex flex-1 flex-col overflow-hidden">
+      <div className="grid grid-cols-2 border-b border-white/[0.06]">
+        {(["yes", "no"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setSide(s)}
+            className={`relative flex items-center justify-between px-6 py-4 ease-precision ${s !== "yes" ? "border-l border-white/[0.06]" : ""} ${
+              side === s ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"
+            }`}
+          >
+            <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">{s} shares</span>
+            <span
+              className={`tabular text-[14px] ${side === s && s === "yes" ? "text-[#00FFAA]" : side === s ? "text-white" : "text-white/40"}`}
+              style={side === s && s === "yes" ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" } : undefined}
+            >
+              {s === "yes" ? "0.84" : "0.16"}
+            </span>
+            {side === s && (
+              <span
+                className={`absolute inset-x-0 bottom-0 h-px ${s === "yes" ? "bg-[#00FFAA]/60" : "bg-white/60"}`}
+              />
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 px-6 pt-6">
+        <BigInput label="pay" symbol="usdc" value={amount} onChange={setAmount} />
+
+        <div className="my-4 flex items-center justify-center">
+          <span className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-abyss tabular text-[14px] text-white/60">↓</span>
+        </div>
+
+        <div className="flex items-end justify-between">
+          <div className="flex-1">
+            <span className="tabular text-[10px] uppercase tracking-[0.24em] text-white/40">receive</span>
+            <div className="tabular mt-1 text-[40px] font-light tracking-[-0.02em] text-white">{out}</div>
+          </div>
+          <div className="flex flex-col items-end pb-2">
+            <span className={`rounded-full border px-3 py-1 tabular text-[10px] uppercase tracking-[0.22em] ${side === "yes" ? "border-[#00FFAA]/40 bg-[#00FFAA]/5 text-[#00FFAA]" : "border-white/15 bg-white/[0.02] text-white/75"}`}>
+              {side} · shares
+            </span>
+            <span className="mt-1.5 tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+              price · ${price.toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
+          <PreviewCell label="solver fee" value={`$${fee}`} />
+          <PreviewCell label="slippage" value="0.08%" />
+          <PreviewCell label="route" value="2 hops" />
+        </div>
+
+        <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+          <span>price impact</span>
+          <span className="text-[#00FFAA]">+0.014</span>
+        </div>
+      </div>
+
+      <div className="border-t border-white/[0.06] p-6">
+        <button
+          onClick={onSwap}
+          disabled={signing}
+          className={`group relative flex h-12 w-full items-center justify-center overflow-hidden rounded-full border border-white/25 bg-white/[0.04] ease-precision hover:border-white/40 hover:bg-white/[0.07] ${signing ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          <span className="tabular text-[12px] uppercase tracking-[0.32em] text-white">swap shares</span>
+        </button>
+        <div className="mt-3 flex items-center justify-between tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+          <span>est. settlement · 218ms</span>
+          <span>42 solvers competing</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── manage tab ─────────────────────────── */
+
+function ManageTab() {
+  const health = 1.84;
+  // gauge 0..1 mapped from health 1.0..3.0
+  const pct = Math.max(0, Math.min(1, (health - 1) / 2));
+  const R = 56;
+  const C = 2 * Math.PI * R;
+  const offset = C - pct * C;
+  const healthColor = health >= 1.5 ? "#00FFAA" : health >= 1.2 ? "#ff8c00" : "#FF4D5E";
+
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const signing = isPending || isConfirming;
+
+  useEffect(() => {
+    if (isPending) toast.loading('Waiting for wallet...', { id: 'tx-manage' });
+    else if (isConfirming) toast.loading('Transaction submitted...', { id: 'tx-manage' });
+    else if (isSuccess) toast.success('Transaction confirmed', { id: 'tx-manage' });
+  }, [isPending, isConfirming, isSuccess]);
+
+  function onAction(action: 'repay' | 'withdraw') {
+    if (signing) return;
+    writeContract({
+      address: CONTRACT_ADDRESSES.MultiverseLending,
+      abi: MultiverseLendingAbi,
+      functionName: action,
+      args: [BigInt(0)], // Mock argument since we are not providing an input field for amount
+    }, { onError: (err) => toast.error(err.message, { id: 'tx-manage' }) });
+  }
+
+  return (
+    <div className="relative flex flex-1 flex-col overflow-hidden">
+      <div className="flex-1 px-6 pt-6">
+        <div className="flex items-center gap-6">
+          <div className="relative h-[140px] w-[140px] shrink-0">
+            <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
+              <circle cx="70" cy="70" r={R} stroke="rgba(255,255,255,0.06)" strokeWidth="6" fill="none" />
+              <circle
+                cx="70"
+                cy="70"
+                r={R}
+                stroke={healthColor}
+                strokeWidth="6"
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={C}
+                strokeDashoffset={offset}
+                style={{ filter: `drop-shadow(0 0 8px ${healthColor}88)`, transition: "stroke-dashoffset .6s var(--ease-precision)" }}
+              />
+            </svg>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">health</span>
+              <span className="tabular text-[28px] font-light text-white" style={{ textShadow: `0 0 12px ${healthColor}55` }}>
+                {health.toFixed(2)}
+              </span>
+            </div>
+          </div>
+          <div className="flex-1 space-y-3">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/40">collateral</span>
+              <span className="tabular text-[13px] text-white/90">250,000 yes-eth</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/40">debt</span>
+              <span className="tabular text-[13px] text-white/90">180,000 usdc</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/40">liq. price</span>
+              <span className="tabular text-[13px] text-[#00FFAA]">never</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-7 space-y-3">
+          <ManageRow label="repay usdc debt" hint="active loan · 180,000" cta="repay" onClick={() => onAction('repay')} disabled={signing} />
+          <ManageRow label="withdraw yes collateral" hint="available · 70,000" cta="withdraw" onClick={() => onAction('withdraw')} disabled={signing} />
+        </div>
+
+        <div className="mt-6 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
+          <PreviewCell label="ltv" value="0.72" />
+          <PreviewCell label="apr" value="6.8%" />
+          <PreviewCell label="next acc." value="04:22" />
+        </div>
+      </div>
+
+      <div className="border-t border-white/[0.06] p-6 tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+        position monitored · solver mesh · {health >= 1.5 ? "safe" : "watch"}
+      </div>
+    </div>
+  );
+}
+
+function ManageRow({
+  label,
+  hint,
+  cta,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  hint: string;
+  cta: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.012] px-4 py-3 ease-precision hover:border-white/15 hover:bg-white/[0.025]">
+      <div className="flex flex-col">
+        <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/75">{label}</span>
+        <span className="tabular mt-0.5 text-[9px] uppercase tracking-[0.22em] text-white/35">{hint}</span>
+      </div>
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className={`rounded-full border border-white/15 px-3.5 py-1.5 tabular text-[10px] uppercase tracking-[0.22em] text-white/85 ease-precision hover:border-white/30 hover:bg-white/[0.05] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      >
+        {cta} →
+      </button>
+    </div>
+  );
+}
+
+/* ─────────────────────────── redeem tab ─────────────────────────── */
+
+function RedeemTab() {
+  const [shares, setShares] = useState("125000");
+  const payout = (parseFloat(shares) || 0).toFixed(2);
+
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const signing = isPending || isConfirming;
+
+  useEffect(() => {
+    if (isPending) toast.loading('Waiting for wallet...', { id: 'tx-redeem' });
+    else if (isConfirming) toast.loading('Transaction submitted...', { id: 'tx-redeem' });
+    else if (isSuccess) toast.success('Transaction confirmed', { id: 'tx-redeem' });
+  }, [isPending, isConfirming, isSuccess]);
+
+  function onRedeem() {
+    if (signing) return;
+    writeContract({
+      address: CONTRACT_ADDRESSES.Resolver,
+      abi: ResolverAbi,
+      functionName: 'resolve',
+      args: [BigInt(0), true], // Mock arguments
+    }, { onError: (err) => toast.error(err.message, { id: 'tx-redeem' }) });
+  }
+
+  return (
+    <div className="relative flex flex-1 flex-col overflow-hidden">
+      <div className="border-b border-white/[0.06] bg-gradient-to-r from-[#00FFAA]/[0.04] to-transparent px-6 py-5">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inset-0 animate-ping rounded-full bg-[#00FFAA]/60" />
+            <span className="relative h-1.5 w-1.5 rounded-full bg-[#00FFAA]" />
+          </span>
+          <span className="tabular text-[10px] uppercase tracking-[0.32em] text-[#00FFAA]" style={{ textShadow: "0 0 12px rgba(0,255,170,0.35)" }}>
+            market resolved · yes
+          </span>
+        </div>
+        <p className="mt-2 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+          settlement block 21·482·113 · 1 yes ≡ 1 usdc
+        </p>
+      </div>
+
+      <div className="flex-1 px-6 pt-6">
+        <BigInput label="burn" symbol="yes" value={shares} onChange={setShares} />
+
+        <div className="my-4 flex items-center justify-center">
+          <span className="grid h-8 w-8 place-items-center rounded-full border border-[#00FFAA]/40 bg-abyss tabular text-[14px] text-[#00FFAA]">
+            ≡
+          </span>
+        </div>
+
+        <div className="flex items-end justify-between">
+          <div className="flex-1">
+            <span className="tabular text-[10px] uppercase tracking-[0.24em] text-white/40">receive</span>
+            <div
+              className="tabular mt-1 text-[40px] font-light tracking-[-0.02em] text-[#00FFAA]"
+              style={{ textShadow: "0 0 18px rgba(0,255,170,0.35)" }}
+            >
+              {payout}
+            </div>
+          </div>
+          <div className="flex flex-col items-end pb-2">
+            <span className="rounded-full border border-white/15 bg-white/[0.02] px-3 py-1 tabular text-[10px] uppercase tracking-[0.22em] text-white/75">
+              usdc
+            </span>
+            <span className="mt-1.5 tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+              1:1 redemption
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
+          <PreviewCell label="oracle" value="uma · v3" />
+          <PreviewCell label="resolved" value="2026·12·31" />
+          <PreviewCell label="claim window" value="open" />
+        </div>
+      </div>
+
+      <div className="border-t border-white/[0.06] p-6">
+        <button
+          onClick={onRedeem}
+          disabled={signing}
+          className={`group relative flex h-12 w-full items-center justify-center overflow-hidden rounded-full border border-[#00FFAA]/40 bg-[#00FFAA]/[0.06] ease-precision hover:border-[#00FFAA]/70 hover:bg-[#00FFAA]/[0.1] ${signing ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          <span
+            className="tabular text-[12px] uppercase tracking-[0.32em] text-[#00FFAA]"
+            style={{ textShadow: "0 0 12px rgba(0,255,170,0.45)" }}
+          >
+            burn yes shares for usdc
+          </span>
+        </button>
+        <div className="mt-3 flex items-center justify-between tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+          <span>oracle attested · final</span>
+          <span>no slippage · no fees</span>
+        </div>
+      </div>
+    </div>
+  );
+}

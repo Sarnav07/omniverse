@@ -6,10 +6,10 @@ import { MarketFactoryAbi } from "./abis/MarketFactory";
 import { ResolverAbi } from "./abis/Resolver";
 import { MultiverseLendingAbi } from "./abis/MultiverseLending";
 
-const FACTORY_ADDRESS = (process.env.FACTORY_ADDRESS ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
-const RESOLVER_ADDRESS = (process.env.RESOLVER_ADDRESS ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
+const FACTORY_ADDRESS = (process.env.FACTORY_ADDRESS ?? "0x31f75372b6ec65ece21acb946e007171cc49c9af") as `0x${string}`;
+const RESOLVER_ADDRESS = (process.env.RESOLVER_ADDRESS ?? "0xb8a8d5ecdadf056f98de1c0521c5d8ece64e2b54") as `0x${string}`;
 const LENDING_ADDRESS = (process.env.LENDING_ADDRESS ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
-const START_BLOCK = Number(process.env.START_BLOCK ?? 0);
+const START_BLOCK = Number(process.env.START_BLOCK ?? 274270902);
 
 export default createConfig({
   networks: {
