@@ -12,6 +12,9 @@ import {IOmniverseMath} from "../src/interfaces/IOmniverseMath.sol";
 import {IConditionalTokens} from "../src/interfaces/IConditionalTokens.sol";
 import {IPriceOracle} from "../src/interfaces/IPriceOracle.sol";
 import {IAggregatorV3} from "../src/interfaces/IAggregatorV3.sol";
+import "../test/mocks/MockConditionalTokens.sol";
+import "../test/mocks/MockERC20.sol";
+import "../test/mocks/MockPriceOracle.sol";
 
 /// @notice Deploys the full OMNIVERSE stack (excluding CTF, which is external infra).
 ///
@@ -48,9 +51,17 @@ contract Deploy is Script {
 
         vm.startBroadcast(deployerKey);
 
-        // --- 1. Math fallback ---
-        OmniverseMathSolidity math = new OmniverseMathSolidity();
-        console.log("OmniverseMathSolidity:", address(math));
+        // --- 1. Math kernel (Stylus or fallback) ---
+        address stylusMath = vm.envOr("STYLUS_MATH_ADDRESS", address(0));
+        address mathAddr;
+        if (stylusMath != address(0)) {
+            mathAddr = stylusMath;
+            console.log("Using Stylus Rust Kernel:", mathAddr);
+        } else {
+            OmniverseMathSolidity math = new OmniverseMathSolidity();
+            mathAddr = address(math);
+            console.log("OmniverseMathSolidity (Fallback):", mathAddr);
+        }
 
         // --- 2. CTF (use existing or deploy mock) ---
         if (ctfAddr == address(0)) {
@@ -125,7 +136,7 @@ contract Deploy is Script {
 
         // --- 6. MarketFactory ---
         MarketFactory factory = new MarketFactory(
-            IOmniverseMath(address(math)),
+            IOmniverseMath(mathAddr),
             IConditionalTokens(ctfAddr),
             wethAddr,
             usdcAddr
@@ -136,7 +147,7 @@ contract Deploy is Script {
 
         // --- Write manifest ---
         string memory manifest = _buildManifest(
-            address(math), ctfAddr, wethAddr, usdcAddr,
+            mathAddr, ctfAddr, wethAddr, usdcAddr,
             oracleAddr, address(resolver), address(factory)
         );
         vm.writeFile("deployments/arb-sepolia.json", manifest);

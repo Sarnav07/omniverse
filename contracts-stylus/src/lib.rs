@@ -6,7 +6,7 @@
 //! Zero floating-point operations (would brick on-chain activation).
 
 #![cfg_attr(not(any(feature = "export-abi", test)), no_main)]
-#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(any(feature = "export-abi", test)), no_std)]
 #[macro_use]
 extern crate alloc;
 
