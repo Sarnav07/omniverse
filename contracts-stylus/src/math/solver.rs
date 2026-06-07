@@ -10,8 +10,6 @@ use crate::math::gaussian::{phi, big_phi};
 /// Minimum liquidity to prevent division-by-zero.
 const L_MIN: U256 = U256::from_limbs([1_000_000u64, 0, 0, 0]); // 1e6 wei
 
-/// Convergence tolerance: |f(y)| must be below this.
-const EPSILON: U256 = U256::from_limbs([10_000u64, 0, 0, 0]); // 1e4 wei
 
 /// Maximum Newton iterations before reverting.
 const MAX_ITER: u32 = 100;
@@ -68,13 +66,8 @@ pub fn solve_swap(x1: U256, y0: U256, ell: U256) -> U256 {
         let term2 = wad_mul(ell_i, u256_to_i256(phi_z));
         let f_val = term1 + term2 - y_i;
 
-        // Check convergence
-        let f_abs = i256_abs(f_val);
-        if f_abs < EPSILON {
-            // Converged. Round y UP for pool-favoring.
-            if f_val.is_positive() {
-                return y + U256::from(1u8);
-            }
+        // Check exact root
+        if f_val.is_zero() {
             return y;
         }
 
@@ -106,8 +99,8 @@ pub fn solve_swap(x1: U256, y0: U256, ell: U256) -> U256 {
             return hi;
         }
 
-        // Bisection guard: if Newton sends y out of bounds, bisect instead.
-        if y_next_i.is_negative() || y_next_i > u256_to_i256(hi) || y_next_i < u256_to_i256(lo) {
+        // Bisection guard: if Newton sends y out of bounds or gets stuck, bisect to strictly shrink the bracket
+        if y_next_i.is_negative() || y_next_i >= u256_to_i256(hi) || y_next_i <= u256_to_i256(lo) {
             y = (lo + hi) / U256::from(2u8);
         } else {
             y = y_next_i.try_into().unwrap();
