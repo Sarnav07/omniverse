@@ -13,7 +13,6 @@ contract OmniverseMathSolidity is IOmniverseMath {
     uint256 internal constant LAMBDA_MIN = 0.05e18;
     uint256 internal constant P_BOUNDARY = 1e14;
     uint256 internal constant L_MIN = 1e6;
-    uint256 internal constant EPSILON = 10_000;
     uint256 internal constant MAX_ITER = 100;
 
     function phi(int256 z) public pure returns (uint256) {
@@ -70,10 +69,7 @@ contract OmniverseMathSolidity is IOmniverseMath {
 
         for (uint256 i = 0; i < MAX_ITER; i++) {
             int256 fVal = _invariantAt(x1, y1, ell);
-            uint256 fAbs = _abs(fVal);
-            if (fAbs < EPSILON) {
-                y1 = fVal > 0 ? y1 + 1 : y1;
-                require(y1 > 0, "solveSwap: degenerate");
+            if (fVal == 0) {
                 return y1;
             }
             if (hi - lo <= 1) {
@@ -95,9 +91,11 @@ contract OmniverseMathSolidity is IOmniverseMath {
 
             int256 delta = (fVal * WAD_I) / fPrime;
             int256 next = int256(y1) - delta;
-            if (next < int256(lo) || next > int256(hi)) {
+            // Bisection guard: if Newton sends y out of bounds or gets stuck, bisect to strictly shrink the bracket
+            if (next <= int256(lo) || next >= int256(hi)) {
                 y1 = (lo + hi) / 2;
             } else {
+                // Since next > lo >= 0, it is positive and safe to cast
                 y1 = uint256(next);
             }
         }
