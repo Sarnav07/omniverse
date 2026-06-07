@@ -6,6 +6,9 @@ import { onchainTable } from "ponder";
 export const market = onchainTable("market", (t) => ({
   id: t.text().primaryKey(),                // conditionId (bytes32 hex)
   questionId: t.text().notNull(),           // bytes32 hex
+  question: t.text().notNull(),             // human readable question
+  symbol: t.text().notNull(),               // ticker symbol
+  category: t.text().notNull(),             // category (e.g. macro)
   resolver: t.hex().notNull(),              // resolver contract address
   poolWeth: t.hex().notNull(),              // WETH pool address
   poolUsdc: t.hex().notNull(),              // USDC pool address
@@ -98,7 +101,7 @@ export const lendingAction = onchainTable("lending_action", (t) => ({
   id: t.text().primaryKey(),                // txHash-logIndex
   lending: t.hex().notNull(),               // MultiverseLending address
   user: t.hex().notNull(),                  // user or "protocol" for settle
-  action: t.text().notNull(),               // "seed"|"deposit"|"borrow"|"repay"|"withdraw"|"settle"|"claim_borrower"|"claim_lender"
+  action: t.text().notNull(),               // "seed"|"deposit"|"borrow"|"repay"|"withdraw"|"settle"|"claim_borrower"|"claim_lender"|"transfer_in"|"transfer_out"
   amount: t.bigint(),                       // primary amount (null for settle)
   amount2: t.bigint(),                      // secondary (usdcOut for lender claim)
   yesWon: t.boolean(),                      // for settle events only

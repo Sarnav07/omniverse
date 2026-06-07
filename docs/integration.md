@@ -100,6 +100,8 @@
 
 **Goal:** Add all required packages to the frontend.
 
+> **Status:** ✅ COMPLETED.
+
 1. Navigate to the frontend package inside your monorepo (wherever your `vite.config.ts` lives).
 2. Run:
    ```
@@ -113,6 +115,8 @@
 ### B2 — Add wagmi + RainbowKit provider to `__root.tsx`
 
 **Goal:** Wrap the entire app in the required providers so wallet state is available everywhere.
+
+> **Status:** ✅ COMPLETED.
 
 1. Open `frontend/src/routes/__root.tsx`.
 2. Add these imports at the top:
@@ -157,6 +161,8 @@
 
 **Goal:** Remove the hardcoded `0x4B…3f9` mock and wire up a real wallet connection button.
 
+> **Status:** ✅ COMPLETED.
+
 1. Find the existing `<WalletButton />` component file (search for the mock address `0x4B` in the codebase).
 2. For a simple drop-in replacement:
    ```tsx
@@ -196,6 +202,8 @@
 ### B4 — Replace `simulateTransaction()` with `useWriteContract` hooks
 
 **Goal:** Wire the "Sign" / "Confirm" buttons on the Simulate page to real on-chain calls.
+
+> **Status:** ✅ COMPLETED.
 
 1. Find the file containing `simulateTransaction()` — likely `frontend/src/routes/simulate.tsx` or a nearby hook file.
 2. Add these imports at the top of that file (or in a dedicated `hooks/useOmniverseTrade.ts`):
@@ -286,6 +294,8 @@ You can skip writing these and proceed directly to testing the GraphQL endpoint!
 
 **Goal:** Confirm the indexer runs, syncs, and exposes a working GraphQL endpoint before the frontend tries to query it.
 
+> **Status:** ✅ COMPLETED.
+
 1. From the `/indexer` directory, run `bun run dev` (or whatever the existing `package.json` dev script says).
 2. Ponder will start and print a local URL, typically `http://localhost:42069`.
 3. Open `http://localhost:42069` in a browser — this is the Ponder GraphQL playground.
@@ -318,6 +328,8 @@ You can skip writing these and proceed directly to testing the GraphQL endpoint!
 
 **Goal:** Remove static mock data from the Markets page and prepare it to receive live data.
 
+> **Status:** ✅ COMPLETED.
+
 1. Find the file containing the `MARKETS` array constant — likely `frontend/src/routes/markets.tsx` or a nearby `data/markets.ts`.
 2. Do not delete it yet. Rename the constant to `MOCK_MARKETS` and add a comment: `// TODO: remove after D2 is complete`.
 3. Define a TypeScript type matching the Ponder schema from C2:
@@ -342,6 +354,8 @@ You can skip writing these and proceed directly to testing the GraphQL endpoint!
 ### D2 — Install and configure `urql`
 
 **Goal:** Add a GraphQL client to query the Ponder indexer.
+
+> **Status:** ✅ COMPLETED.
 
 1. From the frontend package directory, run: `bun add urql graphql`.
 2. Create `frontend/src/lib/urql.ts`:
@@ -374,6 +388,8 @@ You can skip writing these and proceed directly to testing the GraphQL endpoint!
 ### D3 — Replace hardcoded market data with live GraphQL queries
 
 **Goal:** The Markets page and individual market page fetch real data from Ponder.
+
+> **Status:** ✅ COMPLETED.
 
 1. In `frontend/src/routes/markets.tsx`, replace the `MOCK_MARKETS` usage:
    ```tsx
@@ -438,6 +454,8 @@ You can skip writing these and proceed directly to testing the GraphQL endpoint!
 ### D4 — Remove all remaining mocks
 
 **Goal:** Every user-visible action that currently shows a fake toast either triggers a real transaction or displays a real error.
+
+> **Status:** ✅ COMPLETED.
 
 1. Search `frontend/src/` for:
    - `simulateTransaction`

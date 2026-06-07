@@ -57,6 +57,7 @@ contract MultiverseLending is IERC1155Receiver {
     event Borrowed(address indexed user, uint256 amount);
     event Repaid(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
+    event PositionTransferred(address indexed from, address indexed to, uint256 cAmount, uint256 dAmount);
     event Settled(bool yesWon, uint256 pEth, uint256 wethRedeemed, uint256 usdcRedeemed);
     event BorrowerClaimed(address indexed user, uint256 wethOut);
     event LenderClaimed(address indexed user, uint256 wethOut, uint256 usdcOut);
@@ -166,6 +167,8 @@ contract MultiverseLending is IERC1155Receiver {
         debtOf[to] += dAmount;
         
         if (debtOf[to] > 0 && healthFactor(to) < WAD) revert Unhealthy();
+
+        emit PositionTransferred(msg.sender, to, cAmount, dAmount);
     }
 
     function repay(uint256 amount) external nonReentrant notSettled {

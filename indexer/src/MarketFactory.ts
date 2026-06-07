@@ -12,6 +12,9 @@ ponder.on("MarketFactory:EventCreated", async ({ event, context }) => {
     poolUsdc,
     wethMarketId,
     usdcMarketId,
+    question,
+    symbol,
+    category,
   } = event.args;
 
   // 1. Cache the pool addresses to poolType & conditionId for downstream handlers.
@@ -24,6 +27,9 @@ ponder.on("MarketFactory:EventCreated", async ({ event, context }) => {
   await db.insert(market).values({
     id: conditionId,
     questionId,
+    question,
+    symbol,
+    category,
     resolver,
     poolWeth,
     poolUsdc,

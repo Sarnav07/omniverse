@@ -65,3 +65,35 @@ ponder.on("MultiverseLending:BorrowerClaimed", async ({ event, context }) => {
 ponder.on("MultiverseLending:LenderClaimed", async ({ event, context }) => {
   await insertLendingAction(context.db, event, "claim_lender", event.args.user, event.args.wethOut, event.args.usdcOut);
 });
+
+ponder.on("MultiverseLending:PositionTransferred", async ({ event, context }) => {
+  // We must log TWO rows here! One for the sender losing the position, and one for the receiver gaining it.
+  // If we don't, the receiver's UI database will never show that they acquired the debt/collateral!
+  // Append "-out" and "-in" to the ID to ensure primary key uniqueness.
+  
+  await context.db.insert(lendingAction).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}-out`,
+    lending: event.log.address,
+    user: event.args.from,
+    action: "transfer_out",
+    amount: event.args.cAmount,
+    amount2: event.args.dAmount,
+    yesWon: null,
+    timestamp: Number(event.block.timestamp),
+    blockNumber: Number(event.block.number),
+    txHash: event.transaction.hash,
+  });
+
+  await context.db.insert(lendingAction).values({
+    id: `${event.transaction.hash}-${event.log.logIndex}-in`,
+    lending: event.log.address,
+    user: event.args.to,
+    action: "transfer_in",
+    amount: event.args.cAmount,
+    amount2: event.args.dAmount,
+    yesWon: null,
+    timestamp: Number(event.block.timestamp),
+    blockNumber: Number(event.block.number),
+    txHash: event.transaction.hash,
+  });
+});

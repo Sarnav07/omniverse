@@ -8,6 +8,7 @@ import {MultiverseLending} from "../src/MultiverseLending.sol";
 import {Resolver} from "../src/Resolver.sol";
 import {ChainlinkPriceOracle} from "../src/ChainlinkPriceOracle.sol";
 import {PmAmmPool} from "../src/PmAmmPool.sol";
+import {OmniverseRouter} from "../src/Router.sol";
 import {IOmniverseMath} from "../src/interfaces/IOmniverseMath.sol";
 import {IConditionalTokens} from "../src/interfaces/IConditionalTokens.sol";
 import {IPriceOracle} from "../src/interfaces/IPriceOracle.sol";
@@ -143,12 +144,16 @@ contract Deploy is Script {
         );
         console.log("MarketFactory:", address(factory));
 
+        // --- 7. Router ---
+        OmniverseRouter router = new OmniverseRouter(IConditionalTokens(ctfAddr), wethAddr, usdcAddr);
+        console.log("OmniverseRouter:", address(router));
+
         vm.stopBroadcast();
 
         // --- Write manifest ---
         string memory manifest = _buildManifest(
             mathAddr, ctfAddr, wethAddr, usdcAddr,
-            oracleAddr, address(resolver), address(factory)
+            oracleAddr, address(resolver), address(factory), address(router)
         );
         vm.writeFile("deployments/arb-sepolia.json", manifest);
         console.log("Manifest written to deployments/arb-sepolia.json");
@@ -161,7 +166,8 @@ contract Deploy is Script {
         address usdc,
         address oracle,
         address resolver,
-        address factory
+        address factory,
+        address router
     ) internal pure returns (string memory) {
         return string(abi.encodePacked(
             '{\n',
@@ -171,7 +177,8 @@ contract Deploy is Script {
             '  "usdc": "', _toHex(usdc), '",\n',
             '  "priceOracle": "', _toHex(oracle), '",\n',
             '  "resolver": "', _toHex(resolver), '",\n',
-            '  "marketFactory": "', _toHex(factory), '"\n',
+            '  "marketFactory": "', _toHex(factory), '",\n',
+            '  "router": "', _toHex(router), '"\n',
             '}'
         ));
     }
