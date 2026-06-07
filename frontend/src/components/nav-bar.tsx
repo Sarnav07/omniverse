@@ -31,7 +31,10 @@ export function NavBar({ hideWallet = false }: { hideWallet?: boolean }) {
             {l.label}
           </Link>
         ))}
-        <a href="#" className="text-white/55 transition-colors duration-300 ease-precision hover:text-white">
+        <a
+          href="#"
+          className="text-white/55 transition-colors duration-300 ease-precision hover:text-white"
+        >
           docs
         </a>
       </nav>
@@ -39,7 +42,10 @@ export function NavBar({ hideWallet = false }: { hideWallet?: boolean }) {
       {!hideWallet ? (
         <WalletButton />
       ) : (
-        <Link to="/markets" className="group relative overflow-hidden rounded-full border border-white/20 px-5 py-2 text-[12px] text-white transition-colors duration-500 ease-precision hover:text-abyss">
+        <Link
+          to="/markets"
+          className="group relative overflow-hidden rounded-full border border-white/20 px-5 py-2 text-[12px] text-white transition-colors duration-500 ease-precision hover:text-abyss"
+        >
           <span className="absolute inset-0 -translate-x-full bg-white transition-transform duration-500 ease-precision group-hover:translate-x-0" />
           <span className="relative">enter terminal</span>
         </Link>

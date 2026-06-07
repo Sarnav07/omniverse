@@ -93,7 +93,6 @@ export function ParametricMesh() {
 
   useEffect(() => setMounted(true), []);
 
-
   useEffect(() => {
     const onScroll = () => {
       scroll.current.y = window.scrollY;

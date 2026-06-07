@@ -10,7 +10,11 @@ export function FluidBackground() {
   useEffect(() => {
     const el = trackRef.current;
     if (!el) return;
-    let tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
+    let tx = 0,
+      ty = 0,
+      cx = 0,
+      cy = 0,
+      raf = 0;
 
     const onMove = (e: PointerEvent) => {
       tx = (e.clientX / window.innerWidth - 0.5) * -16;
@@ -64,8 +68,7 @@ export function FluidBackground() {
             height: "55vw",
             top: "55vh",
             left: "40vw",
-            background:
-              "radial-gradient(circle, rgba(0,229,255,0.05) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(0,229,255,0.05) 0%, transparent 70%)",
             animation: "fluid-drift-3 72s ease-in-out infinite",
           }}
         />

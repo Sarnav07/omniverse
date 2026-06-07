@@ -106,7 +106,10 @@ function SimulatePage() {
               }`}
               style={
                 !crashed
-                  ? { boxShadow: "0 0 28px rgba(255,77,94,0.25), inset 0 0 18px rgba(255,77,94,0.1)" }
+                  ? {
+                      boxShadow:
+                        "0 0 28px rgba(255,77,94,0.25), inset 0 0 18px rgba(255,77,94,0.1)",
+                    }
                   : undefined
               }
             >
@@ -153,7 +156,9 @@ function TraditionalPanel({ crashed }: { crashed: boolean }) {
         <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
           / traditional lending
         </span>
-        <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">aave · v3</span>
+        <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+          aave · v3
+        </span>
       </div>
       <h2 className="mt-3 font-display text-[28px] font-light tracking-[-0.02em] text-white/90">
         forced exit, capital impaired.
@@ -208,7 +213,10 @@ function TraditionalPanel({ crashed }: { crashed: boolean }) {
                 background: "rgba(255,77,94,0.06)",
               }}
             >
-              <div className="font-display text-[34px] font-light tracking-[0.04em] text-[#FF4D5E]" style={{ textShadow: "0 0 18px rgba(255,77,94,0.65)" }}>
+              <div
+                className="font-display text-[34px] font-light tracking-[0.04em] text-[#FF4D5E]"
+                style={{ textShadow: "0 0 18px rgba(255,77,94,0.65)" }}
+              >
                 LIQUIDATED
               </div>
               <div className="tabular mt-1 text-center text-[11px] uppercase tracking-[0.32em] text-[#FF4D5E]/80">
@@ -251,10 +259,15 @@ function OmniversePanel({ crashed }: { crashed: boolean }) {
   return (
     <div className="omni-glass-heavy relative overflow-hidden rounded-2xl p-7">
       <div className="flex items-center justify-between">
-        <span className="tabular text-[10px] uppercase tracking-[0.32em] text-[#00FFAA]" style={{ textShadow: "0 0 12px rgba(0,255,170,0.35)" }}>
+        <span
+          className="tabular text-[10px] uppercase tracking-[0.32em] text-[#00FFAA]"
+          style={{ textShadow: "0 0 12px rgba(0,255,170,0.35)" }}
+        >
           / omniverse
         </span>
-        <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">probability-bounded</span>
+        <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+          probability-bounded
+        </span>
       </div>
       <h2 className="mt-3 font-display text-[28px] font-light tracking-[-0.02em] text-white/90">
         symmetric cancellation. net zero.
@@ -305,8 +318,14 @@ function OmniversePanel({ crashed }: { crashed: boolean }) {
               className="flex items-center gap-2 rounded-full border border-[#00FFAA]/50 bg-[#00FFAA]/[0.06] px-4 py-2"
               style={{ boxShadow: "0 0 30px rgba(0,255,170,0.35)" }}
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-[#00FFAA]" style={{ boxShadow: "0 0 10px rgba(0,255,170,0.7)" }} />
-              <span className="tabular text-[10px] uppercase tracking-[0.28em] text-[#00FFAA]" style={{ textShadow: "0 0 12px rgba(0,255,170,0.4)" }}>
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-[#00FFAA]"
+                style={{ boxShadow: "0 0 10px rgba(0,255,170,0.7)" }}
+              />
+              <span
+                className="tabular text-[10px] uppercase tracking-[0.28em] text-[#00FFAA]"
+                style={{ textShadow: "0 0 12px rgba(0,255,170,0.4)" }}
+              >
                 settled safely · net p&l: $0
               </span>
             </div>
@@ -319,7 +338,17 @@ function OmniversePanel({ crashed }: { crashed: boolean }) {
 
 /* ──────────────────── primitives ──────────────────── */
 
-function Row({ label, value, accent, muted }: { label: string; value: string; accent?: string; muted?: boolean }) {
+function Row({
+  label,
+  value,
+  accent,
+  muted,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+  muted?: boolean;
+}) {
   return (
     <div className="flex items-center justify-between border-b border-white/5 pb-3">
       <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/40">{label}</span>

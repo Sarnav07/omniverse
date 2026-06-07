@@ -5,7 +5,6 @@ import { ParametricMesh } from "@/components/parametric-mesh";
 import { SpotlightCard } from "@/components/spotlight-card";
 import { NavBar } from "@/components/nav-bar";
 
-
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -34,7 +33,6 @@ function Index() {
     <div className="relative min-h-screen w-full overflow-x-hidden bg-abyss text-foreground">
       <div className="noise-overlay" />
 
-
       {/* NAV */}
       <NavBar hideWallet />
 
@@ -57,7 +55,10 @@ function Index() {
         />
 
         <div className="relative mx-auto max-w-[1100px] text-center">
-          <div className="tabular mb-12 text-[10px] uppercase tracking-[0.32em] text-white/70" style={{ textShadow: "0 0 18px rgba(3,3,3,0.9)" }}>
+          <div
+            className="tabular mb-12 text-[10px] uppercase tracking-[0.32em] text-white/70"
+            style={{ textShadow: "0 0 18px rgba(3,3,3,0.9)" }}
+          >
             / 01 · execution layer
           </div>
 
@@ -78,8 +79,8 @@ function Index() {
             className="mx-auto mt-12 max-w-md text-balance text-[14px] leading-relaxed text-white/80"
             style={{ textShadow: "0 0 24px rgba(3,3,3,0.95)" }}
           >
-            a zero-liquidation execution layer for active liquidity. probability-bounded
-            collateral, settled without forced exits.
+            a zero-liquidation execution layer for active liquidity. probability-bounded collateral,
+            settled without forced exits.
           </motion.p>
 
           <motion.div
@@ -88,8 +89,10 @@ function Index() {
             transition={{ ...spring, delay: 0.35 }}
             className="mt-14 flex items-center justify-center gap-3"
           >
-            <button className="group relative overflow-hidden rounded-full border border-white/20 px-7 py-3 text-[12px] tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss"
-              style={{ backdropFilter: "blur(10px)" }}>
+            <button
+              className="group relative overflow-hidden rounded-full border border-white/20 px-7 py-3 text-[12px] tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss"
+              style={{ backdropFilter: "blur(10px)" }}
+            >
               <span className="absolute inset-0 -translate-x-full bg-white transition-transform duration-500 ease-precision group-hover:translate-x-0" />
               <span className="relative">enter terminal →</span>
             </button>
@@ -140,7 +143,10 @@ function Index() {
               built for traders who survived the last cycle.
             </h2>
           </div>
-          <a href="#" className="hidden text-[12px] text-white/50 ease-precision hover:text-white md:block">
+          <a
+            href="#"
+            className="hidden text-[12px] text-white/50 ease-precision hover:text-white md:block"
+          >
             view all primitives →
           </a>
         </div>
@@ -153,8 +159,8 @@ function Index() {
               proactive threat detection
             </h3>
             <p className="mt-3 max-w-[28ch] text-[13px] leading-relaxed text-white/50">
-              continuous oracle-drift, mempool-sandwich and liquidity-flight monitoring.
-              anomalies are quarantined before they touch reserves.
+              continuous oracle-drift, mempool-sandwich and liquidity-flight monitoring. anomalies
+              are quarantined before they touch reserves.
             </p>
 
             <div className="relative mt-12 aspect-square">
@@ -196,8 +202,8 @@ function Index() {
               zero-liquidation logic
             </h3>
             <p className="mt-3 text-[13px] leading-relaxed text-white/50">
-              probability-bounded collateral curves replace hard thresholds. crashes settle,
-              not cascade.
+              probability-bounded collateral curves replace hard thresholds. crashes settle, not
+              cascade.
             </p>
             <PrecisionSlider />
           </SpotlightCard>
@@ -211,8 +217,8 @@ function Index() {
                   drag capital. drop intent. settle without typing a digit.
                 </h3>
                 <p className="mt-3 max-w-md text-[13px] leading-relaxed text-white/50">
-                  same-leg validation rejects mismatched collateral physically on the canvas
-                  — no modals, no toasts.
+                  same-leg validation rejects mismatched collateral physically on the canvas — no
+                  modals, no toasts.
                 </p>
               </div>
               <ExecutionDesk />
@@ -220,7 +226,6 @@ function Index() {
           </SpotlightCard>
         </div>
       </section>
-
 
       {/* CTA */}
       <section className="relative z-10 mx-auto w-full max-w-[1400px] px-8 pb-32">
@@ -259,9 +264,15 @@ function Index() {
               <span className="precision-pulse h-1.5 w-1.5 rounded-full bg-white" />
               all systems nominal
             </span>
-            <a className="ease-precision hover:text-white" href="#">status</a>
-            <a className="ease-precision hover:text-white" href="#">github</a>
-            <a className="ease-precision hover:text-white" href="#">terms</a>
+            <a className="ease-precision hover:text-white" href="#">
+              status
+            </a>
+            <a className="ease-precision hover:text-white" href="#">
+              github
+            </a>
+            <a className="ease-precision hover:text-white" href="#">
+              terms
+            </a>
           </div>
         </div>
       </footer>
@@ -282,8 +293,7 @@ function CardIndex({ n, label }: { n: string; label: string }) {
 }
 
 function CornerBracket({ className = "", pos }: { className?: string; pos: "tl" | "tr" }) {
-  const path =
-    pos === "tl" ? "M0 24 L0 0 L24 0" : "M24 24 L24 0 L0 0";
+  const path = pos === "tl" ? "M0 24 L0 0 L24 0" : "M24 24 L24 0 L0 0";
   return (
     <svg
       className={`pointer-events-none absolute hidden h-6 w-6 md:block ${className}`}
@@ -308,14 +318,14 @@ function DataCallout({
 }) {
   return (
     <div className={`pointer-events-none z-10 hidden md:block ${className}`}>
-      <div
-        className={`flex flex-col ${align === "left" ? "items-start" : "items-end"}`}
-      >
+      <div className={`flex flex-col ${align === "left" ? "items-start" : "items-end"}`}>
         <div className="tabular text-2xl font-light tracking-[-0.02em]">{value}</div>
         <div className="tabular mt-1.5 text-[10px] uppercase tracking-[0.22em] text-white/40">
           {label}
         </div>
-        <div className={`mt-3 flex items-center gap-1.5 ${align === "left" ? "" : "flex-row-reverse"}`}>
+        <div
+          className={`mt-3 flex items-center gap-1.5 ${align === "left" ? "" : "flex-row-reverse"}`}
+        >
           <span className="h-1 w-1 rounded-full bg-white/60" />
           <span className="h-px w-10 bg-white/15" />
         </div>
@@ -350,7 +360,15 @@ function RadarSweep() {
       </g>
       {/* concentric rings */}
       {[30, 55, 80, 95].map((r) => (
-        <circle key={r} cx="100" cy="100" r={r} stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" fill="none" />
+        <circle
+          key={r}
+          cx="100"
+          cy="100"
+          r={r}
+          stroke="rgba(255,255,255,0.08)"
+          strokeWidth="0.5"
+          fill="none"
+        />
       ))}
       {/* crosshair */}
       <line x1="100" y1="5" x2="100" y2="195" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
@@ -373,7 +391,8 @@ function RadarSweep() {
 function SplineChart() {
   // 14-year monotone-ish upward path
   const points = [10, 18, 14, 26, 38, 32, 48, 60, 54, 72, 88, 82, 102, 120];
-  const W = 280, H = 80;
+  const W = 280,
+    H = 80;
   const max = Math.max(...points);
   const path = points
     .map((p, i) => {
@@ -402,7 +421,16 @@ function SplineChart() {
         {points.map((p, i) => {
           const x = (i / (points.length - 1)) * W;
           const y = H - (p / max) * H;
-          return <circle key={i} cx={x} cy={y} r="1" fill="white" opacity={i === points.length - 1 ? 1 : 0.4} />;
+          return (
+            <circle
+              key={i}
+              cx={x}
+              cy={y}
+              r="1"
+              fill="white"
+              opacity={i === points.length - 1 ? 1 : 0.4}
+            />
+          );
         })}
       </svg>
       <div className="tabular mt-3 flex justify-between text-[9px] uppercase tracking-[0.2em] text-white/30">
@@ -425,11 +453,7 @@ function PrecisionSlider() {
         {/* tick marks */}
         <div className="absolute inset-x-0 -top-3 flex justify-between">
           {ticks.map((_, i) => (
-            <span
-              key={i}
-              className="w-px bg-white/20"
-              style={{ height: i % 5 === 0 ? 6 : 3 }}
-            />
+            <span key={i} className="w-px bg-white/20" style={{ height: i % 5 === 0 ? 6 : 3 }} />
           ))}
         </div>
         {/* track */}
@@ -485,7 +509,13 @@ function ExecutionDesk() {
           strokeWidth="1"
           strokeDasharray="3 3"
         >
-          <animate attributeName="stroke-dashoffset" from="0" to="-12" dur="1.4s" repeatCount="indefinite" />
+          <animate
+            attributeName="stroke-dashoffset"
+            from="0"
+            to="-12"
+            dur="1.4s"
+            repeatCount="indefinite"
+          />
         </path>
         <circle cx="30" cy="8" r="2" fill="white" />
         <circle cx="290" cy="32" r="2" fill="white" />
@@ -559,7 +589,14 @@ function MathBand() {
                 strokeDashoffset={hover ? 0 : 600}
                 style={{ transition: "stroke-dashoffset 1.4s var(--ease-precision)" }}
               />
-              <line x1="20" y1="140" x2="380" y2="140" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+              <line
+                x1="20"
+                y1="140"
+                x2="380"
+                y2="140"
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth="0.5"
+              />
             </svg>
 
             {/* formula */}
@@ -572,12 +609,18 @@ function MathBand() {
               <Fraction
                 top={
                   <>
-                    1 + <Sqrt>1 + 2γ<sub className="text-[0.6em]">G</sub></Sqrt>
+                    1 +{" "}
+                    <Sqrt>
+                      1 + 2γ<sub className="text-[0.6em]">G</sub>
+                    </Sqrt>
                   </>
                 }
                 bot={
                   <>
-                    1 + γ<sub className="text-[0.6em]">G</sub> + <Sqrt>1 + 2γ<sub className="text-[0.6em]">G</sub></Sqrt>
+                    1 + γ<sub className="text-[0.6em]">G</sub> +{" "}
+                    <Sqrt>
+                      1 + 2γ<sub className="text-[0.6em]">G</sub>
+                    </Sqrt>
                   </>
                 }
               />
@@ -613,8 +656,8 @@ function Fraction({ top, bot }: { top: React.ReactNode; bot: React.ReactNode }) 
 function ParticleMesh() {
   // deterministic pseudo-random network nodes
   const nodes = Array.from({ length: 36 }).map((_, i) => {
-    const x = ((i * 137.508) % 100);
-    const y = (((i * 53.17) % 100));
+    const x = (i * 137.508) % 100;
+    const y = (i * 53.17) % 100;
     return { x, y };
   });
   return (
@@ -647,7 +690,7 @@ function ParticleMesh() {
                 stroke="rgba(255,255,255,0.15)"
                 strokeWidth="0.08"
               />
-            ))
+            )),
         )}
         {nodes.map((n, i) => (
           <circle key={i} cx={n.x} cy={n.y} r="0.25" fill="white">

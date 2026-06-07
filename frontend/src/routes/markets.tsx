@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { SpotlightCard } from "@/components/spotlight-card";
 import { NavBar } from "@/components/nav-bar";
-import { useQuery } from 'urql';
+import { useQuery } from "urql";
 
 const MARKETS_QUERY = `
   query {
@@ -14,8 +14,11 @@ const MARKETS_QUERY = `
         question
         symbol
         category
+        poolWeth
+        poolUsdc
         lastPriceWeth
         totalVolumeWeth
+        totalVolumeUsdc
         resolved
         createdAt
       }
@@ -45,7 +48,7 @@ export const Route = createFileRoute("/markets")({
 
 const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
 
-/* ───────────────────────────── mock data ───────────────────────────── */
+/* ─────────────────────────────── types ─────────────────────────────── */
 
 type Market = {
   id: string;
@@ -71,22 +74,24 @@ function MarketsPage() {
 
   const filteredMarkets = useMemo(() => {
     const items = data?.markets?.items || [];
-    
+
     const combined = items.map((item: any) => {
       const yesPrice = Number(item.lastPriceWeth) / 1e18;
-      const vol = Number(item.totalVolumeWeth) / 1e18;
-      
+      const volWeth = Number(item.totalVolumeWeth) / 1e18;
+      const volUsdc = Number(item.totalVolumeUsdc) / 1e18;
+      const vol = volWeth + volUsdc;
+
       return {
         id: item.id,
         symbol: item.symbol,
         question: item.question,
         category: item.category,
         yes: yesPrice > 0 ? yesPrice : 0.5,
-        volume: vol > 0 ? `$${(vol / 1000000).toFixed(1)}m` : "$0.0m",
-        tvl: "$0.0m",
+        volume: vol > 0 ? `$${vol.toFixed(1)}` : "$0.00",
+        tvl: "---",
         apr: "0.0%",
         curve: [0.5, 0.5, 0.5, 0.5, yesPrice > 0 ? yesPrice : 0.5],
-        trend: "up"
+        trend: "up",
       };
     });
 
@@ -120,14 +125,16 @@ function MarketsPage() {
           </div>
 
           <div className="hidden items-center gap-3 md:flex">
-            {(["all", "macro", "yield", "rates", "vol", "stable", "rwa", "lst"] as const).map((cat) => (
-              <FilterPill
-                key={cat}
-                label={cat}
-                active={activeCategory === cat}
-                onClick={() => setActiveCategory(cat)}
-              />
-            ))}
+            {(["all", "macro", "yield", "rates", "vol", "stable", "rwa", "lst"] as const).map(
+              (cat) => (
+                <FilterPill
+                  key={cat}
+                  label={cat}
+                  active={activeCategory === cat}
+                  onClick={() => setActiveCategory(cat)}
+                />
+              ),
+            )}
           </div>
         </div>
       </section>
@@ -168,7 +175,7 @@ function MarketsPage() {
       <footer className="relative z-10 mx-auto w-full max-w-[1400px] px-8 pb-14">
         <div className="flex items-center justify-between border-t border-white/5 pt-6 tabular text-[10px] uppercase tracking-[0.22em] text-white/35">
           <span>omniverse · v4.0 · mainnet</span>
-          <span>{fetching ? '...' : filteredMarkets.length} markets · live mempool</span>
+          <span>{fetching ? "..." : filteredMarkets.length} markets · live mempool</span>
         </div>
       </footer>
     </div>
@@ -177,7 +184,15 @@ function MarketsPage() {
 
 /* ─────────────────────────── sub-components ─────────────────────────── */
 
-function HeaderMetric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function HeaderMetric({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
   return (
     <div className="flex flex-col">
       <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/35">{label}</span>
@@ -195,7 +210,15 @@ function Divider() {
   return <div className="h-8 w-px bg-white/8" />;
 }
 
-function FilterPill({ label, active, onClick }: { label: string; active?: boolean; onClick?: () => void }) {
+function FilterPill({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+}) {
   return (
     <button
       onClick={onClick}
@@ -269,7 +292,6 @@ function MarketCard({ m }: { m: Market }) {
         </span>
       </Link>
 
-
       {tall && (
         <div className="mt-5 flex items-center gap-2 border-t border-white/5 pt-4">
           <span className="relative flex h-1.5 w-1.5">
@@ -294,11 +316,21 @@ function MetricCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Probability({ side, value, favored }: { side: "yes" | "no"; value: number; favored: boolean }) {
+function Probability({
+  side,
+  value,
+  favored,
+}: {
+  side: "yes" | "no";
+  value: number;
+  favored: boolean;
+}) {
   return (
     <div className="flex flex-1 items-center gap-2">
       <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">{side}</span>
-      <span className={`tabular text-[18px] font-light ${favored ? "text-white" : "text-white/45"}`}>
+      <span
+        className={`tabular text-[18px] font-light ${favored ? "text-white" : "text-white/45"}`}
+      >
         {value.toFixed(2)}
       </span>
       {favored && (
@@ -344,7 +376,14 @@ function MiniSpline({ points }: { points: number[] }) {
         </linearGradient>
       </defs>
       {/* baseline */}
-      <line x1="0" y1={H - 0.5} x2={W} y2={H - 0.5} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+      <line
+        x1="0"
+        y1={H - 0.5}
+        x2={W}
+        y2={H - 0.5}
+        stroke="rgba(255,255,255,0.05)"
+        strokeWidth="1"
+      />
       {/* fill */}
       <path d={`${path.d} L ${W} ${H} L 0 ${H} Z`} fill="url(#spline-fade)" />
       {/* line */}

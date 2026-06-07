@@ -2,16 +2,15 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { WalletButton } from "@/components/wallet-button";
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import PmAmmPoolAbi from '@/abis/PmAmmPool.abi.json';
-import MultiverseLendingAbi from '@/abis/MultiverseLending.abi.json';
-import ResolverAbi from '@/abis/Resolver.abi.json';
-import { CONTRACT_ADDRESSES } from '@/config/contracts';
+import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract } from "wagmi";
+import MultiverseLendingAbi from "@/abis/MultiverseLending.abi.json";
+import { CONTRACT_ADDRESSES } from "@/config/contracts";
 import { toast } from "sonner";
-import { useQuery } from 'urql';
-import { parseUnits } from 'viem';
-import OmniverseRouterAbi from '@/abis/OmniverseRouter.abi.json';
-import ConditionalTokensAbi from '@/abis/ConditionalTokens.abi.json';
+import { useQuery } from "urql";
+import { parseUnits } from "viem";
+import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
+import ConditionalTokensAbi from "@/abis/ConditionalTokens.abi.json";
+import Erc20Abi from "@/abis/ERC20.abi.json";
 const MARKET_BY_ID_QUERY = `
   query MarketById($id: String!) {
     market(id: $id) {
@@ -24,6 +23,7 @@ const MARKET_BY_ID_QUERY = `
       poolUsdc
       lastPriceWeth
       totalVolumeWeth
+      totalVolumeUsdc
       resolved
       createdAt
     }
@@ -62,20 +62,34 @@ function TerminalPage() {
 
   const MARKET = useMemo(() => {
     const item = data?.market;
-    if (!item) return {
-      symbol: "...", question: "Loading...", category: "...", yes: 0.5, tvl: "$0.0m", volume24: "$0.0m", expiry: "...", latency: "..."
-    };
+    if (!item)
+      return {
+        poolWeth: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+        poolUsdc: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+        symbol: "...",
+        question: "Loading...",
+        category: "...",
+        yes: 0.5,
+        tvl: "$0.00",
+        volume24: "$0.00",
+        expiry: "...",
+        latency: "...",
+      };
     const yesPrice = Number(item.lastPriceWeth) / 1e18;
-    const vol = Number(item.totalVolumeWeth) / 1e18;
+    const volWeth = Number(item.totalVolumeWeth) / 1e18;
+    const volUsdc = Number(item.totalVolumeUsdc) / 1e18;
+    const vol = volWeth + volUsdc;
     return {
       poolWeth: (item.poolWeth ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
       poolUsdc: (item.poolUsdc ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
+      lending: (item.lending ?? CONTRACT_ADDRESSES.MultiverseLending) as `0x${string}`,
+      lastPriceWeth: item.lastPriceWeth,
       symbol: item.symbol,
       question: item.question,
       category: item.category,
       yes: yesPrice > 0 ? yesPrice : 0.5,
-      tvl: "$0.0m",
-      volume24: vol > 0 ? `$${(vol / 1000000).toFixed(1)}m` : "$0.0m",
+      tvl: "---",
+      volume24: vol > 0 ? `$${vol.toFixed(1)}` : "$0.00",
       expiry: "2026·12·31",
       latency: "218ms",
     };
@@ -95,7 +109,10 @@ function TerminalPage() {
             <span className="text-[12px] tracking-tight text-white/90">omniverse</span>
           </Link>
           <div className="h-3 w-px bg-white/10" />
-          <Link to="/markets" className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45 ease-precision hover:text-white">
+          <Link
+            to="/markets"
+            className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45 ease-precision hover:text-white"
+          >
             ← markets
           </Link>
           <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/30">
@@ -103,7 +120,9 @@ function TerminalPage() {
           </span>
         </div>
         <div className="flex items-center gap-5 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
-          <span>latency · <span className="text-[#00FFAA]">{MARKET.latency}</span></span>
+          <span>
+            latency · <span className="text-[#00FFAA]">{MARKET.latency}</span>
+          </span>
           <span>block · 21·482·113</span>
           <span className="flex items-center gap-1.5">
             <span className="relative flex h-1.5 w-1.5">
@@ -180,10 +199,26 @@ function TerminalPage() {
             </div>
           </div>
 
-          {tab === "swap" && <SwapTab poolWeth={MARKET.poolWeth} poolUsdc={MARKET.poolUsdc} />}
-          {tab === "borrow" && <IntentEngine mode="execute" poolWeth={MARKET.poolWeth} poolUsdc={MARKET.poolUsdc} />}
-          {tab === "manage" && <ManageTab />}
-          {tab === "provide" && <IntentEngine mode="provide" poolWeth={MARKET.poolWeth} poolUsdc={MARKET.poolUsdc} />}
+          {tab === "swap" && (
+            <SwapTab poolWeth={MARKET.poolWeth} poolUsdc={MARKET.poolUsdc} yesPrice={MARKET.yes} />
+          )}
+          {tab === "borrow" && (
+            <IntentEngine
+              mode="execute"
+              poolWeth={MARKET.poolWeth}
+              poolUsdc={MARKET.poolUsdc}
+              lending={MARKET.lending}
+            />
+          )}
+          {tab === "manage" && <ManageTab lending={MARKET.lending} />}
+          {tab === "provide" && (
+            <IntentEngine
+              mode="provide"
+              poolWeth={MARKET.poolWeth}
+              poolUsdc={MARKET.poolUsdc}
+              lending={MARKET.lending}
+            />
+          )}
           {tab === "redeem" && <RedeemTab />}
         </section>
       </main>
@@ -213,7 +248,12 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
   const W = 1000;
   const H = 600;
   const svgRef = useRef<SVGSVGElement>(null);
-  const [hover, setHover] = useState<{ x: number; p: number; depth: number; lambda: number } | null>(null);
+  const [hover, setHover] = useState<{
+    x: number;
+    p: number;
+    depth: number;
+    lambda: number;
+  } | null>(null);
 
   // Build a gaussian-ish curve centered roughly at mu
   const { path, fill } = useMemo(() => {
@@ -297,15 +337,37 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
         </defs>
 
         {/* baseline */}
-        <line x1="40" y1={H - 60} x2={W - 40} y2={H - 60} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+        <line
+          x1="40"
+          y1={H - 60}
+          x2={W - 40}
+          y2={H - 60}
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth="1"
+        />
 
         {/* probability ticks (0, .25, .5, .75, 1) */}
         {[0, 0.25, 0.5, 0.75, 1].map((p) => {
           const x = 40 + (W - 80) * p;
           return (
             <g key={p}>
-              <line x1={x} y1={H - 60} x2={x} y2={H - 54} stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-              <text x={x} y={H - 38} textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.35)" fontFamily="Geist Mono, monospace" letterSpacing="0.16em">
+              <line
+                x1={x}
+                y1={H - 60}
+                x2={x}
+                y2={H - 54}
+                stroke="rgba(255,255,255,0.15)"
+                strokeWidth="1"
+              />
+              <text
+                x={x}
+                y={H - 38}
+                textAnchor="middle"
+                fontSize="11"
+                fill="rgba(255,255,255,0.35)"
+                fontFamily="Geist Mono, monospace"
+                letterSpacing="0.16em"
+              >
                 {p.toFixed(2)}
               </text>
             </g>
@@ -318,15 +380,37 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
         <path d={path} stroke="url(#gauss-stroke)" strokeWidth="1.25" fill="none" />
 
         {/* μ vertical line */}
-        <line x1={muX} y1="80" x2={muX} y2={H - 60} stroke="rgba(255,255,255,0.6)" strokeWidth="1" strokeDasharray="2 4" />
-        <text x={muX + 8} y={92} fontSize="10" fill="rgba(255,255,255,0.55)" fontFamily="Geist Mono, monospace" letterSpacing="0.16em">
+        <line
+          x1={muX}
+          y1="80"
+          x2={muX}
+          y2={H - 60}
+          stroke="rgba(255,255,255,0.6)"
+          strokeWidth="1"
+          strokeDasharray="2 4"
+        />
+        <text
+          x={muX + 8}
+          y={92}
+          fontSize="10"
+          fill="rgba(255,255,255,0.55)"
+          fontFamily="Geist Mono, monospace"
+          letterSpacing="0.16em"
+        >
           μ · {mu.toFixed(2)}
         </text>
 
         {/* crosshair */}
         {hover && (
           <g pointerEvents="none">
-            <line x1={hover.x} y1="40" x2={hover.x} y2={H - 60} stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+            <line
+              x1={hover.x}
+              y1="40"
+              x2={hover.x}
+              y2={H - 60}
+              stroke="rgba(255,255,255,0.25)"
+              strokeWidth="1"
+            />
             {/* connector */}
             <line
               x1={hover.x}
@@ -350,16 +434,29 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
             width: 200,
           }}
         >
-          <div className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">probability</div>
-          <div className="tabular mt-0.5 text-[18px] font-light text-white">{hover.p.toFixed(3)}</div>
+          <div className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">
+            probability
+          </div>
+          <div className="tabular mt-0.5 text-[18px] font-light text-white">
+            {hover.p.toFixed(3)}
+          </div>
           <div className="mt-2 border-t border-white/5 pt-2">
             <div className="flex items-center justify-between">
-              <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">liquidity depth</span>
-              <span className="tabular text-[11px] text-white/85">${(hover.depth / 1_000_000).toFixed(2)}m</span>
+              <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">
+                liquidity depth
+              </span>
+              <span className="tabular text-[11px] text-white/85">
+                ${(hover.depth / 1_000_000).toFixed(2)}m
+              </span>
             </div>
             <div className="mt-1 flex items-center justify-between">
-              <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">λ* activeness</span>
-              <span className="tabular text-[11px] text-[#00FFAA]" style={{ textShadow: "0 0 10px rgba(0,255,170,0.35)" }}>
+              <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">
+                λ* activeness
+              </span>
+              <span
+                className="tabular text-[11px] text-[#00FFAA]"
+                style={{ textShadow: "0 0 10px rgba(0,255,170,0.35)" }}
+              >
                 {hover.lambda.toFixed(3)}
               </span>
             </div>
@@ -372,45 +469,109 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
 
 /* ───────────────────────── intent engine ───────────────────────── */
 
-function IntentEngine({ mode, poolWeth, poolUsdc }: { mode: "provide" | "execute", poolWeth: `0x${string}`, poolUsdc: `0x${string}` }) {
-  const [collateral, setCollateral] = useState("250000");
-  const [borrow, setBorrow] = useState("180000");
+function IntentEngine({
+  mode,
+  poolWeth,
+  poolUsdc,
+  lending,
+}: {
+  mode: "provide" | "execute";
+  poolWeth: `0x${string}`;
+  poolUsdc: `0x${string}`;
+  lending: `0x${string}`;
+}) {
+  const { id } = Route.useParams();
+  const { address: user } = useAccount();
+
+  const [collateral, setCollateral] = useState("1000");
+  const [borrow, setBorrow] = useState("500");
   const [sideYes, setSideYes] = useState(true);
+
+  const isProvide = mode === "provide";
 
   // Same-leg validation: ratio must stay ≤ 0.85
   const c = parseFloat(collateral) || 0;
   const b = parseFloat(borrow) || 0;
-  const ratio = c > 0 ? b / c : 0;
-  const valid = ratio > 0 && ratio <= 0.85;
+  const valid = isProvide ? c > 0 : (c > 0 && b > 0);
+  const tokenToApprove = isProvide ? CONTRACT_ADDRESSES.USDC : CONTRACT_ADDRESSES.WETH;
+  const amountToApprove = parseUnits(c.toString(), 18);
+
+  const { data: allowance = 0n, refetch: refetchAllowance } = useReadContract({
+    address: tokenToApprove,
+    abi: Erc20Abi,
+    functionName: "allowance",
+    args: [user as `0x${string}`, CONTRACT_ADDRESSES.OmniverseRouter],
+    query: { enabled: !!user },
+  });
+
+  const needsApproval = allowance < amountToApprove;
 
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
-  const signing = isPending || isConfirming;
+
+  const {
+    writeContract: writeApprove,
+    data: approveTxHash,
+    isPending: isApproving,
+  } = useWriteContract();
+  const { isLoading: isConfirmingApprove, isSuccess: isApproveSuccess } =
+    useWaitForTransactionReceipt({ hash: approveTxHash });
+
+  const signing = isPending || isConfirming || isApproving || isConfirmingApprove;
 
   useEffect(() => {
-    if (isPending) toast.loading('Waiting for wallet...', { id: 'tx-intent' });
-    else if (isConfirming) toast.loading('Transaction submitted...', { id: 'tx-intent' });
-    else if (isSuccess) toast.success('Transaction confirmed', { id: 'tx-intent' });
-  }, [isPending, isConfirming, isSuccess]);
+    if (isApproveSuccess) refetchAllowance();
+  }, [isApproveSuccess, refetchAllowance]);
+
+  useEffect(() => {
+    if (isPending || isApproving) toast.loading("Waiting for wallet...", { id: "tx-intent" });
+    else if (isConfirming || isConfirmingApprove)
+      toast.loading("Transaction submitted...", { id: "tx-intent" });
+    else if (isSuccess || isApproveSuccess)
+      toast.success("Transaction confirmed", { id: "tx-intent" });
+  }, [isPending, isConfirming, isSuccess, isApproving, isConfirmingApprove]);
 
   function onSign() {
-    if (!valid || signing) return;
-    const isProvide = mode === 'provide';
-    
+    if (!valid || signing || !c) return;
+
+    if (needsApproval) {
+      writeApprove(
+        {
+          address: tokenToApprove,
+          abi: Erc20Abi,
+          functionName: "approve",
+          args: [CONTRACT_ADDRESSES.OmniverseRouter, amountToApprove],
+        },
+        { onError: (err) => toast.error(err.message, { id: "tx-intent" }) },
+      );
+      return;
+    }
+
     if (isProvide) {
-      writeContract({
-        address: CONTRACT_ADDRESSES.OmniverseRouter,
-        abi: OmniverseRouterAbi,
-        functionName: 'addLiquidity',
-        args: [poolUsdc, id, parseUnits(c.toString(), 18), 0n],
-      }, { onError: (err) => toast.error(err.message, { id: 'tx-intent' }) });
+      writeContract(
+        {
+          address: CONTRACT_ADDRESSES.OmniverseRouter,
+          abi: OmniverseRouterAbi,
+          functionName: "addLiquidity",
+          args: [
+            poolUsdc,
+            id,
+            parseUnits(c.toString(), 18),
+            0n, // Set minShares to 0 to allow adding liquidity to imbalanced pools without reverting
+          ],
+        },
+        { onError: (err) => toast.error(err.message, { id: "tx-intent" }) },
+      );
     } else {
-      writeContract({
-        address: CONTRACT_ADDRESSES.OmniverseRouter,
-        abi: OmniverseRouterAbi,
-        functionName: 'executeBorrow',
-        args: [CONTRACT_ADDRESSES.MultiverseLending, id, parseUnits(c.toString(), 18), parseUnits(b.toString(), 18)],
-      }, { onError: (err) => toast.error(err.message, { id: 'tx-intent' }) });
+      writeContract(
+        {
+          address: CONTRACT_ADDRESSES.OmniverseRouter,
+          abi: OmniverseRouterAbi,
+          functionName: "executeBorrow",
+          args: [lending, id, parseUnits(c.toString(), 18), parseUnits(b.toString(), 18)],
+        },
+        { onError: (err) => toast.error(err.message, { id: "tx-intent" }) },
+      );
     }
   }
 
@@ -424,9 +585,13 @@ function IntentEngine({ mode, poolWeth, poolUsdc }: { mode: "provide" | "execute
             sideYes ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"
           }`}
         >
-          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">side</span>
-          <span className={`tabular text-[14px] ${sideYes ? "text-[#00FFAA]" : "text-white/40"}`}
-            style={sideYes ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" } : undefined}>
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+            side
+          </span>
+          <span
+            className={`tabular text-[14px] ${sideYes ? "text-[#00FFAA]" : "text-white/40"}`}
+            style={sideYes ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" } : undefined}
+          >
             yes · 0.84
           </span>
           {sideYes && <span className="absolute inset-x-0 bottom-0 h-px bg-[#00FFAA]/60" />}
@@ -437,8 +602,12 @@ function IntentEngine({ mode, poolWeth, poolUsdc }: { mode: "provide" | "execute
             !sideYes ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"
           }`}
         >
-          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">side</span>
-          <span className={`tabular text-[14px] ${!sideYes ? "text-white" : "text-white/40"}`}>no · 0.16</span>
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+            side
+          </span>
+          <span className={`tabular text-[14px] ${!sideYes ? "text-white" : "text-white/40"}`}>
+            no · 0.16
+          </span>
           {!sideYes && <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />}
         </button>
       </div>
@@ -465,11 +634,10 @@ function IntentEngine({ mode, poolWeth, poolUsdc }: { mode: "provide" | "execute
         {/* validation row */}
         <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4">
           <div className="flex items-center gap-2">
-            <span className={`h-1.5 w-1.5 rounded-full ${valid ? "bg-[#00FFAA]" : "bg-[#FF4D5E]"} ${valid ? "" : "animate-pulse"}`}
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${valid ? "bg-[#00FFAA]" : "bg-[#FF4D5E]"} ${valid ? "" : "animate-pulse"}`}
               style={{
-                boxShadow: valid
-                  ? "0 0 10px rgba(0,255,170,0.5)"
-                  : "0 0 10px rgba(255,77,94,0.5)",
+                boxShadow: valid ? "0 0 10px rgba(0,255,170,0.5)" : "0 0 10px rgba(255,77,94,0.5)",
               }}
             />
             <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/55">
@@ -512,8 +680,10 @@ function IntentEngine({ mode, poolWeth, poolUsdc }: { mode: "provide" | "execute
               </span>
             </span>
           ) : (
-            <span className={`tabular text-[12px] uppercase tracking-[0.32em] ${valid ? "text-white" : "text-white/30"}`}>
-              sign intent
+            <span
+              className={`tabular text-[12px] uppercase tracking-[0.32em] ${valid ? "text-white" : "text-white/30"}`}
+            >
+              {needsApproval ? `approve ${isProvide ? "usdc" : "weth"}` : "sign intent"}
             </span>
           )}
         </button>
@@ -544,7 +714,9 @@ function BigInput({
   return (
     <div className="flex items-end justify-between">
       <div className="flex-1">
-        <span className="tabular text-[10px] uppercase tracking-[0.24em] text-white/40">{label}</span>
+        <span className="tabular text-[10px] uppercase tracking-[0.24em] text-white/40">
+          {label}
+        </span>
         <div className="mt-1 flex items-baseline gap-2">
           <input
             value={value}
@@ -571,7 +743,11 @@ function BigInput({
 function ConnectorLine({ valid }: { valid: boolean }) {
   return (
     <div className="relative my-4 h-10">
-      <svg viewBox="0 0 320 40" className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+      <svg
+        viewBox="0 0 320 40"
+        className="absolute inset-0 h-full w-full"
+        preserveAspectRatio="none"
+      >
         <path
           d="M 40 4 C 100 4, 100 36, 160 36 S 220 4, 280 4"
           stroke={valid ? "rgba(0,255,170,0.55)" : "rgba(255,77,94,0.6)"}
@@ -601,31 +777,88 @@ function PreviewCell({ label, value }: { label: string; value: string }) {
 
 /* ─────────────────────────── swap tab ─────────────────────────── */
 
-function SwapTab({ poolWeth, poolUsdc }: { poolWeth: `0x${string}`, poolUsdc: `0x${string}` }) {
-  const [amount, setAmount] = useState("10000");
+function SwapTab({
+  poolWeth,
+  poolUsdc,
+  yesPrice,
+}: {
+  poolWeth: `0x${string}`;
+  poolUsdc: `0x${string}`;
+  yesPrice: number;
+}) {
+  const { id } = Route.useParams();
+  const { address: user } = useAccount();
+
+  const [amount, setAmount] = useState("100");
   const [side, setSide] = useState<"yes" | "no">("yes");
-  const price = side === "yes" ? 0.84 : 0.16;
+  const price = side === "yes" ? yesPrice : 1 - yesPrice;
   const out = ((parseFloat(amount) || 0) / price).toFixed(2);
   const fee = ((parseFloat(amount) || 0) * 0.0006).toFixed(2);
 
+  const parsedAmount = parseUnits(amount || "0", 18);
+  const expectedOut = (parseFloat(amount) || 0) / price;
+  const poolExpectedOut = expectedOut - (parseFloat(amount) || 0);
+  const minOut = parseUnits((Math.max(0, poolExpectedOut) * 0.95).toFixed(18), 18);
+
+  const { data: allowance = 0n, refetch: refetchAllowance } = useReadContract({
+    address: CONTRACT_ADDRESSES.USDC,
+    abi: Erc20Abi,
+    functionName: "allowance",
+    args: [user as `0x${string}`, CONTRACT_ADDRESSES.OmniverseRouter],
+    query: { enabled: !!user },
+  });
+
+  const needsApproval = allowance < parsedAmount;
+
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
-  const signing = isPending || isConfirming;
+
+  const {
+    writeContract: writeApprove,
+    data: approveTxHash,
+    isPending: isApproving,
+  } = useWriteContract();
+  const { isLoading: isConfirmingApprove, isSuccess: isApproveSuccess } =
+    useWaitForTransactionReceipt({ hash: approveTxHash });
+
+  const signing = isPending || isConfirming || isApproving || isConfirmingApprove;
 
   useEffect(() => {
-    if (isPending) toast.loading('Waiting for wallet...', { id: 'tx-swap' });
-    else if (isConfirming) toast.loading('Transaction submitted...', { id: 'tx-swap' });
-    else if (isSuccess) toast.success('Transaction confirmed', { id: 'tx-swap' });
-  }, [isPending, isConfirming, isSuccess]);
+    if (isApproveSuccess) refetchAllowance();
+  }, [isApproveSuccess, refetchAllowance]);
+
+  useEffect(() => {
+    if (isPending || isApproving) toast.loading("Waiting for wallet...", { id: "tx-swap" });
+    else if (isConfirming || isConfirmingApprove)
+      toast.loading("Transaction submitted...", { id: "tx-swap" });
+    else if (isSuccess || isApproveSuccess)
+      toast.success("Transaction confirmed", { id: "tx-swap" });
+  }, [isPending, isConfirming, isSuccess, isApproving, isConfirmingApprove]);
 
   function onSwap() {
-    if (signing) return;
-    writeContract({
-      address: CONTRACT_ADDRESSES.OmniverseRouter,
-      abi: OmniverseRouterAbi,
-      functionName: side === 'yes' ? 'buyYes' : 'buyNo',
-      args: [poolUsdc, id, parseUnits(amount, 18), 0n],
-    }, { onError: (err) => toast.error(err.message, { id: 'tx-swap' }) });
+    if (signing || !amount) return;
+    if (needsApproval) {
+      writeApprove(
+        {
+          address: CONTRACT_ADDRESSES.USDC,
+          abi: Erc20Abi,
+          functionName: "approve",
+          args: [CONTRACT_ADDRESSES.OmniverseRouter, parsedAmount],
+        },
+        { onError: (err) => toast.error(err.message, { id: "tx-swap" }) },
+      );
+      return;
+    }
+
+    writeContract(
+      {
+        address: CONTRACT_ADDRESSES.OmniverseRouter,
+        abi: OmniverseRouterAbi,
+        functionName: side === "yes" ? "buyYes" : "buyNo",
+        args: [poolUsdc, id, parsedAmount, minOut],
+      },
+      { onError: (err) => toast.error(err.message, { id: "tx-swap" }) },
+    );
   }
 
   return (
@@ -639,10 +872,16 @@ function SwapTab({ poolWeth, poolUsdc }: { poolWeth: `0x${string}`, poolUsdc: `0
               side === s ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"
             }`}
           >
-            <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">{s} shares</span>
+            <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+              {s} shares
+            </span>
             <span
               className={`tabular text-[14px] ${side === s && s === "yes" ? "text-[#00FFAA]" : side === s ? "text-white" : "text-white/40"}`}
-              style={side === s && s === "yes" ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" } : undefined}
+              style={
+                side === s && s === "yes"
+                  ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" }
+                  : undefined
+              }
             >
               {s === "yes" ? "0.84" : "0.16"}
             </span>
@@ -659,16 +898,24 @@ function SwapTab({ poolWeth, poolUsdc }: { poolWeth: `0x${string}`, poolUsdc: `0
         <BigInput label="pay" symbol="usdc" value={amount} onChange={setAmount} />
 
         <div className="my-4 flex items-center justify-center">
-          <span className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-abyss tabular text-[14px] text-white/60">↓</span>
+          <span className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-abyss tabular text-[14px] text-white/60">
+            ↓
+          </span>
         </div>
 
         <div className="flex items-end justify-between">
           <div className="flex-1">
-            <span className="tabular text-[10px] uppercase tracking-[0.24em] text-white/40">receive</span>
-            <div className="tabular mt-1 text-[40px] font-light tracking-[-0.02em] text-white">{out}</div>
+            <span className="tabular text-[10px] uppercase tracking-[0.24em] text-white/40">
+              receive
+            </span>
+            <div className="tabular mt-1 text-[40px] font-light tracking-[-0.02em] text-white">
+              {out}
+            </div>
           </div>
           <div className="flex flex-col items-end pb-2">
-            <span className={`rounded-full border px-3 py-1 tabular text-[10px] uppercase tracking-[0.22em] ${side === "yes" ? "border-[#00FFAA]/40 bg-[#00FFAA]/5 text-[#00FFAA]" : "border-white/15 bg-white/[0.02] text-white/75"}`}>
+            <span
+              className={`rounded-full border px-3 py-1 tabular text-[10px] uppercase tracking-[0.22em] ${side === "yes" ? "border-[#00FFAA]/40 bg-[#00FFAA]/5 text-[#00FFAA]" : "border-white/15 bg-white/[0.02] text-white/75"}`}
+            >
               {side} · shares
             </span>
             <span className="mt-1.5 tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
@@ -679,7 +926,7 @@ function SwapTab({ poolWeth, poolUsdc }: { poolWeth: `0x${string}`, poolUsdc: `0
 
         <div className="mt-6 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
           <PreviewCell label="solver fee" value={`$${fee}`} />
-          <PreviewCell label="slippage" value="0.08%" />
+          <PreviewCell label="slippage" value="5.0%" />
           <PreviewCell label="route" value="2 hops" />
         </div>
 
@@ -695,7 +942,9 @@ function SwapTab({ poolWeth, poolUsdc }: { poolWeth: `0x${string}`, poolUsdc: `0
           disabled={signing}
           className={`group relative flex h-12 w-full items-center justify-center overflow-hidden rounded-full border border-white/25 bg-white/[0.04] ease-precision hover:border-white/40 hover:bg-white/[0.07] ${signing ? "opacity-50 cursor-not-allowed" : ""}`}
         >
-          <span className="tabular text-[12px] uppercase tracking-[0.32em] text-white">swap shares</span>
+          <span className="tabular text-[12px] uppercase tracking-[0.32em] text-white">
+            {needsApproval ? "approve usdc" : "swap shares"}
+          </span>
         </button>
         <div className="mt-3 flex items-center justify-between tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
           <span>est. settlement · 218ms</span>
@@ -708,11 +957,46 @@ function SwapTab({ poolWeth, poolUsdc }: { poolWeth: `0x${string}`, poolUsdc: `0
 
 /* ─────────────────────────── manage tab ─────────────────────────── */
 
-function ManageTab() {
-  const [mode, setMode] = useState<"repay" | "withdraw">("repay");
-  const [amount, setAmount] = useState("18000");
+function ManageTab({ lending }: { lending: `0x${string}` }) {
+  const { address: user } = useAccount();
 
-  const health = 1.84;
+  const [mode, setMode] = useState<"repay" | "withdraw">("repay");
+  const [amount, setAmount] = useState("100");
+
+  const { data: isApproved = false, refetch: refetchApproval } = useReadContract({
+    address: CONTRACT_ADDRESSES.ConditionalTokens,
+    abi: ConditionalTokensAbi,
+    functionName: "isApprovedForAll",
+    args: [user as `0x${string}`, lending],
+    query: { enabled: !!user && !!lending },
+  });
+
+  const { data: collateralWad = 0n } = useReadContract({
+    address: lending,
+    abi: MultiverseLendingAbi,
+    functionName: "collateralOf",
+    args: [user as `0x${string}`],
+    query: { enabled: !!user && !!lending },
+  });
+
+  const { data: debtWad = 0n } = useReadContract({
+    address: lending,
+    abi: MultiverseLendingAbi,
+    functionName: "debtOf",
+    args: [user as `0x${string}`],
+    query: { enabled: !!user && !!lending },
+  });
+
+  const { data: healthWad = 0n } = useReadContract({
+    address: lending,
+    abi: MultiverseLendingAbi,
+    functionName: "healthFactor",
+    args: [user as `0x${string}`],
+    query: { enabled: !!user && !!lending },
+  });
+
+  const health = Number(healthWad) / 1e18;
+  const displayHealth = health > 1000 ? "∞" : health.toFixed(2);
   // gauge 0..1 mapped from health 1.0..3.0
   const pct = Math.max(0, Math.min(1, (health - 1) / 2));
   const R = 56;
@@ -720,24 +1004,65 @@ function ManageTab() {
   const offset = C - pct * C;
   const healthColor = health >= 1.5 ? "#00FFAA" : health >= 1.2 ? "#ff8c00" : "#FF4D5E";
 
+  const needsApproval = mode === "repay" && !isApproved;
+
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
-  const signing = isPending || isConfirming;
+
+  const {
+    writeContract: writeApprove,
+    data: approveTxHash,
+    isPending: isApproving,
+  } = useWriteContract();
+  const { isLoading: isConfirmingApprove, isSuccess: isApproveSuccess } =
+    useWaitForTransactionReceipt({ hash: approveTxHash });
+
+  const signing = isPending || isConfirming || isApproving || isConfirmingApprove;
 
   useEffect(() => {
-    if (isPending) toast.loading('Waiting for wallet...', { id: 'tx-manage' });
-    else if (isConfirming) toast.loading('Transaction submitted...', { id: 'tx-manage' });
-    else if (isSuccess) toast.success('Transaction confirmed', { id: 'tx-manage' });
-  }, [isPending, isConfirming, isSuccess]);
+    if (isApproveSuccess) refetchApproval();
+  }, [isApproveSuccess, refetchApproval]);
+
+  useEffect(() => {
+    if (isPending || isApproving) toast.loading("Waiting for wallet...", { id: "tx-manage" });
+    else if (isConfirming || isConfirmingApprove)
+      toast.loading("Transaction submitted...", { id: "tx-manage" });
+    else if (isSuccess || isApproveSuccess)
+      toast.success("Transaction confirmed", { id: "tx-manage" });
+  }, [isPending, isConfirming, isSuccess, isApproving, isConfirmingApprove]);
 
   function onSubmit() {
     if (signing || !amount) return;
-    writeContract({
-      address: CONTRACT_ADDRESSES.MultiverseLending,
-      abi: MultiverseLendingAbi,
-      functionName: mode,
-      args: [parseUnits(amount, 18)],
-    }, { onError: (err) => toast.error(err.message, { id: 'tx-manage' }) });
+
+    if (needsApproval) {
+      writeApprove(
+        {
+          address: CONTRACT_ADDRESSES.ConditionalTokens,
+          abi: ConditionalTokensAbi,
+          functionName: "setApprovalForAll",
+          args: [lending, true],
+        },
+        { onError: (err) => toast.error(err.message, { id: "tx-manage" }) },
+      );
+      return;
+    }
+
+    let finalAmount = parseUnits(amount, 18);
+    if (mode === "repay" && finalAmount > debtWad) {
+      finalAmount = debtWad;
+    } else if (mode === "withdraw" && finalAmount > collateralWad) {
+      finalAmount = collateralWad;
+    }
+
+    writeContract(
+      {
+        address: lending,
+        abi: MultiverseLendingAbi,
+        functionName: mode,
+        args: [finalAmount],
+      },
+      { onError: (err) => toast.error(err.message, { id: "tx-manage" }) },
+    );
   }
 
   return (
@@ -750,8 +1075,12 @@ function ManageTab() {
             mode === "repay" ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"
           }`}
         >
-          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">action</span>
-          <span className={`tabular text-[14px] ${mode === "repay" ? "text-white" : "text-white/40"}`}>
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+            action
+          </span>
+          <span
+            className={`tabular text-[14px] ${mode === "repay" ? "text-white" : "text-white/40"}`}
+          >
             repay debt
           </span>
           {mode === "repay" && <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />}
@@ -762,12 +1091,20 @@ function ManageTab() {
             mode === "withdraw" ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"
           }`}
         >
-          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">action</span>
-          <span className={`tabular text-[14px] ${mode === "withdraw" ? "text-[#00FFAA]" : "text-white/40"}`}
-             style={mode === "withdraw" ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" } : undefined}>
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+            action
+          </span>
+          <span
+            className={`tabular text-[14px] ${mode === "withdraw" ? "text-[#00FFAA]" : "text-white/40"}`}
+            style={
+              mode === "withdraw" ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" } : undefined
+            }
+          >
             withdraw collat
           </span>
-          {mode === "withdraw" && <span className="absolute inset-x-0 bottom-0 h-px bg-[#00FFAA]/60" />}
+          {mode === "withdraw" && (
+            <span className="absolute inset-x-0 bottom-0 h-px bg-[#00FFAA]/60" />
+          )}
         </button>
       </div>
 
@@ -775,7 +1112,14 @@ function ManageTab() {
         <div className="mb-6 flex items-center gap-6">
           <div className="relative h-[140px] w-[140px] shrink-0">
             <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
-              <circle cx="70" cy="70" r={R} stroke="rgba(255,255,255,0.06)" strokeWidth="6" fill="none" />
+              <circle
+                cx="70"
+                cy="70"
+                r={R}
+                stroke="rgba(255,255,255,0.06)"
+                strokeWidth="6"
+                fill="none"
+              />
               <circle
                 cx="70"
                 cy="70"
@@ -786,28 +1130,46 @@ function ManageTab() {
                 strokeLinecap="round"
                 strokeDasharray={C}
                 strokeDashoffset={offset}
-                style={{ filter: `drop-shadow(0 0 8px ${healthColor}88)`, transition: "stroke-dashoffset .6s var(--ease-precision)" }}
+                style={{
+                  filter: `drop-shadow(0 0 8px ${healthColor}88)`,
+                  transition: "stroke-dashoffset .6s var(--ease-precision)",
+                }}
               />
             </svg>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">health</span>
-              <span className="tabular text-[28px] font-light text-white" style={{ textShadow: `0 0 12px ${healthColor}55` }}>
-                {health.toFixed(2)}
+              <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/40">
+                health
+              </span>
+              <span
+                className="tabular text-[28px] font-light text-white"
+                style={{ textShadow: `0 0 12px ${healthColor}55` }}
+              >
+                {displayHealth}
               </span>
             </div>
           </div>
           <div className="flex-1 space-y-3">
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
-              <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/40">collateral</span>
-              <span className="tabular text-[13px] text-white/90">250,000 yes-eth</span>
+              <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/40">
+                collateral
+              </span>
+              <span className="tabular text-[13px] text-white/90">
+                {(Number(collateralWad) / 1e18).toLocaleString()} yes-weth
+              </span>
             </div>
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
-              <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/40">debt</span>
-              <span className="tabular text-[13px] text-white/90">180,000 usdc</span>
+              <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/40">
+                debt
+              </span>
+              <span className="tabular text-[13px] text-white/90">
+                {(Number(debtWad) / 1e18).toLocaleString()} yes-usdc
+              </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/40">liq. price</span>
-              <span className="tabular text-[13px] text-[#00FFAA]">never</span>
+              <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/40">
+                liq. price
+              </span>
+              <span className="tabular text-[13px] text-[#00FFAA]">{displayHealth}</span>
             </div>
           </div>
         </div>
@@ -833,7 +1195,11 @@ function ManageTab() {
           className={`group relative flex h-12 w-full items-center justify-center overflow-hidden rounded-full border border-white/25 bg-white/[0.04] ease-precision hover:border-white/40 hover:bg-white/[0.07] ${signing ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <span className="tabular text-[12px] uppercase tracking-[0.32em] text-white">
-            {mode === "repay" ? "repay usdc debt" : "withdraw collateral"}
+            {needsApproval
+              ? "approve ctf"
+              : mode === "repay"
+                ? "repay usdc debt"
+                : "withdraw collateral"}
           </span>
         </button>
         <div className="mt-3 flex items-center justify-center tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
@@ -844,13 +1210,12 @@ function ManageTab() {
   );
 }
 
-
-
 /* ─────────────────────────── redeem tab ─────────────────────────── */
 
 function RedeemTab() {
   const { id } = Route.useParams();
-  const [shares, setShares] = useState("125000");
+  const [shares, setShares] = useState("100");
+  const [token, setToken] = useState<"USDC" | "WETH">("USDC");
   const payout = (parseFloat(shares) || 0).toFixed(2);
 
   const { writeContract, data: txHash, isPending } = useWriteContract();
@@ -858,19 +1223,27 @@ function RedeemTab() {
   const signing = isPending || isConfirming;
 
   useEffect(() => {
-    if (isPending) toast.loading('Waiting for wallet...', { id: 'tx-redeem' });
-    else if (isConfirming) toast.loading('Transaction submitted...', { id: 'tx-redeem' });
-    else if (isSuccess) toast.success('Transaction confirmed', { id: 'tx-redeem' });
+    if (isPending) toast.loading("Waiting for wallet...", { id: "tx-redeem" });
+    else if (isConfirming) toast.loading("Transaction submitted...", { id: "tx-redeem" });
+    else if (isSuccess) toast.success("Transaction confirmed", { id: "tx-redeem" });
   }, [isPending, isConfirming, isSuccess]);
 
   function onRedeem() {
     if (signing) return;
-    writeContract({
-      address: CONTRACT_ADDRESSES.ConditionalTokens,
-      abi: ConditionalTokensAbi,
-      functionName: 'redeemPositions',
-      args: [CONTRACT_ADDRESSES.USDC, "0x0000000000000000000000000000000000000000000000000000000000000000", id, [1, 2]],
-    }, { onError: (err) => toast.error(err.message, { id: 'tx-redeem' }) });
+    writeContract(
+      {
+        address: CONTRACT_ADDRESSES.ConditionalTokens,
+        abi: ConditionalTokensAbi,
+        functionName: "redeemPositions",
+        args: [
+          token === "USDC" ? CONTRACT_ADDRESSES.USDC : CONTRACT_ADDRESSES.WETH,
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+          id,
+          [1, 2],
+        ],
+      },
+      { onError: (err) => toast.error(err.message, { id: "tx-redeem" }) },
+    );
   }
 
   return (
@@ -881,7 +1254,10 @@ function RedeemTab() {
             <span className="absolute inset-0 animate-ping rounded-full bg-[#00FFAA]/60" />
             <span className="relative h-1.5 w-1.5 rounded-full bg-[#00FFAA]" />
           </span>
-          <span className="tabular text-[10px] uppercase tracking-[0.32em] text-[#00FFAA]" style={{ textShadow: "0 0 12px rgba(0,255,170,0.35)" }}>
+          <span
+            className="tabular text-[10px] uppercase tracking-[0.32em] text-[#00FFAA]"
+            style={{ textShadow: "0 0 12px rgba(0,255,170,0.35)" }}
+          >
             market resolved · yes
           </span>
         </div>
@@ -901,7 +1277,9 @@ function RedeemTab() {
 
         <div className="flex items-end justify-between">
           <div className="flex-1">
-            <span className="tabular text-[10px] uppercase tracking-[0.24em] text-white/40">receive</span>
+            <span className="tabular text-[10px] uppercase tracking-[0.24em] text-white/40">
+              receive
+            </span>
             <div
               className="tabular mt-1 text-[40px] font-light tracking-[-0.02em] text-[#00FFAA]"
               style={{ textShadow: "0 0 18px rgba(0,255,170,0.35)" }}
@@ -910,9 +1288,14 @@ function RedeemTab() {
             </div>
           </div>
           <div className="flex flex-col items-end pb-2">
-            <span className="rounded-full border border-white/15 bg-white/[0.02] px-3 py-1 tabular text-[10px] uppercase tracking-[0.22em] text-white/75">
-              usdc
-            </span>
+            <select
+              value={token}
+              onChange={(e) => setToken(e.target.value as "USDC" | "WETH")}
+              className="rounded-full border border-white/15 bg-white/[0.02] px-3 py-1 outline-none tabular text-[10px] uppercase tracking-[0.22em] text-white/75 cursor-pointer hover:bg-white/[0.05]"
+            >
+              <option value="USDC">USDC</option>
+              <option value="WETH">WETH</option>
+            </select>
             <span className="mt-1.5 tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
               1:1 redemption
             </span>
@@ -936,7 +1319,7 @@ function RedeemTab() {
             className="tabular text-[12px] uppercase tracking-[0.32em] text-[#00FFAA]"
             style={{ textShadow: "0 0 12px rgba(0,255,170,0.45)" }}
           >
-            burn yes shares for usdc
+            burn yes shares for {token.toLowerCase()}
           </span>
         </button>
         <div className="mt-3 flex items-center justify-between tabular text-[9px] uppercase tracking-[0.22em] text-white/35">

@@ -66,7 +66,9 @@
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
     0 20px 60px -20px rgba(0, 0, 0, 0.6);
-  transition: border-color 0.4s var(--ease-precision), background 0.4s var(--ease-precision);
+  transition:
+    border-color 0.4s var(--ease-precision),
+    background 0.4s var(--ease-precision);
 }
 
 @utility omni-glass-heavy {
@@ -112,18 +114,37 @@
 
 /* Animated fluid orbs */
 @keyframes fluid-drift-1 {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  33% { transform: translate3d(6vw, -4vh, 0) scale(1.1); }
-  66% { transform: translate3d(-3vw, 6vh, 0) scale(0.95); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(6vw, -4vh, 0) scale(1.1);
+  }
+  66% {
+    transform: translate3d(-3vw, 6vh, 0) scale(0.95);
+  }
 }
 @keyframes fluid-drift-2 {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(-7vw, 4vh, 0) scale(1.15); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-7vw, 4vh, 0) scale(1.15);
+  }
 }
 @keyframes fluid-drift-3 {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  40% { transform: translate3d(4vw, 7vh, 0) scale(1.08); }
-  80% { transform: translate3d(-5vw, -3vh, 0) scale(0.97); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  40% {
+    transform: translate3d(4vw, 7vh, 0) scale(1.08);
+  }
+  80% {
+    transform: translate3d(-5vw, -3vh, 0) scale(0.97);
+  }
 }
 
 .fluid-orb {
@@ -142,7 +163,9 @@
 
 /* Radar sweep */
 @keyframes radar-sweep {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .radar-sweep {
   animation: radar-sweep 6s linear infinite;
@@ -151,28 +174,45 @@
 
 /* Cascading hex feed */
 @keyframes hex-fall {
-  from { transform: translateY(-100%); }
-  to { transform: translateY(100%); }
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(100%);
+  }
 }
 
 /* Pulse for liquidation indicator */
 @keyframes precision-pulse {
-  0%, 100% { opacity: 0.85; box-shadow: 0 0 0 0 rgba(255,255,255,0.4); }
-  50% { opacity: 1; box-shadow: 0 0 0 6px rgba(255,255,255,0); }
+  0%,
+  100% {
+    opacity: 0.85;
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+  }
 }
-.precision-pulse { animation: precision-pulse 2.4s var(--ease-precision) infinite; }
+.precision-pulse {
+  animation: precision-pulse 2.4s var(--ease-precision) infinite;
+}
 
 /* Skeleton metallic shimmer */
 @keyframes shimmer {
-  from { background-position: -200% 0; }
-  to { background-position: 200% 0; }
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
 }
 .metallic-shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.02) 0%,
-    rgba(255,255,255,0.06) 50%,
-    rgba(255,255,255,0.02) 100%
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.02) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2.4s linear infinite;
@@ -180,5 +220,7 @@
 
 /* SVG draw-in */
 @keyframes draw-path {
-  to { stroke-dashoffset: 0; }
+  to {
+    stroke-dashoffset: 0;
+  }
 }

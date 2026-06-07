@@ -13,12 +13,12 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
-import '@rainbow-me/rainbowkit/styles.css';
-import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { WagmiProvider } from 'wagmi';
-import { arbitrumSepolia } from 'wagmi/chains';
-import { Provider as UrqlProvider } from 'urql';
-import { urqlClient } from '../lib/urql';
+import "@rainbow-me/rainbowkit/styles.css";
+import { RainbowKitProvider, getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { WagmiProvider } from "wagmi";
+import { arbitrumSepolia } from "wagmi/chains";
+import { Provider as UrqlProvider } from "urql";
+import { urqlClient } from "../lib/urql";
 
 function NotFoundComponent() {
   return (
@@ -125,8 +125,8 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 const wagmiConfig = getDefaultConfig({
-  appName: 'Omniverse Terminal',
-  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo',
+  appName: "Omniverse Terminal",
+  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "demo",
   chains: [arbitrumSepolia],
   ssr: false,
 });
@@ -140,22 +140,22 @@ function RootComponent() {
         <UrqlProvider value={urqlClient}>
           <RainbowKitProvider>
             {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
-      <Toaster
-        theme="dark"
-        position="bottom-right"
-        toastOptions={{
-          unstyled: false,
-          classNames: {
-            toast:
-              "omni-glass-heavy !bg-white/[0.02] !border-white/10 !text-white/90 !rounded-xl !shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
-            title: "tabular !text-[11px] uppercase tracking-[0.22em] !text-white",
-            description: "tabular !text-[10px] uppercase tracking-[0.18em] !text-white/45",
-            success: "!text-[#00FFAA]",
-            loader: "!text-white/70",
-          },
-        }}
-      />
+            <Outlet />
+            <Toaster
+              theme="dark"
+              position="bottom-right"
+              toastOptions={{
+                unstyled: false,
+                classNames: {
+                  toast:
+                    "omni-glass-heavy !bg-white/[0.02] !border-white/10 !text-white/90 !rounded-xl !shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
+                  title: "tabular !text-[11px] uppercase tracking-[0.22em] !text-white",
+                  description: "tabular !text-[10px] uppercase tracking-[0.18em] !text-white/45",
+                  success: "!text-[#00FFAA]",
+                  loader: "!text-white/70",
+                },
+              }}
+            />
           </RainbowKitProvider>
         </UrqlProvider>
       </QueryClientProvider>

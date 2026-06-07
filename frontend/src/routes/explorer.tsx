@@ -107,8 +107,8 @@ function ExplorerPage() {
           λ* surface, <span className="italic font-extralight text-white/55">probed.</span>
         </h1>
         <p className="mt-4 max-w-xl text-[13px] leading-relaxed text-white/55">
-          a probability-bounded gaussian AMM. drag the controls. active liquidity stays bounded as
-          p approaches 0 or 1 — by construction.
+          a probability-bounded gaussian AMM. drag the controls. active liquidity stays bounded as p
+          approaches 0 or 1 — by construction.
         </p>
       </motion.section>
 
@@ -121,7 +121,9 @@ function ExplorerPage() {
           transition={{ ...spring, delay: 0.15 }}
           className="omni-glass-heavy h-fit rounded-2xl p-6"
         >
-          <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">controls</span>
+          <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
+            controls
+          </span>
 
           <SliderRow
             label="probability · p"
@@ -218,7 +220,15 @@ function ExplorerPage() {
               return (
                 <g key={`gy-${g}`}>
                   <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="rgba(255,255,255,0.04)" />
-                  <text x={padL - 10} y={y + 3} textAnchor="end" fontSize="10" fill="rgba(255,255,255,0.35)" fontFamily="Geist Mono, monospace" letterSpacing="0.16em">
+                  <text
+                    x={padL - 10}
+                    y={y + 3}
+                    textAnchor="end"
+                    fontSize="10"
+                    fill="rgba(255,255,255,0.35)"
+                    fontFamily="Geist Mono, monospace"
+                    letterSpacing="0.16em"
+                  >
                     {g.toFixed(2)}
                   </text>
                 </g>
@@ -229,7 +239,15 @@ function ExplorerPage() {
               return (
                 <g key={`gx-${g}`}>
                   <line x1={x} y1={padT} x2={x} y2={H - padB} stroke="rgba(255,255,255,0.04)" />
-                  <text x={x} y={H - padB + 18} textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.35)" fontFamily="Geist Mono, monospace" letterSpacing="0.16em">
+                  <text
+                    x={x}
+                    y={H - padB + 18}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fill="rgba(255,255,255,0.35)"
+                    fontFamily="Geist Mono, monospace"
+                    letterSpacing="0.16em"
+                  >
                     {g.toFixed(2)}
                   </text>
                 </g>
@@ -237,10 +255,27 @@ function ExplorerPage() {
             })}
 
             {/* axis labels */}
-            <text x={W / 2} y={H - 12} textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.4)" fontFamily="Geist Mono, monospace" letterSpacing="0.22em">
+            <text
+              x={W / 2}
+              y={H - 12}
+              textAnchor="middle"
+              fontSize="10"
+              fill="rgba(255,255,255,0.4)"
+              fontFamily="Geist Mono, monospace"
+              letterSpacing="0.22em"
+            >
               PROBABILITY · P
             </text>
-            <text x={16} y={H / 2} transform={`rotate(-90 16 ${H / 2})`} textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.4)" fontFamily="Geist Mono, monospace" letterSpacing="0.22em">
+            <text
+              x={16}
+              y={H / 2}
+              transform={`rotate(-90 16 ${H / 2})`}
+              textAnchor="middle"
+              fontSize="10"
+              fill="rgba(255,255,255,0.4)"
+              fontFamily="Geist Mono, monospace"
+              letterSpacing="0.22em"
+            >
               λ*
             </text>
 
@@ -251,8 +286,21 @@ function ExplorerPage() {
             {/* cursor */}
             {cursor && (
               <g>
-                <line x1={cursor.x} y1={padT} x2={cursor.x} y2={H - padB} stroke="rgba(255,255,255,0.25)" strokeDasharray="2 4" />
-                <circle cx={cursor.x} cy={cursor.y} r="4" fill="#00FFAA" style={{ filter: "drop-shadow(0 0 6px rgba(0,255,170,0.7))" }} />
+                <line
+                  x1={cursor.x}
+                  y1={padT}
+                  x2={cursor.x}
+                  y2={H - padB}
+                  stroke="rgba(255,255,255,0.25)"
+                  strokeDasharray="2 4"
+                />
+                <circle
+                  cx={cursor.x}
+                  cy={cursor.y}
+                  r="4"
+                  fill="#00FFAA"
+                  style={{ filter: "drop-shadow(0 0 6px rgba(0,255,170,0.7))" }}
+                />
               </g>
             )}
           </svg>
@@ -261,7 +309,11 @@ function ExplorerPage() {
             <Readout label="p" value={p.toFixed(3)} />
             <Readout label="λ*(p)" value={lambdaP.toFixed(4)} accent="#00FFAA" />
             <Readout label="bounded" value="✓ tanh" />
-            <Readout label="regime" value={attacked ? "attacked" : "neutral"} accent={attacked ? "#ff8c00" : undefined} />
+            <Readout
+              label="regime"
+              value={attacked ? "attacked" : "neutral"}
+              accent={attacked ? "#ff8c00" : undefined}
+            />
           </div>
         </motion.div>
       </section>
@@ -290,7 +342,9 @@ function SliderRow({
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between">
-        <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/55">{label}</span>
+        <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/55">
+          {label}
+        </span>
         <span
           className="tabular text-[13px] font-light text-[#00FFAA]"
           style={{ textShadow: "0 0 10px rgba(0,255,170,0.35)" }}
