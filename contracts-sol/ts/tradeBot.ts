@@ -15,8 +15,12 @@ const ERC1155_ABI = [
 ];
 
 async function main() {
+  const privateKey = process.env.BOT_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY;
+  if (!privateKey) {
+    throw new Error("Neither BOT_PRIVATE_KEY nor DEPLOYER_PRIVATE_KEY is set in environment variables.");
+  }
   const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || "http://localhost:8545");
-  const wallet = new ethers.Wallet(process.env.BOT_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY!, provider);
+  const wallet = new ethers.Wallet(privateKey, provider);
 
   const manifestPath = path.join(__dirname, "../deployments/arb-sepolia.json");
   const seedManifestPath = path.join(__dirname, "../deployments/seed-manifest.json");

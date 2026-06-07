@@ -91,12 +91,12 @@ contract MarketFactoryTest is Test {
         vm.prank(alice);
         uint256 yesOut = poolWeth.buyYes(1e15, 1, block.timestamp + 1);
 
-        assertEq(yesOut, 213692635182807876);
-        assertEq(poolWeth.xActive(), 1e18 + 1e15);
+        assertEq(yesOut, 107346317591403938);
+        assertEq(poolWeth.xActive(), 501000000000000000);
     }
 
     function _createEvent() internal returns (PmAmmPool, PmAmmPool) {
-        return factory.createEvent(question, block.timestamp + 30 days, resolver, 6e18, 2e18, false);
+        return factory.createEvent(question, "SYM", "cat", block.timestamp + 30 days, resolver, 6e18, 2e18, false);
     }
 
     function _splitApprove(address user, address collateral, bytes32 conditionId, address pool, uint256 amount)

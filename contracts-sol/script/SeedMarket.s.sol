@@ -10,6 +10,7 @@ import {IERC20Minimal} from "../src/interfaces/IERC20Minimal.sol";
 import {CtfPositionLib} from "../src/libraries/CtfPositionLib.sol";
 import {OmniverseMathSolidity} from "../src/OmniverseMathSolidity.sol";
 import {IPriceOracle} from "../src/interfaces/IPriceOracle.sol";
+import {OmniverseRouter} from "../src/Router.sol";
 
 /// @notice Seeds a local/testnet deployment with liquidity and demo positions.
 contract SeedMarket is Script {
@@ -28,13 +29,15 @@ contract SeedMarket is Script {
 
         // 1. Create Event
         string memory question = "Will ETH reach 10k in 2026?";
+        string memory symbol = "ETH>=10k";
+        string memory category = "macro";
         bytes32 questionId = keccak256(bytes(question));
         uint256 expiry = block.timestamp + 30 days;
-        uint256 l0 = 6e18;
+        uint256 l0 = 5_000e18;
         uint256 gammaPrime = 2e18;
         
         (PmAmmPool wethPool, PmAmmPool usdcPool) = factory.createEvent(
-            question, expiry, resolverAddr, l0, gammaPrime, false
+            question, symbol, category, expiry, resolverAddr, l0, gammaPrime, false
         );
         bytes32 conditionId = wethPool.conditionId();
         console.log("Created Event (conditionId):");
@@ -61,8 +64,8 @@ contract SeedMarket is Script {
         // 4. Add Liquidity
         ctf.setApprovalForAll(address(wethPool), true);
         ctf.setApprovalForAll(address(usdcPool), true);
-        wethPool.addLiquidity(5_000e18, 5_000e18, 5_000e18);
-        usdcPool.addLiquidity(20_000e18, 20_000e18, 20_000e18);
+        wethPool.addLiquidity(5_000e18, 5_000e18, 5_000e18 - 1000);
+        usdcPool.addLiquidity(20_000e18, 20_000e18, 20_000e18 - 1000);
         console.log("Added Liquidity to pools");
 
         // 5. Deploy MultiverseLending for this condition and seed YES-USDC debt reserve
@@ -90,6 +93,9 @@ contract SeedMarket is Script {
         console.log("Opened Demo Loan 1: Deposited 100 YES-WETH, Borrowed 1000 YES-USDC");
 
 
+        OmniverseRouter router = new OmniverseRouter(ctf, address(weth), address(usdc));
+        console.log("Deployed Router at:", address(router));
+
         vm.stopBroadcast();
         
         string memory manifest = string(abi.encodePacked(
@@ -102,7 +108,8 @@ contract SeedMarket is Script {
             '  "noWethId": "', vm.toString(wethPool.noPositionId()), '",\n',
             '  "yesUsdcId": "', vm.toString(usdcPool.yesPositionId()), '",\n',
             '  "noUsdcId": "', vm.toString(usdcPool.noPositionId()), '",\n',
-            '  "lending": "', vm.toString(address(lending)), '"\n',
+            '  "lending": "', vm.toString(address(lending)), '",\n',
+            '  "router": "', vm.toString(address(router)), '"\n',
             '}'
         ));
         vm.writeFile("deployments/seed-manifest.json", manifest);

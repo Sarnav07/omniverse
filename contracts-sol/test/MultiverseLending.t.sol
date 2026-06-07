@@ -368,14 +368,19 @@ contract MultiverseLendingTest is Test {
 
         // Drive a real gap by letting pool liquidity decay (ellActive goes stale
         // vs the decayed total) -> |g| grows -> LTV must fall -> HF must fall.
-        vm.warp(block.timestamp + 5 days);
+        uint256 currentTime = block.timestamp;
+        
+        currentTime += 5 days;
+        vm.warp(currentTime);
         uint256 hfSmallGap = lending.healthFactor(borrower);
 
-        vm.warp(block.timestamp + 5 days);
+        currentTime += 5 days;
+        vm.warp(currentTime);
         uint256 hfMidGap = lending.healthFactor(borrower);
 
         // Beyond G_CAP the haircut saturates: LTV floors at LTV_BASE*(1-H)=0.40.
-        vm.warp(block.timestamp + 19 days);
+        currentTime += 19 days;
+        vm.warp(currentTime);
         uint256 hfSaturated = lending.healthFactor(borrower);
 
         assertLt(hfSmallGap, hfFlat);

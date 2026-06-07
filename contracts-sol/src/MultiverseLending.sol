@@ -138,9 +138,6 @@ contract MultiverseLending is IERC1155Receiver {
         emit Deposited(msg.sender, amount);
     }
 
-    /// @notice Borrow YES-USDC against escrowed YES-WETH. The only position this
-    ///         function ever lends is yesUsdcId, so a cross-leg (NO-USDC) or
-    ///         cross-condition borrow is structurally impossible.
     function borrow(uint256 amount) external nonReentrant notSettled {
         if (amount == 0) revert InvalidAmount();
         if (amount > reserveYesUsdc) revert InsufficientReserve();
@@ -152,6 +149,23 @@ contract MultiverseLending is IERC1155Receiver {
 
         conditionalTokens.safeTransferFrom(address(this), msg.sender, yesUsdcId, amount, "");
         emit Borrowed(msg.sender, amount);
+    }
+
+    /// @notice Safely transfers a position's collateral and debt to another user.
+    ///         Guarantees the recipient maintains a healthy LTV.
+    function transferPosition(address to, uint256 cAmount, uint256 dAmount) external nonReentrant notSettled {
+        if (cAmount == 0 && dAmount == 0) revert InvalidAmount();
+        if (collateralOf[msg.sender] < cAmount || debtOf[msg.sender] < dAmount) revert InvalidAmount();
+        
+        collateralOf[msg.sender] -= cAmount;
+        debtOf[msg.sender] -= dAmount;
+        
+        if (debtOf[msg.sender] > 0 && healthFactor(msg.sender) < WAD) revert Unhealthy();
+
+        collateralOf[to] += cAmount;
+        debtOf[to] += dAmount;
+        
+        if (debtOf[to] > 0 && healthFactor(to) < WAD) revert Unhealthy();
     }
 
     function repay(uint256 amount) external nonReentrant notSettled {

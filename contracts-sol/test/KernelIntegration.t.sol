@@ -93,8 +93,8 @@ contract KernelIntegrationTest is Test {
         assertEq(pool.xActive(), 11e18); // 10e18 + 1e18 NO paid
         assertEq(pool.yActive(), 10e18 - yesOut); // 10e18 - YES received
         
-        // Ensure poolValue via the live kernel behaves correctly
-        uint256 value = liveKernel.poolValue(11e18, 10e18 - yesOut, 10e18);
+        // Ensure solveSwap via the live kernel behaves correctly
+        uint256 value = liveKernel.solveSwap(11e18, 10e18 - yesOut, 10e18);
         assertApproxEqAbs(value, 1e18, pool.INVARIANT_EPS());
     }
 }

@@ -25,7 +25,10 @@ contract MarketFactory {
         address poolWeth,
         address poolUsdc,
         uint256 wethMarketId,
-        uint256 usdcMarketId
+        uint256 usdcMarketId,
+        string question,
+        string symbol,
+        string category
     );
 
     error AlreadyExists();
@@ -39,6 +42,8 @@ contract MarketFactory {
 
     function createEvent(
         string calldata question,
+        string calldata symbol,
+        string calldata category,
         uint256 expiry,
         address resolver,
         uint256 l0,
@@ -66,7 +71,10 @@ contract MarketFactory {
             address(poolWeth),
             address(poolUsdc),
             poolWeth.marketId(),
-            poolUsdc.marketId()
+            poolUsdc.marketId(),
+            question,
+            symbol,
+            category
         );
     }
 

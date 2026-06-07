@@ -8,8 +8,11 @@ const MOCK_ERC20_ABI = [
 ];
 
 async function main() {
+  if (!process.env.DEPLOYER_PRIVATE_KEY) {
+    throw new Error("DEPLOYER_PRIVATE_KEY is missing from environment variables.");
+  }
   const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || "http://localhost:8545");
-  const wallet = new ethers.Wallet(process.env.DEPLOYER_PRIVATE_KEY!, provider);
+  const wallet = new ethers.Wallet(process.env.DEPLOYER_PRIVATE_KEY, provider);
   const targetAddress = process.argv[2] || wallet.address;
 
   console.log(`Dripping to: ${targetAddress}`);

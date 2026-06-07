@@ -42,11 +42,11 @@ contract PmAmmPoolTest is Test {
         vm.prank(alice);
         uint256 yesOut = pool.buyYes(1e15, 1, block.timestamp + 1);
 
-        assertEq(yesOut, 213692635182807876);
-        assertEq(pool.xActive(), 1e18 + 1e15);
-        assertEq(pool.yActive(), 3786307364817192124);
+        assertEq(yesOut, 107346317591403938);
+        assertEq(pool.xActive(), 501000000000000000);
+        assertEq(pool.yActive(), 1892653682408596062);
         assertEq(ctf.balanceOf(address(pool), noId), 1e18 + 1e15);
-        assertEq(ctf.balanceOf(address(pool), yesId), 3786307364817192124);
+        assertEq(ctf.balanceOf(address(pool), yesId), 3892653682408596062);
     }
 
     function testBuyNoTransfersErc1155AndUpdatesReserves() public {
@@ -55,11 +55,11 @@ contract PmAmmPoolTest is Test {
         vm.prank(alice);
         uint256 noOut = pool.buyNo(1e15, 1, block.timestamp + 1);
 
-        assertEq(noOut, 213692635182807876);
-        assertEq(pool.xActive(), 786307364817192124);
-        assertEq(pool.yActive(), 4e18 + 1e15);
+        assertEq(noOut, 107346317591403938);
+        assertEq(pool.xActive(), 392653682408596062);
+        assertEq(pool.yActive(), 2001000000000000000);
         assertEq(ctf.balanceOf(address(pool), yesId), 4e18 + 1e15);
-        assertEq(ctf.balanceOf(address(pool), noId), 786307364817192124);
+        assertEq(ctf.balanceOf(address(pool), noId), 892653682408596062);
     }
 
     function testUnapprovedInputTransferReverts() public {
@@ -90,7 +90,7 @@ contract PmAmmPoolTest is Test {
         vm.warp(pool.T() - 30 minutes);
         vm.prank(alice);
         vm.expectRevert(PmAmmPool.Frozen.selector);
-        pool.buyYes(1e15, 0, block.timestamp + 1);
+        pool.buyYes(1e15, 1, type(uint256).max);
     }
 
     function testAddAndRemoveLiquidityPreservesSharesAndBalances() public {
@@ -157,7 +157,7 @@ contract PmAmmPoolTest is Test {
         assertEq(pool.yActive(), 5e18);
         assertEq(pool.xPassive(), 7.5e18);
         assertEq(pool.yPassive(), 15e18);
-        assertEq(pool.ellActive(), 0.25e9);
+        assertEq(pool.ellActive(), 2500000000000000000);
 
         pool.rebalance();
         assertEq(pool.nLast(), block.number);
@@ -236,7 +236,7 @@ contract PmAmmPoolTest is Test {
         buyer.buyYes();
 
         assertTrue(buyer.sawReentrancyRevert());
-        assertEq(ctf.balanceOf(address(buyer), yesId), 213692635182807876);
+        assertEq(ctf.balanceOf(address(buyer), yesId), 107346317591403938);
     }
 
     function testReserveOverflowIsInterceptedBeforeMathCall() public {

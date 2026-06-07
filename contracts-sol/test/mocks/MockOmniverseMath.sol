@@ -40,7 +40,10 @@ contract MockOmniverseMath {
     /// @dev On-curve y for constant P=price, Q=PHI_CONST: y = (ell*Q - x1*P)/(WAD-P).
     function solveSwap(uint256 x1, uint256 y0, uint256 ell) external view returns (uint256 y1) {
         require(x1 <= type(uint128).max && y0 <= type(uint128).max && ell <= type(uint128).max, "MATH_TOUCHED_OOB");
-        return ((ell * PHI_CONST) - (x1 * price)) / (1e18 - price);
+        uint256 term1 = ell * PHI_CONST;
+        uint256 term2 = x1 * price;
+        if (term2 >= term1) return 0;
+        return (term1 - term2) / (1e18 - price);
     }
 
     function poolValue(int256 z) external view returns (uint256) {

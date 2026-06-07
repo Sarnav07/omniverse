@@ -34,7 +34,7 @@ contract PmAmmPool is IERC1155Receiver {
     uint256 public xPassive;
     uint256 public yPassive;
 
-    uint256 public immutable L0;
+    uint256 public L0;
     uint256 public immutable T;
     uint256 public immutable duration;
     uint256 public ellActive;
@@ -45,6 +45,12 @@ contract PmAmmPool is IERC1155Receiver {
 
     uint256 public totalShares;
     mapping(address => uint256) public sharesOf;
+
+    function transferShares(address to, uint256 shares) external {
+        if (sharesOf[msg.sender] < shares) revert InvalidAmount();
+        sharesOf[msg.sender] -= shares;
+        sharesOf[to] += shares;
+    }
 
     uint256 private _entered = 1;
     bool private _expectingDeposit;
@@ -139,17 +145,40 @@ contract PmAmmPool is IERC1155Receiver {
     }
 
     function buyNo(uint256 yesIn, uint256 minOut) external nonReentrant returns (uint256 noOut) {
-        return _buyNo(yesIn, minOut, type(uint256).max);
+        return _buyNo(yesIn, minOut, type(uint256).max, msg.sender);
     }
 
     /// @notice Buy NO by paying YES into the pool.
     function buyNo(uint256 yesIn, uint256 minOut, uint256 deadline) external nonReentrant returns (uint256 noOut) {
-        return _buyNo(yesIn, minOut, deadline);
+        return _buyNo(yesIn, minOut, deadline, msg.sender);
+    }
+
+    function buyYesFor(uint256 noIn, uint256 minOut, address to) external nonReentrant returns (uint256 yesOut) {
+        return _buyYes(noIn, minOut, type(uint256).max, to);
+    }
+
+    function buyNoFor(uint256 yesIn, uint256 minOut, address to) external nonReentrant returns (uint256 noOut) {
+        return _buyNo(yesIn, minOut, type(uint256).max, to);
     }
 
     function addLiquidity(uint256 yesAmount, uint256 noAmount, uint256 minShares)
         external
         nonReentrant
+        returns (uint256 mintedShares)
+    {
+        return _addLiquidity(yesAmount, noAmount, minShares, msg.sender);
+    }
+
+    function addLiquidityFor(uint256 yesAmount, uint256 noAmount, uint256 minShares, address to)
+        external
+        nonReentrant
+        returns (uint256 mintedShares)
+    {
+        return _addLiquidity(yesAmount, noAmount, minShares, to);
+    }
+
+    function _addLiquidity(uint256 yesAmount, uint256 noAmount, uint256 minShares, address to)
+        internal
         returns (uint256 mintedShares)
     {
         if (yesAmount == 0 || noAmount == 0) revert InvalidAmount();
@@ -159,15 +188,25 @@ contract PmAmmPool is IERC1155Receiver {
         uint256 yTotal = yActive + yPassive;
         if (totalShares == 0) {
             mintedShares = _min(yesAmount, noAmount);
+            if (mintedShares > L0) L0 = mintedShares;
         } else {
             mintedShares = _min((yesAmount * totalShares) / yTotal, (noAmount * totalShares) / xTotal);
+            L0 = L0 + (L0 * mintedShares) / totalShares;
         }
         if (mintedShares == 0 || mintedShares < minShares) revert Slippage();
 
         totalShares += mintedShares;
-        sharesOf[msg.sender] += mintedShares;
-        xActive += noAmount;
-        yActive += yesAmount;
+        sharesOf[to] += mintedShares;
+        
+        uint256 noActive = (noAmount * lambdaWad) / WAD;
+        uint256 yesActive = (yesAmount * lambdaWad) / WAD;
+        xActive += noActive;
+        yActive += yesActive;
+        xPassive += noAmount - noActive;
+        yPassive += yesAmount - yesActive;
+
+        uint256 ellTotal = _floorEll(_liquidityAt(block.timestamp));
+        ellActive = _floorEll((ellTotal * lambdaWad) / WAD);
         _assertKernelBounds(xActive, yActive, ellActive);
 
         _expectingDeposit = true;
@@ -191,9 +230,19 @@ contract PmAmmPool is IERC1155Receiver {
         yesOut = ((yActive + yPassive) * shares) / supply;
         if (yesOut < minYesOut || noOut < minNoOut) revert Slippage();
 
+        uint256 noActive = (noOut * lambdaWad) / WAD;
+        uint256 yesActive = (yesOut * lambdaWad) / WAD;
+        xActive -= noActive;
+        yActive -= yesActive;
+        xPassive -= noOut - noActive;
+        yPassive -= yesOut - yesActive;
+
         totalShares = supply - shares;
         sharesOf[msg.sender] -= shares;
-        _removeReserves(noOut, yesOut);
+        L0 = L0 - (L0 * shares) / supply;
+
+        uint256 ellTotal = _floorEll(_liquidityAt(block.timestamp));
+        ellActive = _floorEll((ellTotal * lambdaWad) / WAD);
 
         conditionalTokens.safeTransferFrom(address(this), msg.sender, yesPositionId, yesOut, "");
         conditionalTokens.safeTransferFrom(address(this), msg.sender, noPositionId, noOut, "");
@@ -263,6 +312,10 @@ contract PmAmmPool is IERC1155Receiver {
     }
 
     function _buyYes(uint256 noIn, uint256 minOut, uint256 deadline) internal returns (uint256 yesOut) {
+        return _buyYes(noIn, minOut, deadline, msg.sender);
+    }
+
+    function _buyYes(uint256 noIn, uint256 minOut, uint256 deadline, address to) internal returns (uint256 yesOut) {
         _checkTrade(noIn, deadline);
         _rebalance();
 
@@ -284,7 +337,7 @@ contract PmAmmPool is IERC1155Receiver {
         _expectingDeposit = true;
         conditionalTokens.safeTransferFrom(msg.sender, address(this), noPositionId, noIn, "");
         _expectingDeposit = false;
-        conditionalTokens.safeTransferFrom(address(this), msg.sender, yesPositionId, yesOut, "");
+        conditionalTokens.safeTransferFrom(address(this), to, yesPositionId, yesOut, "");
 
         emit OmniverseTrade(
             marketId, msg.sender, 0, noIn, priceWad, ellActive, lambdaWad, gapWad, uint64(block.timestamp)
@@ -292,6 +345,10 @@ contract PmAmmPool is IERC1155Receiver {
     }
 
     function _buyNo(uint256 yesIn, uint256 minOut, uint256 deadline) internal returns (uint256 noOut) {
+        return _buyNo(yesIn, minOut, deadline, msg.sender);
+    }
+
+    function _buyNo(uint256 yesIn, uint256 minOut, uint256 deadline, address to) internal returns (uint256 noOut) {
         _checkTrade(yesIn, deadline);
         _rebalance();
 
@@ -313,7 +370,7 @@ contract PmAmmPool is IERC1155Receiver {
         _expectingDeposit = true;
         conditionalTokens.safeTransferFrom(msg.sender, address(this), yesPositionId, yesIn, "");
         _expectingDeposit = false;
-        conditionalTokens.safeTransferFrom(address(this), msg.sender, noPositionId, noOut, "");
+        conditionalTokens.safeTransferFrom(address(this), to, noPositionId, noOut, "");
 
         emit OmniverseTrade(
             marketId, msg.sender, 2, yesIn, priceWad, ellActive, lambdaWad, gapWad, uint64(block.timestamp)
@@ -380,25 +437,6 @@ contract PmAmmPool is IERC1155Receiver {
         int256 term1 = (diff * int256(pPhi)) / int256(WAD);
         int256 term2 = (_toInt256(ell) * int256(pSmallPhi)) / int256(WAD);
         return term1 + term2 - _toInt256(y);
-    }
-
-    function _removeReserves(uint256 noOut, uint256 yesOut) internal {
-        xActive = _removeFromBuckets(xActive, xPassive, noOut, true);
-        yActive = _removeFromBuckets(yActive, yPassive, yesOut, false);
-    }
-
-    function _removeFromBuckets(uint256 active, uint256 passive, uint256 amount, bool isNo) internal returns (uint256) {
-        if (amount <= passive) {
-            if (isNo) xPassive = passive - amount;
-            else yPassive = passive - amount;
-            return active;
-        }
-
-        uint256 activeOut = amount - passive;
-        if (activeOut > active) revert InvalidAmount();
-        if (isNo) xPassive = 0;
-        else yPassive = 0;
-        return active - activeOut;
     }
 
     function _zFromReserves(uint256 x, uint256 y, uint256 ell) internal pure returns (int256) {

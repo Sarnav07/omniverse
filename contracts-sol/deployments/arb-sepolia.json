@@ -1,9 +1,9 @@
 {
-  "omniverseMath": "0x45d00cfa00551e8c8df27dbf44751f56820a07a4",
-  "conditionalTokens": "0xecd4c4f41ec621b7fb60267fad08c54b43680e51",
-  "weth": "0x034d40d2d170a1ae53b6b39608e4a3dfbcf75b54",
-  "usdc": "0xb4dd6679cf01205efe30da1d1427c9151d2677f7",
-  "priceOracle": "0x232f8eb8d1ba2d3a1c67555fd4cd7d6ef6388cca",
-  "resolver": "0xb8a8d5ecdadf056f98de1c0521c5d8ece64e2b54",
-  "marketFactory": "0x31f75372b6ec65ece21acb946e007171cc49c9af"
+  "omniverseMath": "0x3b9590ee77ecef5933f3c689e7f92b0ec70883a1",
+  "conditionalTokens": "0x8f555c1d8da24ebb9e8fe057a845f2c1bbe548bc",
+  "weth": "0x5a0220eaf6ecb9181e9cdc7ccf6877af377fea79",
+  "usdc": "0x1e30bf2a514825653f11f548cb568fb95bae54ae",
+  "priceOracle": "0x3e2344a520eaace9605c0a024ef0ca6616e47745",
+  "resolver": "0xbf1d6fa1aa8b00b48bffe03b194c555fe0c55007",
+  "marketFactory": "0x048231b9814a1ea626c93d7a825100ac0c53c8b1"
 }
