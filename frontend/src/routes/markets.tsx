@@ -11,6 +11,9 @@ const MARKETS_QUERY = `
       items {
         id
         questionId
+        question
+        symbol
+        category
         lastPriceWeth
         totalVolumeWeth
         resolved
@@ -58,27 +61,6 @@ type Market = {
   trend: "up" | "down";
 };
 
-const MOCK_MARKETS: Market[] = [
-  { id: "btc-100k", symbol: "BTC≥100k", question: "btc settles above 100k by q4", category: "macro", yes: 0.84, volume: "$24.8m", tvl: "$182.4m", apr: "12.4%", trend: "up",
-    curve: [0.42, 0.48, 0.51, 0.55, 0.62, 0.71, 0.78, 0.81, 0.84] },
-  { id: "eth-merge", symbol: "ETH·yield", question: "eth staking yield ≥ 5.2% next epoch", category: "yield", yes: 0.71, volume: "$12.1m", tvl: "$94.2m", apr: "8.7%", trend: "up",
-    curve: [0.55, 0.52, 0.58, 0.61, 0.64, 0.66, 0.69, 0.70, 0.71] },
-  { id: "sol-tvl", symbol: "SOL·tvl", question: "sol tvl crosses $8b before nov", category: "macro", yes: 0.42, volume: "$8.4m", tvl: "$41.0m", trend: "down",
-    curve: [0.62, 0.58, 0.54, 0.51, 0.49, 0.46, 0.44, 0.43, 0.42] },
-  { id: "fed-cuts", symbol: "FED·25bp", question: "fed cuts 25bp at next fomc", category: "rates", yes: 0.62, volume: "$31.4m", tvl: "$224.8m", apr: "9.1%", trend: "up",
-    curve: [0.48, 0.50, 0.51, 0.54, 0.56, 0.59, 0.60, 0.61, 0.62] },
-  { id: "stables-depeg", symbol: "USDC·peg", question: "usdc maintains peg ±10bp through epoch", category: "stable", yes: 0.94, volume: "$48.2m", tvl: "$612.1m", apr: "4.2%", trend: "up",
-    curve: [0.91, 0.93, 0.92, 0.93, 0.94, 0.94, 0.94, 0.94, 0.94] },
-  { id: "options-iv", symbol: "IV·vol", question: "30d iv compresses below 48 by friday", category: "vol", yes: 0.38, volume: "$6.2m", tvl: "$28.4m", trend: "down",
-    curve: [0.58, 0.55, 0.52, 0.48, 0.45, 0.42, 0.40, 0.39, 0.38] },
-  { id: "rwa-yield", symbol: "RWA·t", question: "tokenized treasuries clear 5.3% apr", category: "rwa", yes: 0.78, volume: "$14.8m", tvl: "$108.6m", apr: "5.3%", trend: "up",
-    curve: [0.62, 0.65, 0.68, 0.71, 0.73, 0.75, 0.76, 0.77, 0.78] },
-  { id: "ai-tokens", symbol: "AI·idx", question: "ai sector outperforms l1s on 30d basis", category: "thematic", yes: 0.56, volume: "$9.6m", tvl: "$52.8m", trend: "up",
-    curve: [0.42, 0.45, 0.48, 0.50, 0.52, 0.53, 0.54, 0.55, 0.56] },
-  { id: "lst-discount", symbol: "stETH·d", question: "stETH discount narrows under 5bp", category: "lst", yes: 0.69, volume: "$11.2m", tvl: "$78.4m", apr: "6.8%", trend: "up",
-    curve: [0.51, 0.54, 0.57, 0.60, 0.63, 0.65, 0.67, 0.68, 0.69] },
-];
-
 /* ─────────────────────────────── page ─────────────────────────────── */
 
 function MarketsPage() {
@@ -90,21 +72,25 @@ function MarketsPage() {
   const filteredMarkets = useMemo(() => {
     const items = data?.markets?.items || [];
     
-    // Map Ponder data to UI shape, fallback to MOCK_MARKETS
     const combined = items.map((item: any) => {
-      const mock = MOCK_MARKETS.find(m => m.id === item.id) || MOCK_MARKETS[0];
       const yesPrice = Number(item.lastPriceWeth) / 1e18;
       const vol = Number(item.totalVolumeWeth) / 1e18;
       
       return {
-        ...mock,
         id: item.id,
-        yes: yesPrice > 0 ? yesPrice : mock.yes, // use real price if > 0
-        volume: vol > 0 ? `$${(vol / 1000000).toFixed(1)}m` : mock.volume,
+        symbol: item.symbol,
+        question: item.question,
+        category: item.category,
+        yes: yesPrice > 0 ? yesPrice : 0.5,
+        volume: vol > 0 ? `$${(vol / 1000000).toFixed(1)}m` : "$0.0m",
+        tvl: "$0.0m",
+        apr: "0.0%",
+        curve: [0.5, 0.5, 0.5, 0.5, yesPrice > 0 ? yesPrice : 0.5],
+        trend: "up"
       };
     });
 
-    const displayList = combined.length > 0 ? combined : MOCK_MARKETS;
+    const displayList = combined;
 
     if (activeCategory === "all") return displayList;
     return displayList.filter((m) => m.category === activeCategory);

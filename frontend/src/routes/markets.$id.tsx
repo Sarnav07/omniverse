@@ -9,12 +9,19 @@ import ResolverAbi from '@/abis/Resolver.abi.json';
 import { CONTRACT_ADDRESSES } from '@/config/contracts';
 import { toast } from "sonner";
 import { useQuery } from 'urql';
-
+import { parseUnits } from 'viem';
+import OmniverseRouterAbi from '@/abis/OmniverseRouter.abi.json';
+import ConditionalTokensAbi from '@/abis/ConditionalTokens.abi.json';
 const MARKET_BY_ID_QUERY = `
   query MarketById($id: String!) {
     market(id: $id) {
       id
       questionId
+      question
+      symbol
+      category
+      poolWeth
+      poolUsdc
       lastPriceWeth
       totalVolumeWeth
       resolved
@@ -42,19 +49,6 @@ export const Route = createFileRoute("/markets/$id")({
   component: TerminalPage,
 });
 
-/* ───────────────────────────── mock market ───────────────────────────── */
-
-const MOCK_MARKET = {
-  symbol: "BTC≥100k",
-  question: "btc settles above 100k by q4",
-  category: "macro",
-  yes: 0.84,
-  tvl: "$182.4m",
-  volume24: "$24.8m",
-  expiry: "2026·12·31",
-  latency: "218ms",
-};
-
 function TerminalPage() {
   const { id } = Route.useParams();
   type TerminalTab = "swap" | "borrow" | "manage" | "provide" | "redeem";
@@ -68,14 +62,22 @@ function TerminalPage() {
 
   const MARKET = useMemo(() => {
     const item = data?.market;
-    const mock = MOCK_MARKET;
-    if (!item) return mock;
+    if (!item) return {
+      symbol: "...", question: "Loading...", category: "...", yes: 0.5, tvl: "$0.0m", volume24: "$0.0m", expiry: "...", latency: "..."
+    };
     const yesPrice = Number(item.lastPriceWeth) / 1e18;
     const vol = Number(item.totalVolumeWeth) / 1e18;
     return {
-      ...mock,
-      yes: yesPrice > 0 ? yesPrice : mock.yes,
-      volume24: vol > 0 ? `$${(vol / 1000000).toFixed(1)}m` : mock.volume24,
+      poolWeth: (item.poolWeth ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
+      poolUsdc: (item.poolUsdc ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
+      symbol: item.symbol,
+      question: item.question,
+      category: item.category,
+      yes: yesPrice > 0 ? yesPrice : 0.5,
+      tvl: "$0.0m",
+      volume24: vol > 0 ? `$${(vol / 1000000).toFixed(1)}m` : "$0.0m",
+      expiry: "2026·12·31",
+      latency: "218ms",
     };
   }, [data]);
 
@@ -178,10 +180,10 @@ function TerminalPage() {
             </div>
           </div>
 
-          {tab === "swap" && <SwapTab />}
-          {tab === "borrow" && <IntentEngine mode="execute" />}
+          {tab === "swap" && <SwapTab poolWeth={MARKET.poolWeth} poolUsdc={MARKET.poolUsdc} />}
+          {tab === "borrow" && <IntentEngine mode="execute" poolWeth={MARKET.poolWeth} poolUsdc={MARKET.poolUsdc} />}
           {tab === "manage" && <ManageTab />}
-          {tab === "provide" && <IntentEngine mode="provide" />}
+          {tab === "provide" && <IntentEngine mode="provide" poolWeth={MARKET.poolWeth} poolUsdc={MARKET.poolUsdc} />}
           {tab === "redeem" && <RedeemTab />}
         </section>
       </main>
@@ -370,7 +372,7 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
 
 /* ───────────────────────── intent engine ───────────────────────── */
 
-function IntentEngine({ mode }: { mode: "provide" | "execute" }) {
+function IntentEngine({ mode, poolWeth, poolUsdc }: { mode: "provide" | "execute", poolWeth: `0x${string}`, poolUsdc: `0x${string}` }) {
   const [collateral, setCollateral] = useState("250000");
   const [borrow, setBorrow] = useState("180000");
   const [sideYes, setSideYes] = useState(true);
@@ -393,12 +395,23 @@ function IntentEngine({ mode }: { mode: "provide" | "execute" }) {
 
   function onSign() {
     if (!valid || signing) return;
-    writeContract({
-      address: mode === 'provide' ? CONTRACT_ADDRESSES.PmAmmPool : CONTRACT_ADDRESSES.MultiverseLending,
-      abi: mode === 'provide' ? PmAmmPoolAbi : MultiverseLendingAbi,
-      functionName: mode === 'provide' ? 'addLiquidity' : 'borrow',
-      args: [BigInt(Math.floor(c * 1e6)), BigInt(Math.floor(b * 1e6))],
-    }, { onError: (err) => toast.error(err.message, { id: 'tx-intent' }) });
+    const isProvide = mode === 'provide';
+    
+    if (isProvide) {
+      writeContract({
+        address: CONTRACT_ADDRESSES.OmniverseRouter,
+        abi: OmniverseRouterAbi,
+        functionName: 'addLiquidity',
+        args: [poolUsdc, id, parseUnits(c.toString(), 18), 0n],
+      }, { onError: (err) => toast.error(err.message, { id: 'tx-intent' }) });
+    } else {
+      writeContract({
+        address: CONTRACT_ADDRESSES.OmniverseRouter,
+        abi: OmniverseRouterAbi,
+        functionName: 'executeBorrow',
+        args: [CONTRACT_ADDRESSES.MultiverseLending, id, parseUnits(c.toString(), 18), parseUnits(b.toString(), 18)],
+      }, { onError: (err) => toast.error(err.message, { id: 'tx-intent' }) });
+    }
   }
 
   return (
@@ -434,7 +447,7 @@ function IntentEngine({ mode }: { mode: "provide" | "execute" }) {
       <div className="relative flex-1 px-6 pt-6">
         <BigInput
           label={mode === "provide" ? "deposit" : "collateral"}
-          symbol="usdc"
+          symbol={mode === "provide" ? "usdc" : "weth"}
           value={collateral}
           onChange={setCollateral}
         />
@@ -444,7 +457,7 @@ function IntentEngine({ mode }: { mode: "provide" | "execute" }) {
 
         <BigInput
           label={mode === "provide" ? "paired" : "borrow against"}
-          symbol="weth"
+          symbol={mode === "provide" ? "usdc" : "usdc"}
           value={borrow}
           onChange={setBorrow}
         />
@@ -588,7 +601,7 @@ function PreviewCell({ label, value }: { label: string; value: string }) {
 
 /* ─────────────────────────── swap tab ─────────────────────────── */
 
-function SwapTab() {
+function SwapTab({ poolWeth, poolUsdc }: { poolWeth: `0x${string}`, poolUsdc: `0x${string}` }) {
   const [amount, setAmount] = useState("10000");
   const [side, setSide] = useState<"yes" | "no">("yes");
   const price = side === "yes" ? 0.84 : 0.16;
@@ -608,10 +621,10 @@ function SwapTab() {
   function onSwap() {
     if (signing) return;
     writeContract({
-      address: CONTRACT_ADDRESSES.PmAmmPool,
-      abi: PmAmmPoolAbi,
+      address: CONTRACT_ADDRESSES.OmniverseRouter,
+      abi: OmniverseRouterAbi,
       functionName: side === 'yes' ? 'buyYes' : 'buyNo',
-      args: [BigInt(Math.floor(parseFloat(amount) * 1e6))],
+      args: [poolUsdc, id, parseUnits(amount, 18), 0n],
     }, { onError: (err) => toast.error(err.message, { id: 'tx-swap' }) });
   }
 
@@ -696,6 +709,9 @@ function SwapTab() {
 /* ─────────────────────────── manage tab ─────────────────────────── */
 
 function ManageTab() {
+  const [mode, setMode] = useState<"repay" | "withdraw">("repay");
+  const [amount, setAmount] = useState("18000");
+
   const health = 1.84;
   // gauge 0..1 mapped from health 1.0..3.0
   const pct = Math.max(0, Math.min(1, (health - 1) / 2));
@@ -714,20 +730,49 @@ function ManageTab() {
     else if (isSuccess) toast.success('Transaction confirmed', { id: 'tx-manage' });
   }, [isPending, isConfirming, isSuccess]);
 
-  function onAction(action: 'repay' | 'withdraw') {
-    if (signing) return;
+  function onSubmit() {
+    if (signing || !amount) return;
     writeContract({
       address: CONTRACT_ADDRESSES.MultiverseLending,
       abi: MultiverseLendingAbi,
-      functionName: action,
-      args: [BigInt(0)], // Mock argument since we are not providing an input field for amount
+      functionName: mode,
+      args: [parseUnits(amount, 18)],
     }, { onError: (err) => toast.error(err.message, { id: 'tx-manage' }) });
   }
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
+      {/* mode toggle */}
+      <div className="grid grid-cols-2 border-b border-white/[0.06]">
+        <button
+          onClick={() => setMode("repay")}
+          className={`relative flex items-center justify-between px-6 py-4 ease-precision ${
+            mode === "repay" ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"
+          }`}
+        >
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">action</span>
+          <span className={`tabular text-[14px] ${mode === "repay" ? "text-white" : "text-white/40"}`}>
+            repay debt
+          </span>
+          {mode === "repay" && <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />}
+        </button>
+        <button
+          onClick={() => setMode("withdraw")}
+          className={`relative flex items-center justify-between border-l border-white/[0.06] px-6 py-4 ease-precision ${
+            mode === "withdraw" ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"
+          }`}
+        >
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">action</span>
+          <span className={`tabular text-[14px] ${mode === "withdraw" ? "text-[#00FFAA]" : "text-white/40"}`}
+             style={mode === "withdraw" ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" } : undefined}>
+            withdraw collat
+          </span>
+          {mode === "withdraw" && <span className="absolute inset-x-0 bottom-0 h-px bg-[#00FFAA]/60" />}
+        </button>
+      </div>
+
       <div className="flex-1 px-6 pt-6">
-        <div className="flex items-center gap-6">
+        <div className="mb-6 flex items-center gap-6">
           <div className="relative h-[140px] w-[140px] shrink-0">
             <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
               <circle cx="70" cy="70" r={R} stroke="rgba(255,255,255,0.06)" strokeWidth="6" fill="none" />
@@ -767,58 +812,44 @@ function ManageTab() {
           </div>
         </div>
 
-        <div className="mt-7 space-y-3">
-          <ManageRow label="repay usdc debt" hint="active loan · 180,000" cta="repay" onClick={() => onAction('repay')} disabled={signing} />
-          <ManageRow label="withdraw yes collateral" hint="available · 70,000" cta="withdraw" onClick={() => onAction('withdraw')} disabled={signing} />
-        </div>
+        <BigInput
+          label={mode === "repay" ? "repay amount" : "withdraw amount"}
+          symbol={mode === "repay" ? "usdc" : "yes-weth"}
+          value={amount}
+          onChange={setAmount}
+        />
 
         <div className="mt-6 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
-          <PreviewCell label="ltv" value="0.72" />
-          <PreviewCell label="apr" value="6.8%" />
+          <PreviewCell label="ltv limit" value="0.85" />
+          <PreviewCell label="new ltv" value="0.72" />
           <PreviewCell label="next acc." value="04:22" />
         </div>
       </div>
 
-      <div className="border-t border-white/[0.06] p-6 tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
-        position monitored · solver mesh · {health >= 1.5 ? "safe" : "watch"}
+      <div className="border-t border-white/[0.06] p-6">
+        <button
+          onClick={onSubmit}
+          disabled={signing}
+          className={`group relative flex h-12 w-full items-center justify-center overflow-hidden rounded-full border border-white/25 bg-white/[0.04] ease-precision hover:border-white/40 hover:bg-white/[0.07] ${signing ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          <span className="tabular text-[12px] uppercase tracking-[0.32em] text-white">
+            {mode === "repay" ? "repay usdc debt" : "withdraw collateral"}
+          </span>
+        </button>
+        <div className="mt-3 flex items-center justify-center tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+          position monitored · solver mesh · safe
+        </div>
       </div>
     </div>
   );
 }
 
-function ManageRow({
-  label,
-  hint,
-  cta,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  hint: string;
-  cta: string;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.012] px-4 py-3 ease-precision hover:border-white/15 hover:bg-white/[0.025]">
-      <div className="flex flex-col">
-        <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/75">{label}</span>
-        <span className="tabular mt-0.5 text-[9px] uppercase tracking-[0.22em] text-white/35">{hint}</span>
-      </div>
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        className={`rounded-full border border-white/15 px-3.5 py-1.5 tabular text-[10px] uppercase tracking-[0.22em] text-white/85 ease-precision hover:border-white/30 hover:bg-white/[0.05] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-      >
-        {cta} →
-      </button>
-    </div>
-  );
-}
+
 
 /* ─────────────────────────── redeem tab ─────────────────────────── */
 
 function RedeemTab() {
+  const { id } = Route.useParams();
   const [shares, setShares] = useState("125000");
   const payout = (parseFloat(shares) || 0).toFixed(2);
 
@@ -835,10 +866,10 @@ function RedeemTab() {
   function onRedeem() {
     if (signing) return;
     writeContract({
-      address: CONTRACT_ADDRESSES.Resolver,
-      abi: ResolverAbi,
-      functionName: 'resolve',
-      args: [BigInt(0), true], // Mock arguments
+      address: CONTRACT_ADDRESSES.ConditionalTokens,
+      abi: ConditionalTokensAbi,
+      functionName: 'redeemPositions',
+      args: [CONTRACT_ADDRESSES.USDC, "0x0000000000000000000000000000000000000000000000000000000000000000", id, [1, 2]],
     }, { onError: (err) => toast.error(err.message, { id: 'tx-redeem' }) });
   }
 

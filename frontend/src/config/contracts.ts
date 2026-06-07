@@ -1,9 +1,11 @@
-export const CONTRACT_ADDRESSES = {
-  OmniverseMath: "0x45d00cfa00551e8c8df27dbf44751f56820a07a4" as `0x${string}`,
-  ConditionalTokens: "0xecd4c4f41ec621b7fb60267fad08c54b43680e51" as `0x${string}`,
-  WETH: "0x034d40d2d170a1ae53b6b39608e4a3dfbcf75b54" as `0x${string}`,
-  USDC: "0xb4dd6679cf01205efe30da1d1427c9151d2677f7" as `0x${string}`,
-  PriceOracle: "0x232f8eb8d1ba2d3a1c67555fd4cd7d6ef6388cca" as `0x${string}`,
-  Resolver: "0xb8a8d5ecdadf056f98de1c0521c5d8ece64e2b54" as `0x${string}`,
-  MarketFactory: "0x31f75372b6ec65ece21acb946e007171cc49c9af" as `0x${string}`,
+export const CONTRACTS = {
+  OmniverseMath: "0x3F280606ceA810947e43e5DDB7FD2b5A18301dBa" as `0x${string}`,
+  ConditionalTokens: "0x1614134BC92fC3dBdC304dFc32178290d4037c1F" as `0x${string}`,
+  WETH: "0x6a8273EA01a9f9BCC4cE8D1d681575ce21eF8204" as `0x${string}`,
+  USDC: "0xBCB53c282F9106f3CBD063824c657Cb5928AEB71" as `0x${string}`,
+  PriceOracle: "0x9F0d878F5cFB6490B3DaA83e8b716D45E3484acE" as `0x${string}`,
+  Resolver: "0xb99d93a881f633F7426529A76CEAA5Ee0Fab7509" as `0x${string}`,
+  MarketFactory: "0xc3DFbA9E807d3AF9d52Ded98277083B7211297d7" as `0x${string}`,
+  MultiverseLending: "0x3fE402d564c4DA533807558114B3B2361Cbc8af3" as `0x${string}`,
+  OmniverseRouter: "0x7688D7CD0f61ff63b76135f50bce5b6853ED62f4" as `0x${string}`,
 } as const;
