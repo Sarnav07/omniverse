@@ -16,6 +16,7 @@ export const market = onchainTable("market", (t) => ({
   usdcMarketId: t.bigint().notNull(),       // sequential pool ID
   createdAt: t.integer().notNull(),         // block timestamp
   createdBlock: t.integer().notNull(),      // block number
+  useDynamicLambda: t.boolean().notNull(),  // WETH/USDC pool lambda mode
   resolved: t.boolean().notNull(),          // has the event been resolved?
   yesWon: t.boolean(),                      // resolution outcome (null if unresolved)
   totalVolumeWeth: t.bigint().notNull(),    // sum of trade.size on WETH pool (WAD)

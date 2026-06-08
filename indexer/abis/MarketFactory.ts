@@ -13,6 +13,9 @@ export const MarketFactoryAbi = [
       { name: "poolUsdc", type: "address", indexed: false },
       { name: "wethMarketId", type: "uint256", indexed: false },
       { name: "usdcMarketId", type: "uint256", indexed: false },
+      { name: "question", type: "string", indexed: false },
+      { name: "symbol", type: "string", indexed: false },
+      { name: "category", type: "string", indexed: false },
     ],
   },
   {

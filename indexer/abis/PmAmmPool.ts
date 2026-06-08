@@ -72,4 +72,11 @@ export const PmAmmPoolAbi = [
     outputs: [{ type: "uint256" }],
     stateMutability: "view",
   },
+  {
+    type: "function",
+    name: "useDynamicLambda",
+    inputs: [],
+    outputs: [{ type: "bool" }],
+    stateMutability: "view",
+  },
 ] as const;

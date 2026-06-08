@@ -28,37 +28,43 @@ async function handleOmniverseTrade({ event, context }: any) {
   const poolType = meta?.poolType ?? "UNKNOWN";
 
   // 1. Insert Trade row
-  await db.insert(trade).values({
-    id: `${event.transaction.hash}-${event.log.logIndex}`,
-    marketId,
-    conditionId,
-    pool: poolAddress,
-    poolType,
-    trader,
-    side,
-    sideLabel: sideLabel(side),
-    size,
-    priceAfter: priceWad,
-    ellWad,
-    lambdaWad,
-    gapWad,
-    timestamp: Number(timestamp),
-    blockNumber: Number(event.block.number),
-    txHash: event.transaction.hash,
-  });
+  await db
+    .insert(trade)
+    .values({
+      id: `${event.transaction.hash}-${event.log.logIndex}`,
+      marketId,
+      conditionId,
+      pool: poolAddress,
+      poolType,
+      trader,
+      side,
+      sideLabel: sideLabel(side),
+      size,
+      priceAfter: priceWad,
+      ellWad,
+      lambdaWad,
+      gapWad,
+      timestamp: Number(timestamp),
+      blockNumber: Number(event.block.number),
+      txHash: event.transaction.hash,
+    })
+    .onConflictDoNothing();
 
   // 2. Insert PriceSnapshot row for the chart
-  await db.insert(priceSnapshot).values({
-    id: `${marketId}-${poolType}-${timestamp}`,
-    marketId,
-    pool: poolAddress,
-    poolType,
-    priceWad,
-    lambdaWad,
-    ellWad,
-    timestamp: Number(timestamp),
-    blockNumber: Number(event.block.number),
-  });
+  await db
+    .insert(priceSnapshot)
+    .values({
+      id: `${marketId}-${poolType}-${timestamp}`,
+      marketId,
+      pool: poolAddress,
+      poolType,
+      priceWad,
+      lambdaWad,
+      ellWad,
+      timestamp: Number(timestamp),
+      blockNumber: Number(event.block.number),
+    })
+    .onConflictDoNothing();
 
   // 3. Update Market aggregates
   // Only update if conditionId is known
@@ -95,17 +101,20 @@ async function handleRebalanced({ event, context }: any) {
   const poolAddress = event.log.address;
   const poolType = getPoolMeta(poolAddress)?.poolType ?? "UNKNOWN";
 
-  await db.insert(rebalance).values({
-    id: `${poolAddress}-${blockNumber}`,
-    pool: poolAddress,
-    poolType,
-    xActive,
-    yActive,
-    ellActive,
-    lambdaWad,
-    blockNumber: Number(blockNumber),
-    timestamp: Number(event.block.timestamp),
-  });
+  await db
+    .insert(rebalance)
+    .values({
+      id: `${poolAddress}-${blockNumber}`,
+      pool: poolAddress,
+      poolType,
+      xActive,
+      yActive,
+      ellActive,
+      lambdaWad,
+      blockNumber: Number(blockNumber),
+      timestamp: Number(event.block.timestamp),
+    })
+    .onConflictDoNothing();
 }
 
 /**
@@ -118,19 +127,22 @@ async function handleLiquidity(event: any, context: any, action: "add" | "remove
   const poolAddress = event.log.address;
   const poolType = getPoolMeta(poolAddress)?.poolType ?? "UNKNOWN";
 
-  await db.insert(liquidityEvent).values({
-    id: `${event.transaction.hash}-${event.log.logIndex}`,
-    pool: poolAddress,
-    poolType,
-    provider,
-    action,
-    yesAmount,
-    noAmount,
-    shares,
-    timestamp: Number(event.block.timestamp),
-    blockNumber: Number(event.block.number),
-    txHash: event.transaction.hash,
-  });
+  await db
+    .insert(liquidityEvent)
+    .values({
+      id: `${event.transaction.hash}-${event.log.logIndex}`,
+      pool: poolAddress,
+      poolType,
+      provider,
+      action,
+      yesAmount,
+      noAmount,
+      shares,
+      timestamp: Number(event.block.timestamp),
+      blockNumber: Number(event.block.number),
+      txHash: event.transaction.hash,
+    })
+    .onConflictDoNothing();
 }
 
 // Register handlers for WETH pool

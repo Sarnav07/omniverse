@@ -35,6 +35,9 @@ type Query {
 type market {
   id: String!
   questionId: String!
+  question: String!
+  symbol: String!
+  category: String!
   resolver: String!
   poolWeth: String!
   poolUsdc: String!
@@ -42,6 +45,7 @@ type market {
   usdcMarketId: BigInt!
   createdAt: Int!
   createdBlock: Int!
+  useDynamicLambda: Boolean!
   resolved: Boolean!
   yesWon: Boolean
   totalVolumeWeth: BigInt!
@@ -80,6 +84,36 @@ input marketFilter {
   questionId_ends_with: String
   questionId_not_starts_with: String
   questionId_not_ends_with: String
+  question: String
+  question_not: String
+  question_in: [String]
+  question_not_in: [String]
+  question_contains: String
+  question_not_contains: String
+  question_starts_with: String
+  question_ends_with: String
+  question_not_starts_with: String
+  question_not_ends_with: String
+  symbol: String
+  symbol_not: String
+  symbol_in: [String]
+  symbol_not_in: [String]
+  symbol_contains: String
+  symbol_not_contains: String
+  symbol_starts_with: String
+  symbol_ends_with: String
+  symbol_not_starts_with: String
+  symbol_not_ends_with: String
+  category: String
+  category_not: String
+  category_in: [String]
+  category_not_in: [String]
+  category_contains: String
+  category_not_contains: String
+  category_starts_with: String
+  category_ends_with: String
+  category_not_starts_with: String
+  category_not_ends_with: String
   resolver: String
   resolver_not: String
   resolver_in: [String]
@@ -142,6 +176,10 @@ input marketFilter {
   createdBlock_lt: Int
   createdBlock_gte: Int
   createdBlock_lte: Int
+  useDynamicLambda: Boolean
+  useDynamicLambda_not: Boolean
+  useDynamicLambda_in: [Boolean]
+  useDynamicLambda_not_in: [Boolean]
   resolved: Boolean
   resolved_not: Boolean
   resolved_in: [Boolean]

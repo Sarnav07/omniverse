@@ -1,0 +1,19 @@
+[
+  {
+    "type": "function",
+    "name": "PhiInv",
+    "inputs": [{ "name": "p", "type": "uint256" }],
+    "outputs": [{ "name": "z", "type": "int256" }],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "lambdaStarGaussian",
+    "inputs": [
+      { "name": "gammaPrime", "type": "uint256" },
+      { "name": "p", "type": "uint256" }
+    ],
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "pure"
+  }
+]
