@@ -32,10 +32,12 @@ export function NavBar({ hideWallet = false }: { hideWallet?: boolean }) {
           </Link>
         ))}
         <a
-          href="#"
+          href="https://arxiv.org/html/2602.09887"
+          target="_blank"
+          rel="noreferrer"
           className="text-white/55 transition-colors duration-300 ease-precision hover:text-white"
         >
-          docs
+          docs ↗
         </a>
       </nav>
 

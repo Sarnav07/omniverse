@@ -170,7 +170,35 @@ function DemoPage() {
   const [chainState, setChainState] = useState<ChainState | null>(null);
   const [curve, setCurve] = useState<CurvePoint[]>([]);
   const [proofZ, setProofZ] = useState<Record<string, bigint>>({});
-  const [result] = useQuery({ query: DEMO_QUERY });
+  const [result, setResult] = useState<{ data: any; fetching: boolean; error: any }>({ data: null, fetching: true, error: null });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function loadData() {
+      fetch("http://localhost:42069/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ query: DEMO_QUERY })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (cancelled) return;
+          if (data.errors) setResult(prev => ({ ...prev, fetching: false, error: new Error(data.errors[0].message) }));
+          else setResult(prev => ({ ...prev, data: data.data, fetching: false, error: null }));
+        })
+        .catch(error => {
+          if (!cancelled) setResult(prev => ({ ...prev, fetching: false, error }));
+        });
+    }
+
+    loadData();
+    const interval = window.setInterval(loadData, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     fetch("/demo-manifest.json")

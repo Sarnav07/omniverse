@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ParametricMesh } from "@/components/parametric-mesh";
 import { SpotlightCard } from "@/components/spotlight-card";
 import { NavBar } from "@/components/nav-bar";
@@ -89,16 +89,17 @@ function Index() {
             transition={{ ...spring, delay: 0.35 }}
             className="mt-14 flex items-center justify-center gap-3"
           >
-            <button
-              className="group relative overflow-hidden rounded-full border border-white/20 px-7 py-3 text-[12px] tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss"
+            <Link
+              to="/markets"
+              className="group relative inline-block overflow-hidden rounded-full border border-white/20 px-7 py-3 text-[12px] tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss"
               style={{ backdropFilter: "blur(10px)" }}
             >
               <span className="absolute inset-0 -translate-x-full bg-white transition-transform duration-500 ease-precision group-hover:translate-x-0" />
               <span className="relative">enter terminal →</span>
-            </button>
-            <button className="rounded-full px-7 py-3 text-[12px] text-white/55 transition-colors duration-300 ease-precision hover:text-white">
-              read whitepaper
-            </button>
+            </Link>
+            <a href="https://arxiv.org/html/2602.09887" target="_blank" rel="noreferrer" className="rounded-full px-7 py-3 text-[12px] text-white/55 transition-colors duration-300 ease-precision hover:text-white">
+              read whitepaper ↗
+            </a>
           </motion.div>
         </div>
 
@@ -243,13 +244,13 @@ function Index() {
               </h2>
             </div>
             <div className="flex flex-col gap-3">
-              <button className="group relative overflow-hidden rounded-full border border-white/25 px-7 py-3.5 text-[12px] tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss">
+              <Link to="/markets" className="group relative inline-block overflow-hidden rounded-full border border-white/25 px-7 py-3.5 text-[12px] text-center tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss">
                 <span className="absolute inset-0 -translate-x-full bg-white transition-transform duration-500 ease-precision group-hover:translate-x-0" />
                 <span className="relative">enter terminal →</span>
-              </button>
-              <button className="rounded-full border border-white/10 px-7 py-3.5 text-[12px] text-white/65 ease-precision hover:border-white/25 hover:text-white">
+              </Link>
+              <a href="mailto:hello@omniverse.finance" className="inline-block rounded-full border border-white/10 px-7 py-3.5 text-center text-[12px] text-white/65 ease-precision hover:border-white/25 hover:text-white">
                 book a walkthrough
-              </button>
+              </a>
             </div>
           </div>
         </div>
@@ -260,14 +261,11 @@ function Index() {
         <div className="flex flex-wrap items-center justify-between gap-4 tabular text-[11px] uppercase tracking-[0.18em] text-white/35">
           <span>© omniverse labs · execution layer v4.0</span>
           <div className="flex items-center gap-8">
-            <span className="flex items-center gap-2">
-              <span className="precision-pulse h-1.5 w-1.5 rounded-full bg-white" />
-              all systems nominal
-            </span>
-            <a className="ease-precision hover:text-white" href="#">
+            <NetworkStatus />
+            <a className="ease-precision hover:text-white" href="https://sepolia.arbiscan.io/" target="_blank" rel="noreferrer">
               status
             </a>
-            <a className="ease-precision hover:text-white" href="#">
+            <a className="ease-precision hover:text-white" href="https://github.com/vihaan1016/omniverse" target="_blank" rel="noreferrer">
               github
             </a>
             <a className="ease-precision hover:text-white" href="#">
@@ -557,9 +555,9 @@ function MathBand() {
               derivation and bounds are formally verified.
             </p>
             <div className="mt-8 flex items-center gap-2">
-              <button className="rounded-full border border-white/15 px-4 py-2 tabular text-[11px] uppercase tracking-[0.18em] text-white/80 ease-precision hover:border-white/40">
-                whitepaper
-              </button>
+              <a href="https://arxiv.org/html/2602.09887" target="_blank" rel="noreferrer" className="inline-block rounded-full border border-white/15 px-4 py-2 tabular text-[11px] uppercase tracking-[0.18em] text-white/80 ease-precision hover:border-white/40">
+                whitepaper ↗
+              </a>
               <button className="rounded-full px-4 py-2 tabular text-[11px] uppercase tracking-[0.18em] text-white/55 ease-precision hover:text-white">
                 audits →
               </button>
@@ -704,5 +702,57 @@ function ParticleMesh() {
         ))}
       </g>
     </svg>
+  );
+}
+
+/* ─────────────────────────── network status ─────────────────────────── */
+
+function NetworkStatus() {
+  const [status, setStatus] = useState<"checking" | "nominal" | "degraded" | "offline">("checking");
+
+  useEffect(() => {
+    const checkRpc = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
+        const res = await fetch("https://sepolia-rollup.arbitrum.io/rpc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1 }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (res.ok) {
+          setStatus("nominal");
+        } else {
+          setStatus("degraded");
+        }
+      } catch {
+        setStatus("offline");
+      }
+    };
+    
+    checkRpc();
+    const interval = setInterval(checkRpc, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const colorClass = 
+    status === "nominal" ? "bg-white" :
+    status === "degraded" ? "bg-yellow-500" :
+    status === "offline" ? "bg-red-500" : "bg-white/30";
+
+  const text = 
+    status === "nominal" ? "all systems nominal" :
+    status === "degraded" ? "rpc degraded" :
+    status === "offline" ? "rpc offline" : "checking systems...";
+
+  return (
+    <span className="flex items-center gap-2">
+      <span className={`precision-pulse h-1.5 w-1.5 rounded-full ${colorClass}`} />
+      {text}
+    </span>
   );
 }
