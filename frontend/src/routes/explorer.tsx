@@ -113,7 +113,7 @@ function ExplorerPage() {
       </motion.section>
 
       {/* LAYOUT */}
-      <section className="relative z-10 mx-auto mt-12 grid w-full max-w-[1400px] grid-cols-1 gap-6 px-8 pb-24 lg:grid-cols-[280px_1fr]">
+      <section className="relative z-10 mx-auto mt-12 grid w-full max-w-[1400px] grid-cols-1 gap-6 px-8 pb-24 lg:grid-cols-[320px_1fr]">
         {/* sidebar */}
         <motion.aside
           initial={{ opacity: 0, y: 20 }}
@@ -159,8 +159,8 @@ function ExplorerPage() {
                 style={attacked ? { boxShadow: "0 0 12px rgba(255,140,0,0.4)" } : undefined}
               >
                 <span
-                  className={`absolute top-0.5 h-4 w-4 rounded-full transition-transform duration-300 ease-precision ${
-                    attacked ? "translate-x-[18px] bg-[#ff8c00]" : "translate-x-0.5 bg-white/70"
+                  className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full transition-transform duration-300 ease-precision ${
+                    attacked ? "translate-x-4 bg-[#ff8c00]" : "translate-x-0 bg-white/70"
                   }`}
                   style={attacked ? { boxShadow: "0 0 8px rgba(255,140,0,0.7)" } : undefined}
                 />

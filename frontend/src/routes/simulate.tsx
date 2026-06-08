@@ -309,22 +309,22 @@ function OmniversePanel({ crashed }: { crashed: boolean }) {
       <AnimatePresence>
         {settled && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
             transition={{ type: "spring", stiffness: 280, damping: 28 }}
-            className="pointer-events-none absolute inset-x-7 bottom-7 flex items-center justify-center"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center"
           >
             <div
-              className="flex items-center gap-2 rounded-full border border-[#00FFAA]/50 bg-[#00FFAA]/[0.06] px-4 py-2"
-              style={{ boxShadow: "0 0 30px rgba(0,255,170,0.35)" }}
+              className="flex items-center gap-3 rounded-full border border-[#00FFAA]/50 bg-abyss/40 px-6 py-3 backdrop-blur-md"
+              style={{ boxShadow: "0 0 40px rgba(0,255,170,0.25), inset 0 0 20px rgba(0,255,170,0.15)" }}
             >
               <span
-                className="h-1.5 w-1.5 rounded-full bg-[#00FFAA]"
-                style={{ boxShadow: "0 0 10px rgba(0,255,170,0.7)" }}
+                className="h-2 w-2 rounded-full bg-[#00FFAA]"
+                style={{ boxShadow: "0 0 12px rgba(0,255,170,0.8)" }}
               />
               <span
-                className="tabular text-[10px] uppercase tracking-[0.28em] text-[#00FFAA]"
-                style={{ textShadow: "0 0 12px rgba(0,255,170,0.4)" }}
+                className="tabular text-[13px] uppercase tracking-[0.28em] text-[#00FFAA]"
+                style={{ textShadow: "0 0 14px rgba(0,255,170,0.5)" }}
               >
                 settled safely · net p&l: $0
               </span>

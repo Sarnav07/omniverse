@@ -10,7 +10,7 @@ export function NavBar({ hideWallet = false }: { hideWallet?: boolean }) {
         </div>
         <span className="text-[13px] tracking-tight text-white/90">omniverse</span>
         <span className="ml-2 tabular text-[10px] uppercase tracking-[0.18em] text-white/30">
-          v4.0 · mainnet
+          v4.0 · arb sepolia
         </span>
       </Link>
 
@@ -45,7 +45,7 @@ export function NavBar({ hideWallet = false }: { hideWallet?: boolean }) {
         <WalletButton />
       ) : (
         <Link
-          to="/markets"
+          to="/demo"
           className="group relative overflow-hidden rounded-full border border-white/20 px-5 py-2 text-[12px] text-white transition-colors duration-500 ease-precision hover:text-abyss"
         >
           <span className="absolute inset-0 -translate-x-full bg-white transition-transform duration-500 ease-precision group-hover:translate-x-0" />

@@ -90,7 +90,7 @@ function Index() {
             className="mt-14 flex items-center justify-center gap-3"
           >
             <Link
-              to="/markets"
+              to="/demo"
               className="group relative inline-block overflow-hidden rounded-full border border-white/20 px-7 py-3 text-[12px] tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss"
               style={{ backdropFilter: "blur(10px)" }}
             >
@@ -244,7 +244,7 @@ function Index() {
               </h2>
             </div>
             <div className="flex flex-col gap-3">
-              <Link to="/markets" className="group relative inline-block overflow-hidden rounded-full border border-white/25 px-7 py-3.5 text-[12px] text-center tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss">
+              <Link to="/demo" className="group relative inline-block overflow-hidden rounded-full border border-white/25 px-7 py-3.5 text-[12px] text-center tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss">
                 <span className="absolute inset-0 -translate-x-full bg-white transition-transform duration-500 ease-precision group-hover:translate-x-0" />
                 <span className="relative">enter terminal →</span>
               </Link>
