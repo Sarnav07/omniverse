@@ -14,6 +14,8 @@ import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as ExplorerRouteImport } from './routes/explorer'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MarketsIndexRouteImport } from './routes/markets.index'
+import { Route as MarketsCreateRouteImport } from './routes/markets.create'
 import { Route as MarketsIdRouteImport } from './routes/markets.$id'
 
 const SimulateRoute = SimulateRouteImport.update({
@@ -41,6 +43,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketsIndexRoute = MarketsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MarketsRoute,
+} as any)
+const MarketsCreateRoute = MarketsCreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => MarketsRoute,
+} as any)
 const MarketsIdRoute = MarketsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -54,14 +66,17 @@ export interface FileRoutesByFullPath {
   '/markets': typeof MarketsRouteWithChildren
   '/simulate': typeof SimulateRoute
   '/markets/$id': typeof MarketsIdRoute
+  '/markets/create': typeof MarketsCreateRoute
+  '/markets/': typeof MarketsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
   '/explorer': typeof ExplorerRoute
-  '/markets': typeof MarketsRouteWithChildren
   '/simulate': typeof SimulateRoute
   '/markets/$id': typeof MarketsIdRoute
+  '/markets/create': typeof MarketsCreateRoute
+  '/markets': typeof MarketsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +86,8 @@ export interface FileRoutesById {
   '/markets': typeof MarketsRouteWithChildren
   '/simulate': typeof SimulateRoute
   '/markets/$id': typeof MarketsIdRoute
+  '/markets/create': typeof MarketsCreateRoute
+  '/markets/': typeof MarketsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,8 +98,17 @@ export interface FileRouteTypes {
     | '/markets'
     | '/simulate'
     | '/markets/$id'
+    | '/markets/create'
+    | '/markets/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/demo' | '/explorer' | '/markets' | '/simulate' | '/markets/$id'
+  to:
+    | '/'
+    | '/demo'
+    | '/explorer'
+    | '/simulate'
+    | '/markets/$id'
+    | '/markets/create'
+    | '/markets'
   id:
     | '__root__'
     | '/'
@@ -91,6 +117,8 @@ export interface FileRouteTypes {
     | '/markets'
     | '/simulate'
     | '/markets/$id'
+    | '/markets/create'
+    | '/markets/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -138,6 +166,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/markets/': {
+      id: '/markets/'
+      path: '/'
+      fullPath: '/markets/'
+      preLoaderRoute: typeof MarketsIndexRouteImport
+      parentRoute: typeof MarketsRoute
+    }
+    '/markets/create': {
+      id: '/markets/create'
+      path: '/create'
+      fullPath: '/markets/create'
+      preLoaderRoute: typeof MarketsCreateRouteImport
+      parentRoute: typeof MarketsRoute
+    }
     '/markets/$id': {
       id: '/markets/$id'
       path: '/$id'
@@ -150,10 +192,14 @@ declare module '@tanstack/react-router' {
 
 interface MarketsRouteChildren {
   MarketsIdRoute: typeof MarketsIdRoute
+  MarketsCreateRoute: typeof MarketsCreateRoute
+  MarketsIndexRoute: typeof MarketsIndexRoute
 }
 
 const MarketsRouteChildren: MarketsRouteChildren = {
   MarketsIdRoute: MarketsIdRoute,
+  MarketsCreateRoute: MarketsCreateRoute,
+  MarketsIndexRoute: MarketsIndexRoute,
 }
 
 const MarketsRouteWithChildren =

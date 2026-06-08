@@ -42,7 +42,7 @@ export const trade = onchainTable("trade", (t) => ({
   priceAfter: t.bigint().notNull(),         // probability after trade (WAD)
   ellWad: t.bigint().notNull(),             // active liquidity used
   lambdaWad: t.bigint().notNull(),          // current lambda fraction
-  gapWad: t.bigint().notNull(),             // price gap (signed, stored as bigint)
+  gapWad: t.bigint().notNull(),             // z-space gap (from _zFromReserves), compatible with gap_z in LVR formula
   timestamp: t.integer().notNull(),         // unix timestamp (from event)
   blockNumber: t.integer().notNull(),
   txHash: t.text().notNull(),

@@ -66,6 +66,7 @@ function TerminalPage() {
       return {
         poolWeth: "0x0000000000000000000000000000000000000000" as `0x${string}`,
         poolUsdc: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+        lending: CONTRACT_ADDRESSES.MultiverseLending as `0x${string}`,
         symbol: "...",
         question: "Loading...",
         category: "...",
@@ -121,13 +122,13 @@ function TerminalPage() {
         </div>
         <div className="flex items-center gap-5 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
           <span>
-            latency · <span className="text-[#00FFAA]">{MARKET.latency}</span>
+            latency · <span className="text-white">{MARKET.latency}</span>
           </span>
           <span>block · 21·482·113</span>
           <span className="flex items-center gap-1.5">
             <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inset-0 animate-ping rounded-full bg-[#00FFAA]/60" />
-              <span className="relative h-1.5 w-1.5 rounded-full bg-[#00FFAA]" />
+              <span className="absolute inset-0 animate-ping rounded-full bg-white/60" />
+              <span className="relative h-1.5 w-1.5 rounded-full bg-white" />
             </span>
             live
           </span>
@@ -165,13 +166,8 @@ function TerminalPage() {
 
       {/* DUAL PANE */}
       <main className="relative z-10 grid h-[calc(100vh-104px)] grid-cols-[1.857fr_1fr]">
-        {/* LEFT — Probability Canvas */}
-        <section className="relative border-r border-white/[0.06]">
-          <ProbabilityCanvas mu={MARKET.yes} />
-        </section>
-
-        {/* RIGHT — Intent Engine */}
-        <section className="relative flex flex-col">
+        {/* LEFT — Intent Engine */}
+        <section className="relative flex flex-col border-r border-white/[0.06]">
           {/* tab strip */}
           <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-6 py-4">
             <span className="shrink-0 tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
@@ -221,6 +217,11 @@ function TerminalPage() {
           )}
           {tab === "redeem" && <RedeemTab />}
         </section>
+
+        {/* RIGHT — Probability Canvas */}
+        <section className="relative">
+          <ProbabilityCanvas mu={MARKET.yes} />
+        </section>
       </main>
     </div>
   );
@@ -233,8 +234,8 @@ function StripStat({ label, value, accent }: { label: string; value: string; acc
     <div className="flex flex-col items-end">
       <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/35">{label}</span>
       <span
-        className={`tabular text-[14px] font-light ${accent ? "text-[#00FFAA]" : "text-white/95"}`}
-        style={accent ? { textShadow: "0 0 14px rgba(0,255,170,0.35)" } : undefined}
+        className={`tabular text-[14px] font-light ${accent ? "text-white" : "text-white/95"}`}
+        style={accent ? { textShadow: "0 0 14px rgba(255,255,255,0.35)" } : undefined}
       >
         {value}
       </span>
@@ -313,7 +314,7 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
       <div className="pointer-events-none absolute right-6 top-5 z-10 flex items-center gap-3 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
         <span>σ · 0.14</span>
         <span>μ · {mu.toFixed(2)}</span>
-        <span className="text-[#00FFAA]">depth · live</span>
+        <span className="text-white">depth · live</span>
       </div>
 
       <svg
@@ -332,7 +333,7 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
           <linearGradient id="gauss-stroke" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="rgba(255,255,255,0.25)" />
             <stop offset="50%" stopColor="rgba(255,255,255,0.95)" />
-            <stop offset="100%" stopColor="rgba(0,255,170,0.85)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0.85)" />
           </linearGradient>
         </defs>
 
@@ -454,8 +455,8 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
                 λ* activeness
               </span>
               <span
-                className="tabular text-[11px] text-[#00FFAA]"
-                style={{ textShadow: "0 0 10px rgba(0,255,170,0.35)" }}
+                className="tabular text-[11px] text-white"
+                style={{ textShadow: "0 0 10px rgba(255,255,255,0.35)" }}
               >
                 {hover.lambda.toFixed(3)}
               </span>
@@ -493,6 +494,7 @@ function IntentEngine({
   const c = parseFloat(collateral) || 0;
   const b = parseFloat(borrow) || 0;
   const valid = isProvide ? c > 0 : (c > 0 && b > 0);
+  const ratio = c > 0 ? b / c : 0;
   const tokenToApprove = isProvide ? CONTRACT_ADDRESSES.USDC : CONTRACT_ADDRESSES.WETH;
   const amountToApprove = parseUnits(c.toString(), 18);
 
@@ -504,7 +506,7 @@ function IntentEngine({
     query: { enabled: !!user },
   });
 
-  const needsApproval = allowance < amountToApprove;
+  const needsApproval = (allowance as bigint) < amountToApprove;
 
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
@@ -589,12 +591,12 @@ function IntentEngine({
             side
           </span>
           <span
-            className={`tabular text-[14px] ${sideYes ? "text-[#00FFAA]" : "text-white/40"}`}
-            style={sideYes ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" } : undefined}
+            className={`tabular text-[14px] ${sideYes ? "text-white" : "text-white/40"}`}
+            style={sideYes ? { textShadow: "0 0 12px rgba(255,255,255,0.35)" } : undefined}
           >
             yes · 0.84
           </span>
-          {sideYes && <span className="absolute inset-x-0 bottom-0 h-px bg-[#00FFAA]/60" />}
+          {sideYes && <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />}
         </button>
         <button
           onClick={() => setSideYes(false)}
@@ -635,9 +637,9 @@ function IntentEngine({
         <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4">
           <div className="flex items-center gap-2">
             <span
-              className={`h-1.5 w-1.5 rounded-full ${valid ? "bg-[#00FFAA]" : "bg-[#FF4D5E]"} ${valid ? "" : "animate-pulse"}`}
+              className={`h-1.5 w-1.5 rounded-full ${valid ? "bg-white" : "bg-[#FF4D5E]"} ${valid ? "" : "animate-pulse"}`}
               style={{
-                boxShadow: valid ? "0 0 10px rgba(0,255,170,0.5)" : "0 0 10px rgba(255,77,94,0.5)",
+                boxShadow: valid ? "0 0 10px rgba(255,255,255,0.5)" : "0 0 10px rgba(255,77,94,0.5)",
               }}
             />
             <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/55">
@@ -750,14 +752,14 @@ function ConnectorLine({ valid }: { valid: boolean }) {
       >
         <path
           d="M 40 4 C 100 4, 100 36, 160 36 S 220 4, 280 4"
-          stroke={valid ? "rgba(0,255,170,0.55)" : "rgba(255,77,94,0.6)"}
+          stroke={valid ? "rgba(255,255,255,0.55)" : "rgba(255,77,94,0.6)"}
           strokeWidth="1"
           fill="none"
           strokeDasharray={valid ? "0" : "3 4"}
           style={{ transition: "stroke 0.3s var(--ease-precision)" }}
         />
-        <circle cx="40" cy="4" r="2" fill={valid ? "#00FFAA" : "#FF4D5E"} />
-        <circle cx="280" cy="4" r="2" fill={valid ? "#00FFAA" : "#FF4D5E"} />
+        <circle cx="40" cy="4" r="2" fill={valid ? "#ffffff" : "#FF4D5E"} />
+        <circle cx="280" cy="4" r="2" fill={valid ? "#ffffff" : "#FF4D5E"} />
       </svg>
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-abyss px-2.5 py-0.5 tabular text-[9px] uppercase tracking-[0.22em] text-white/45">
         {valid ? "linked" : "mismatch"}
@@ -808,7 +810,7 @@ function SwapTab({
     query: { enabled: !!user },
   });
 
-  const needsApproval = allowance < parsedAmount;
+  const needsApproval = (allowance as bigint) < parsedAmount;
 
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
@@ -876,10 +878,10 @@ function SwapTab({
               {s} shares
             </span>
             <span
-              className={`tabular text-[14px] ${side === s && s === "yes" ? "text-[#00FFAA]" : side === s ? "text-white" : "text-white/40"}`}
+              className={`tabular text-[14px] ${side === s ? "text-white" : "text-white/40"}`}
               style={
-                side === s && s === "yes"
-                  ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" }
+                side === s
+                  ? { textShadow: "0 0 12px rgba(255,255,255,0.35)" }
                   : undefined
               }
             >
@@ -887,7 +889,7 @@ function SwapTab({
             </span>
             {side === s && (
               <span
-                className={`absolute inset-x-0 bottom-0 h-px ${s === "yes" ? "bg-[#00FFAA]/60" : "bg-white/60"}`}
+                className="absolute inset-x-0 bottom-0 h-px bg-white/60"
               />
             )}
           </button>
@@ -914,7 +916,7 @@ function SwapTab({
           </div>
           <div className="flex flex-col items-end pb-2">
             <span
-              className={`rounded-full border px-3 py-1 tabular text-[10px] uppercase tracking-[0.22em] ${side === "yes" ? "border-[#00FFAA]/40 bg-[#00FFAA]/5 text-[#00FFAA]" : "border-white/15 bg-white/[0.02] text-white/75"}`}
+              className="rounded-full border border-white/20 bg-white/[0.04] px-3 py-1 tabular text-[10px] uppercase tracking-[0.22em] text-white"
             >
               {side} · shares
             </span>
@@ -932,7 +934,7 @@ function SwapTab({
 
         <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
           <span>price impact</span>
-          <span className="text-[#00FFAA]">+0.014</span>
+          <span className="text-white">+0.014</span>
         </div>
       </div>
 
@@ -1002,7 +1004,7 @@ function ManageTab({ lending }: { lending: `0x${string}` }) {
   const R = 56;
   const C = 2 * Math.PI * R;
   const offset = C - pct * C;
-  const healthColor = health >= 1.5 ? "#00FFAA" : health >= 1.2 ? "#ff8c00" : "#FF4D5E";
+  const healthColor = health >= 1.5 ? "#ffffff" : health >= 1.2 ? "#a3a3a3" : "#FF4D5E";
 
   const needsApproval = mode === "repay" && !isApproved;
 
@@ -1048,10 +1050,10 @@ function ManageTab({ lending }: { lending: `0x${string}` }) {
     }
 
     let finalAmount = parseUnits(amount, 18);
-    if (mode === "repay" && finalAmount > debtWad) {
-      finalAmount = debtWad;
-    } else if (mode === "withdraw" && finalAmount > collateralWad) {
-      finalAmount = collateralWad;
+    if (mode === "repay" && finalAmount > (debtWad as bigint)) {
+      finalAmount = debtWad as bigint;
+    } else if (mode === "withdraw" && finalAmount > (collateralWad as bigint)) {
+      finalAmount = collateralWad as bigint;
     }
 
     writeContract(
@@ -1095,15 +1097,15 @@ function ManageTab({ lending }: { lending: `0x${string}` }) {
             action
           </span>
           <span
-            className={`tabular text-[14px] ${mode === "withdraw" ? "text-[#00FFAA]" : "text-white/40"}`}
+            className={`tabular text-[14px] ${mode === "withdraw" ? "text-white" : "text-white/40"}`}
             style={
-              mode === "withdraw" ? { textShadow: "0 0 12px rgba(0,255,170,0.35)" } : undefined
+              mode === "withdraw" ? { textShadow: "0 0 12px rgba(255,255,255,0.35)" } : undefined
             }
           >
             withdraw collat
           </span>
           {mode === "withdraw" && (
-            <span className="absolute inset-x-0 bottom-0 h-px bg-[#00FFAA]/60" />
+            <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />
           )}
         </button>
       </div>
@@ -1169,7 +1171,7 @@ function ManageTab({ lending }: { lending: `0x${string}` }) {
               <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/40">
                 liq. price
               </span>
-              <span className="tabular text-[13px] text-[#00FFAA]">{displayHealth}</span>
+              <span className="tabular text-[13px] text-white">{displayHealth}</span>
             </div>
           </div>
         </div>
@@ -1248,15 +1250,15 @@ function RedeemTab() {
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
-      <div className="border-b border-white/[0.06] bg-gradient-to-r from-[#00FFAA]/[0.04] to-transparent px-6 py-5">
+      <div className="border-b border-white/[0.06] bg-gradient-to-r from-white/[0.04] to-transparent px-6 py-5">
         <div className="flex items-center gap-2">
           <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inset-0 animate-ping rounded-full bg-[#00FFAA]/60" />
-            <span className="relative h-1.5 w-1.5 rounded-full bg-[#00FFAA]" />
+            <span className="absolute inset-0 animate-ping rounded-full bg-white/60" />
+            <span className="relative h-1.5 w-1.5 rounded-full bg-white" />
           </span>
           <span
-            className="tabular text-[10px] uppercase tracking-[0.32em] text-[#00FFAA]"
-            style={{ textShadow: "0 0 12px rgba(0,255,170,0.35)" }}
+            className="tabular text-[10px] uppercase tracking-[0.32em] text-white"
+            style={{ textShadow: "0 0 12px rgba(255,255,255,0.35)" }}
           >
             market resolved · yes
           </span>
@@ -1270,7 +1272,7 @@ function RedeemTab() {
         <BigInput label="burn" symbol="yes" value={shares} onChange={setShares} />
 
         <div className="my-4 flex items-center justify-center">
-          <span className="grid h-8 w-8 place-items-center rounded-full border border-[#00FFAA]/40 bg-abyss tabular text-[14px] text-[#00FFAA]">
+          <span className="grid h-8 w-8 place-items-center rounded-full border border-white/20 bg-abyss tabular text-[14px] text-white">
             ≡
           </span>
         </div>
@@ -1281,8 +1283,8 @@ function RedeemTab() {
               receive
             </span>
             <div
-              className="tabular mt-1 text-[40px] font-light tracking-[-0.02em] text-[#00FFAA]"
-              style={{ textShadow: "0 0 18px rgba(0,255,170,0.35)" }}
+              className="tabular mt-1 text-[40px] font-light tracking-[-0.02em] text-white"
+              style={{ textShadow: "0 0 18px rgba(255,255,255,0.35)" }}
             >
               {payout}
             </div>
@@ -1313,11 +1315,11 @@ function RedeemTab() {
         <button
           onClick={onRedeem}
           disabled={signing}
-          className={`group relative flex h-12 w-full items-center justify-center overflow-hidden rounded-full border border-[#00FFAA]/40 bg-[#00FFAA]/[0.06] ease-precision hover:border-[#00FFAA]/70 hover:bg-[#00FFAA]/[0.1] ${signing ? "opacity-50 cursor-not-allowed" : ""}`}
+          className={`group relative flex h-12 w-full items-center justify-center overflow-hidden rounded-full border border-white/25 bg-white/[0.04] ease-precision hover:border-white/40 hover:bg-white/[0.07] ${signing ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <span
-            className="tabular text-[12px] uppercase tracking-[0.32em] text-[#00FFAA]"
-            style={{ textShadow: "0 0 12px rgba(0,255,170,0.45)" }}
+            className="tabular text-[12px] uppercase tracking-[0.32em] text-white"
+            style={{ textShadow: "0 0 12px rgba(255,255,255,0.45)" }}
           >
             burn yes shares for {token.toLowerCase()}
           </span>

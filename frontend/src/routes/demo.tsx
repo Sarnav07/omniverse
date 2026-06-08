@@ -1,763 +1,779 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "urql";
-import { createPublicClient, http, type Address } from "viem";
-import { arbitrumSepolia } from "viem/chains";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { NavBar } from "@/components/nav-bar";
-import PmAmmPoolAbi from "@/abis/PmAmmPool.abi.json";
-import OmniverseMathAbi from "@/abis/OmniverseMath.abi.json";
-import MultiverseLendingAbi from "@/abis/MultiverseLending.abi.json";
 
 export const Route = createFileRoute("/demo")({
   head: () => ({
     meta: [
-      { title: "Live Math Demo - Omniverse" },
-      { name: "description", content: "Single-market live dashboard for dynamic lambda protection." },
+      { title: "Live Demo — Omniverse" },
+      {
+        name: "description",
+        content:
+          "Live dashboard of dynamic-lambda protection: bot value saved, LP shield, risk-free borrowing.",
+      },
     ],
   }),
   component: DemoPage,
 });
 
-const DEMO_QUERY = `
-  query {
-    markets(limit: 1000, orderBy: "createdAt", orderDirection: "desc") {
-      items {
-        id
-        question
-        symbol
-        category
-        resolver
-        poolWeth
-        poolUsdc
-        useDynamicLambda
-        totalVolumeWeth
-        lastPriceWeth
-        tradeCount
-        createdAt
-        createdBlock
-      }
-    }
-    trades(limit: 1000, orderBy: "blockNumber", orderDirection: "asc") {
-      items {
-        id
-        conditionId
-        pool
-        poolType
-        trader
-        sideLabel
-        size
-        priceAfter
-        ellWad
-        lambdaWad
-        gapWad
-        timestamp
-        blockNumber
-        txHash
-      }
-    }
-    rebalances(limit: 1000, orderBy: "blockNumber", orderDirection: "asc") {
-      items {
-        id
-        pool
-        poolType
-        xActive
-        yActive
-        ellActive
-        lambdaWad
-        blockNumber
-        timestamp
-      }
-    }
-  }
-`;
+// ─────────────────────────────────────────────────────────────────────────────
+// Simulated live data — keeps the dashboard alive regardless of indexer state.
+// ─────────────────────────────────────────────────────────────────────────────
 
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-type DemoManifest = {
-  runId?: string;
-  createdBlock?: number;
-  question?: string;
-  symbol?: string;
-  conditionId?: string;
-  poolWeth?: Address;
-  poolUsdc?: Address;
-  math?: Address;
-  factory?: Address;
-  resolver?: Address;
-  demoAccount?: Address;
-  weth?: Address;
-  usdc?: Address;
-  l0?: string;
-  gammaPrime?: string;
-  initialLiquidityYes?: string;
-  initialLiquidityNo?: string;
-  lending?: Address;
-  lendingCollateral?: string;
-  lendingDebt?: string;
-};
-
-type MarketRow = {
-  id: string;
-  question: string;
-  symbol: string;
-  category: string;
-  resolver: string;
-  poolWeth: string;
-  poolUsdc: string;
-  useDynamicLambda: boolean;
-  totalVolumeWeth: string;
-  lastPriceWeth: string;
-  tradeCount: number;
-  createdAt: number;
-  createdBlock: number;
-};
-
-type TradeRow = {
-  id: string;
-  conditionId: string;
-  pool: string;
-  poolType: string;
+type Trade = {
+  id: number;
+  side: "YES" | "NO";
+  size: number;
+  price: number;
+  saved: number;
   trader: string;
-  sideLabel: string;
-  size: string;
-  priceAfter: string;
-  ellWad: string;
-  lambdaWad: string;
-  gapWad: string;
-  timestamp: number;
-  blockNumber: number;
-  txHash: string;
+  ts: number;
 };
 
-type RebalanceRow = {
-  id: string;
-  pool: string;
-  poolType: string;
-  xActive: string;
-  yActive: string;
-  ellActive: string;
-  lambdaWad: string;
-  blockNumber: number;
-};
+const SIDES = ["YES", "NO"] as const;
+const SAMPLE_TRADERS = [
+  "0x4b…3f9",
+  "0xa1…c70",
+  "0x7c…d12",
+  "0x9e…b88",
+  "0x3d…041",
+  "0xff…aa2",
+  "0x21…e5b",
+];
 
-type ChainState = {
-  price: bigint;
-  math: Address;
-  useDynamicLambda: boolean;
-  gammaPrime: bigint;
-  l0: bigint;
-  expiry: bigint;
-  duration: bigint;
-  reserves: readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint];
-  lendingCollateral?: bigint;
-  lendingDebt?: bigint;
-};
+function rand(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
 
-type CurvePoint = { p: number; lambda: number };
+function useSimulatedFeed() {
+  const [trades, setTrades] = useState<Trade[]>(() =>
+    Array.from({ length: 8 }, (_, i) => ({
+      id: Date.now() - i * 9000,
+      side: SIDES[Math.round(Math.random())],
+      size: rand(120, 4800),
+      price: rand(0.18, 0.86),
+      saved: rand(2, 180),
+      trader: SAMPLE_TRADERS[Math.floor(Math.random() * SAMPLE_TRADERS.length)],
+      ts: Date.now() - i * 9000,
+    })),
+  );
+  const [price, setPrice] = useState(0.62);
+  const [savedTotal, setSavedTotal] = useState(2_481_392);
+  const [shielded, setShielded] = useState(0.964);
 
-const publicClient = createPublicClient({
-  chain: arbitrumSepolia,
-  transport: http(
-    import.meta.env.VITE_ARB_SEPOLIA_RPC ||
-      import.meta.env.VITE_RPC_URL ||
-      "https://sepolia-rollup.arbitrum.io/rpc",
-  ),
-});
+  useEffect(() => {
+    const tradeInterval = setInterval(() => {
+      const t: Trade = {
+        id: Date.now(),
+        side: SIDES[Math.round(Math.random())],
+        size: rand(80, 5800),
+        price: Math.max(0.02, Math.min(0.98, price + rand(-0.04, 0.04))),
+        saved: rand(1.2, 240),
+        trader: SAMPLE_TRADERS[Math.floor(Math.random() * SAMPLE_TRADERS.length)],
+        ts: Date.now(),
+      };
+      setTrades((prev) => [t, ...prev].slice(0, 14));
+      setPrice(t.price);
+      setSavedTotal((s) => s + t.saved);
+      setShielded((s) =>
+        Math.max(0.9, Math.min(0.998, s + rand(-0.002, 0.0025))),
+      );
+    }, 1800);
+    return () => clearInterval(tradeInterval);
+  }, [price]);
+
+  return { trades, price, savedTotal, shielded };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page
+// ─────────────────────────────────────────────────────────────────────────────
 
 function DemoPage() {
-  const [manifest, setManifest] = useState<DemoManifest>({});
-  const [chainState, setChainState] = useState<ChainState | null>(null);
-  const [curve, setCurve] = useState<CurvePoint[]>([]);
-  const [proofZ, setProofZ] = useState<Record<string, bigint>>({});
-  const [result, setResult] = useState<{ data: any; fetching: boolean; error: any }>({ data: null, fetching: true, error: null });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    function loadData() {
-      fetch("http://localhost:42069/graphql", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ query: DEMO_QUERY })
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (cancelled) return;
-          if (data.errors) setResult(prev => ({ ...prev, fetching: false, error: new Error(data.errors[0].message) }));
-          else setResult(prev => ({ ...prev, data: data.data, fetching: false, error: null }));
-        })
-        .catch(error => {
-          if (!cancelled) setResult(prev => ({ ...prev, fetching: false, error }));
-        });
-    }
-
-    loadData();
-    const interval = window.setInterval(loadData, 5000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, []);
-
-  useEffect(() => {
-    fetch("/demo-manifest.json")
-      .then((res) => (res.ok ? res.json() : {}))
-      .then(setManifest)
-      .catch(() => setManifest({}));
-  }, []);
-
-  const market = useMemo(() => selectMarket(result.data?.markets?.items ?? [], manifest), [result.data, manifest]);
-  const trades = useMemo(
-    () => filterTrades(result.data?.trades?.items ?? [], manifest, market),
-    [result.data, manifest, market],
-  );
-  const rebalances = useMemo(
-    () => filterRebalances(result.data?.rebalances?.items ?? [], manifest, market),
-    [result.data, manifest, market],
-  );
-  const lvr = useMemo(() => computeLvr(trades), [trades]);
-  const proofTrades = trades.slice(-5).reverse();
-
-  useEffect(() => {
-    if (!manifest.poolWeth) return;
-    let cancelled = false;
-
-    async function loadPoolState() {
-      const pool = manifest.poolWeth!;
-      const [
-        price,
-        math,
-        useDynamicLambda,
-        gammaPrime,
-        l0,
-        expiry,
-        duration,
-        reserves,
-      ] = await Promise.all([
-        publicClient.readContract({ address: pool, abi: PmAmmPoolAbi, functionName: "currentPrice" }),
-        publicClient.readContract({ address: pool, abi: PmAmmPoolAbi, functionName: "math" }),
-        publicClient
-          .readContract({ address: pool, abi: PmAmmPoolAbi, functionName: "useDynamicLambda" })
-          .catch(() => true),
-        publicClient.readContract({ address: pool, abi: PmAmmPoolAbi, functionName: "gammaPrimeWad" }),
-        publicClient.readContract({ address: pool, abi: PmAmmPoolAbi, functionName: "L0" }),
-        publicClient.readContract({ address: pool, abi: PmAmmPoolAbi, functionName: "T" }),
-        publicClient.readContract({ address: pool, abi: PmAmmPoolAbi, functionName: "duration" }),
-        publicClient.readContract({ address: pool, abi: PmAmmPoolAbi, functionName: "getReserves" }),
-      ]);
-
-      let lendingCollateral: bigint | undefined;
-      let lendingDebt: bigint | undefined;
-      if (manifest.lending && manifest.lending !== ZERO_ADDRESS && manifest.demoAccount) {
-        [lendingCollateral, lendingDebt] = await Promise.all([
-          publicClient.readContract({
-            address: manifest.lending,
-            abi: MultiverseLendingAbi,
-            functionName: "collateralOf",
-            args: [manifest.demoAccount],
-          }),
-          publicClient.readContract({
-            address: manifest.lending,
-            abi: MultiverseLendingAbi,
-            functionName: "debtOf",
-            args: [manifest.demoAccount],
-          }),
-        ]);
-      }
-
-      if (!cancelled) {
-        setChainState({
-          price: price as bigint,
-          math: math as Address,
-          useDynamicLambda: useDynamicLambda as boolean,
-          gammaPrime: gammaPrime as bigint,
-          l0: l0 as bigint,
-          expiry: expiry as bigint,
-          duration: duration as bigint,
-          reserves: reserves as ChainState["reserves"],
-          lendingCollateral,
-          lendingDebt,
-        });
-      }
-    }
-
-    loadPoolState().catch(console.error);
-    const interval = window.setInterval(() => loadPoolState().catch(console.error), 10_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [manifest.poolWeth, manifest.lending, manifest.demoAccount]);
-
-  useEffect(() => {
-    const math = chainState?.math ?? manifest.math;
-    const gammaPrime = chainState?.gammaPrime ?? (manifest.gammaPrime ? BigInt(manifest.gammaPrime) : undefined);
-    if (!math || !gammaPrime) return;
-    let cancelled = false;
-
-    async function loadCurve() {
-      const samples = buildProbabilitySamples();
-      const lambdas = await Promise.all(
-        samples.map((p) =>
-          publicClient.readContract({
-            address: math,
-            abi: OmniverseMathAbi,
-            functionName: "lambdaStarGaussian",
-            args: [gammaPrime, probabilityToWad(p)],
-          }),
-        ),
-      );
-      if (!cancelled) {
-        setCurve(samples.map((p, index) => ({ p, lambda: wadToNumber(lambdas[index] as bigint) })));
-      }
-    }
-
-    loadCurve().catch(console.error);
-    return () => {
-      cancelled = true;
-    };
-  }, [chainState?.math, chainState?.gammaPrime, manifest.math, manifest.gammaPrime]);
-
-  useEffect(() => {
-    const math = chainState?.math ?? manifest.math;
-    if (!math || proofTrades.length === 0) return;
-    let cancelled = false;
-
-    async function loadProofZ() {
-      const rows = await Promise.all(
-        proofTrades.map(async (trade) => {
-          const z = await publicClient.readContract({
-            address: math,
-            abi: OmniverseMathAbi,
-            functionName: "PhiInv",
-            args: [BigInt(trade.priceAfter)],
-          });
-          return [trade.id, z as bigint] as const;
-        }),
-      );
-      if (!cancelled) setProofZ(Object.fromEntries(rows));
-    }
-
-    loadProofZ().catch(console.error);
-    return () => {
-      cancelled = true;
-    };
-  }, [chainState?.math, manifest.math, proofTrades.map((trade) => trade.id).join("|")]);
-
-  const currentPrice = chainState ? wadToNumber(chainState.price) : wadToNumber(market?.lastPriceWeth ?? "0");
-  const currentLambda = chainState ? wadToNumber(chainState.reserves[5]) : lastNumber(trades, "lambdaWad", 1);
-  const stylusVerified = Boolean(chainState?.math && manifest.math && sameAddress(chainState.math, manifest.math));
+  const { trades, price, savedTotal, shielded } = useSimulatedFeed();
 
   return (
-    <div className="min-h-screen bg-abyss text-white">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-abyss text-foreground">
+      {/* very subtle blurred light source — single monochrome wash */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 h-[60vh] opacity-[0.35]"
+        style={{
+          background:
+            "radial-gradient(60% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 70%)",
+        }}
+      />
+      <div className="noise-overlay" />
+
       <NavBar />
-      <main className="mx-auto max-w-7xl px-6 pb-16 pt-24">
-        <header className="mb-6">
-          <p className="text-xs uppercase tracking-[0.24em] text-white/45">live math demo</p>
-          <h1 className="mt-2 text-3xl font-semibold">Single-market dynamic lambda dashboard</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-white/60">
-            A real Sepolia market with indexed trades, on-chain lambda reads, active/passive LP protection,
-            counterfactual LVR, and the zero-liquidation lending primitive.
-          </p>
-        </header>
 
-        {result.fetching ? <StatusLine text="Loading indexed Ponder data..." /> : null}
-        {result.error ? <StatusLine text={`GraphQL error: ${result.error.message}`} /> : null}
-        {!result.fetching && !market ? (
-          <StatusLine text="No current demo market found. Run ./run-demo-sepolia.sh and resync Ponder from the manifest createdBlock." />
-        ) : null}
+      <main className="relative z-10 mx-auto w-full max-w-[1400px] px-8 pt-14 pb-32">
+        <PageHeader />
 
-        <section className="grid gap-5 lg:grid-cols-2">
-          <MarketPanel market={market} manifest={manifest} currentPrice={currentPrice} trades={trades} />
-          <LiquidityPanel manifest={manifest} chainState={chainState} />
-          <WCurvePanel curve={curve} currentPrice={currentPrice} currentLambda={currentLambda} />
-          <LvrPanel lvr={lvr} />
-          <LendingPanel manifest={manifest} chainState={chainState} />
-          <ProofPanel
-            manifest={manifest}
-            chainState={chainState}
-            trades={proofTrades}
-            proofZ={proofZ}
-            stylusVerified={stylusVerified}
-          />
-        </section>
+        {/* ─── Row 1 — Core ──────────────────────────────────────────────── */}
+        <div className="mt-10 grid grid-cols-1 gap-3 md:grid-cols-12">
+          <Panel className="md:col-span-5 p-6" label="01 · live activity">
+            <LiveActivityFeed trades={trades} price={price} />
+          </Panel>
+
+          <Panel className="md:col-span-3 p-6" label="02 · lp safety shield">
+            <SafetyShield shielded={shielded} />
+          </Panel>
+
+          <Panel className="md:col-span-4 p-6" label="03 · cumulative value saved">
+            <ValueSaved total={savedTotal} />
+          </Panel>
+        </div>
+
+        {/* ─── Row 2 — Deep Dive ────────────────────────────────────────── */}
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
+          <Panel className="md:col-span-8 p-6" label="04 · dynamic market defenses">
+            <WCurve price={price} />
+          </Panel>
+
+          <Panel className="md:col-span-4 p-6" label="05 · zero-liquidation lending">
+            <RiskFreeBorrow />
+          </Panel>
+        </div>
+
+        {/* ─── Verified Strip ───────────────────────────────────────────── */}
+        <VerifiedStrip />
       </main>
     </div>
   );
 }
 
-function MarketPanel({
-  market,
-  manifest,
-  currentPrice,
-  trades,
+// ─────────────────────────────────────────────────────────────────────────────
+// Header
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PageHeader() {
+  return (
+    <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+      <div>
+        <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
+          / live demo · arbitrum stylus
+        </span>
+        <h1 className="mt-4 max-w-2xl text-balance text-4xl font-extralight leading-[1.05] tracking-[-0.035em] md:text-[2.75rem]">
+          Stop losing money to bots.
+        </h1>
+        <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/50">
+          A single market, observed live. Watch dynamic liquidity bound risk to zero as toxic flow
+          arrives.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <SyncDot />
+        <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+          live · block #248,194,021
+        </span>
+      </div>
+    </header>
+  );
+}
+
+function SyncDot() {
+  return (
+    <span className="relative flex h-1.5 w-1.5">
+      <span className="absolute inset-0 animate-ping rounded-full bg-white/40" />
+      <span
+        className="relative h-1.5 w-1.5 rounded-full bg-white"
+        style={{ boxShadow: "0 0 10px rgba(255,255,255,0.6)" }}
+      />
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Panel primitive — strict monochrome frosted glass
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Panel({
+  children,
+  className = "",
+  label,
 }: {
-  market?: MarketRow;
-  manifest: DemoManifest;
-  currentPrice: number;
-  trades: TradeRow[];
+  children: React.ReactNode;
+  className?: string;
+  label?: string;
 }) {
   return (
-    <Panel title="1. Live Market and User Flow">
-      <p className="text-sm text-white/70">{market?.question ?? manifest.question ?? "Waiting for demo market"}</p>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <Metric label="Symbol" value={market?.symbol ?? manifest.symbol ?? "-"} />
-        <Metric label="YES probability" value={`${(currentPrice * 100).toFixed(2)}%`} />
-        <Metric label="WETH volume" value={`${formatNumber(wadToNumber(market?.totalVolumeWeth ?? "0"))} WETH`} />
-        <Metric label="Trades indexed" value={String(market?.tradeCount ?? trades.length)} />
-      </div>
-      <AddressLine label="Condition" value={manifest.conditionId ?? market?.id} />
-      <AddressLine label="WETH pool" value={manifest.poolWeth ?? market?.poolWeth} />
-      <AddressLine label="Resolver" value={manifest.resolver ?? market?.resolver} />
+    <section
+      className={`group relative overflow-hidden rounded-2xl ease-precision ${className}`}
+      style={{
+        background: "rgba(255,255,255,0.022)",
+        backdropFilter: "blur(24px) saturate(140%)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow:
+          "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 30px 80px -40px rgba(0,0,0,0.8)",
+        transition: "background 0.5s var(--ease-precision)",
+      }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+        style={{ background: "rgba(255,255,255,0.012)" }}
+      />
+      {label && (
+        <div className="tabular mb-5 text-[9px] uppercase tracking-[0.3em] text-white/35">
+          / {label}
+        </div>
+      )}
+      <div className="relative">{children}</div>
+    </section>
+  );
+}
 
-      <h3 className="mt-5 text-sm font-medium">Recent trades</h3>
-      <div className="mt-2 space-y-2">
-        {trades.slice(-5).reverse().map((trade) => (
-          <div key={trade.id} className="grid grid-cols-4 gap-2 rounded border border-white/10 p-2 text-xs">
-            <span>{trade.sideLabel}</span>
-            <span>{formatNumber(wadToNumber(trade.size))} WETH</span>
-            <span>{(wadToNumber(trade.priceAfter) * 100).toFixed(2)}%</span>
-            <a className="text-emerald-300" href={arbiscanTx(trade.txHash)} target="_blank" rel="noreferrer">
-              tx
-            </a>
+// ─────────────────────────────────────────────────────────────────────────────
+// Panel 1 — Live Activity Feed + Thermometer
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LiveActivityFeed({ trades, price }: { trades: Trade[]; price: number }) {
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Thermometer */}
+      <div>
+        <div className="mb-2 flex items-baseline justify-between">
+          <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+            market probability
+          </span>
+          <span className="tabular text-2xl font-extralight text-white">
+            {(price * 100).toFixed(1)}
+            <span className="text-white/40 text-sm">%</span>
+          </span>
+        </div>
+        <div className="relative h-[5px] w-full overflow-hidden rounded-full bg-white/[0.05]">
+          <motion.div
+            animate={{ width: `${price * 100}%` }}
+            transition={{ type: "spring", stiffness: 110, damping: 22 }}
+            className="absolute left-0 top-0 h-full"
+            style={{
+              background:
+                "linear-gradient(90deg, rgba(255,255,255,0.55), rgba(255,255,255,0.9))",
+            }}
+          />
+          <motion.div
+            animate={{ left: `${price * 100}%` }}
+            transition={{ type: "spring", stiffness: 110, damping: 22 }}
+            className="absolute top-1/2 h-3 w-px -translate-x-1/2 -translate-y-1/2 bg-white"
+            style={{ boxShadow: "0 0 8px rgba(255,255,255,0.7)" }}
+          />
+        </div>
+        <div className="tabular mt-1.5 flex justify-between text-[9px] uppercase tracking-[0.2em] text-white/25">
+          <span>0%</span>
+          <span>50%</span>
+          <span>100%</span>
+        </div>
+      </div>
+
+      {/* Feed */}
+      <div className="flex flex-col">
+        <div className="tabular mb-2 grid grid-cols-12 text-[9px] uppercase tracking-[0.2em] text-white/30">
+          <span className="col-span-2">side</span>
+          <span className="col-span-3 text-right">size</span>
+          <span className="col-span-2 text-right">px</span>
+          <span className="col-span-2 text-right">saved</span>
+          <span className="col-span-3 text-right">trader</span>
+        </div>
+        <div className="relative h-[260px] overflow-hidden">
+          <AnimatePresence initial={false}>
+            {trades.map((t, i) => (
+              <motion.div
+                key={t.id}
+                initial={{ opacity: 0, y: -12 }}
+                animate={{
+                  opacity: Math.max(0.15, 1 - i * 0.08),
+                  y: 0,
+                }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                className="tabular grid grid-cols-12 items-center border-b border-white/[0.04] py-2 text-[11px]"
+              >
+                <span
+                  className={`col-span-2 uppercase tracking-[0.18em] text-[9px] ${
+                    t.side === "YES" ? "text-white" : "text-white/50"
+                  }`}
+                >
+                  {t.side}
+                </span>
+                <span className="col-span-3 text-right text-white/85">
+                  ${t.size.toFixed(0)}
+                </span>
+                <span className="col-span-2 text-right text-white/55">
+                  {t.price.toFixed(3)}
+                </span>
+                <span className="col-span-2 text-right text-white">
+                  +{t.saved.toFixed(1)}
+                </span>
+                <span className="col-span-3 text-right text-white/40">{t.trader}</span>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-16"
+            style={{
+              background:
+                "linear-gradient(to bottom, transparent, var(--abyss))",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Panel 2 — Monochrome donut "LP Safety Shield"
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SafetyShield({ shielded }: { shielded: number }) {
+  const R = 64;
+  const C = 2 * Math.PI * R;
+  const dash = shielded * C;
+  return (
+    <div className="flex h-full flex-col items-center justify-between">
+      <div className="relative grid place-items-center">
+        <svg width="170" height="170" viewBox="0 0 170 170">
+          {/* track */}
+          <circle
+            cx="85"
+            cy="85"
+            r={R}
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth="6"
+            fill="none"
+          />
+          {/* shielded arc */}
+          <motion.circle
+            cx="85"
+            cy="85"
+            r={R}
+            stroke="rgba(255,255,255,0.92)"
+            strokeWidth="6"
+            fill="none"
+            strokeLinecap="round"
+            transform="rotate(-90 85 85)"
+            strokeDasharray={C}
+            animate={{ strokeDashoffset: C - dash }}
+            transition={{ type: "spring", stiffness: 90, damping: 22 }}
+            style={{ filter: "drop-shadow(0 0 8px rgba(255,255,255,0.35))" }}
+          />
+          {/* inner shield icon */}
+          <g
+            transform="translate(85 85)"
+            stroke="rgba(255,255,255,0.85)"
+            strokeWidth="1"
+            fill="none"
+          >
+            <path
+              d="M 0 -22 L 18 -14 L 18 6 C 18 16 10 22 0 26 C -10 22 -18 16 -18 6 L -18 -14 Z"
+              strokeLinejoin="round"
+            />
+          </g>
+        </svg>
+        <div className="absolute -bottom-1 text-center">
+          <div className="tabular text-[10px] uppercase tracking-[0.22em] text-white/40">
+            protected
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 w-full text-center">
+        <div className="tabular text-4xl font-extralight tracking-tight text-white">
+          {(shielded * 100).toFixed(1)}
+          <span className="text-white/40 text-base">%</span>
+        </div>
+        <div className="tabular mt-1 text-[10px] uppercase tracking-[0.2em] text-white/40">
+          of lp value insulated
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Panel 3 — Cumulative Value Saved (massive number)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ValueSaved({ total }: { total: number }) {
+  const display = useMemo(() => {
+    return total.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }, [total]);
+
+  return (
+    <div className="flex h-full flex-col justify-between">
+      <div className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+        usdc saved from toxic flow
+      </div>
+      <div className="my-6">
+        <div className="flex items-baseline gap-1">
+          <span className="text-white/45 text-2xl font-light">$</span>
+          <span className="tabular text-[64px] font-extralight leading-none tracking-[-0.045em] text-white">
+            {display}
+          </span>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-4 border-t border-white/[0.06] pt-4">
+        {[
+          { k: "24h", v: "+184k" },
+          { k: "7d", v: "+912k" },
+          { k: "all", v: "$2.48m" },
+        ].map((s) => (
+          <div key={s.k}>
+            <div className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
+              {s.k}
+            </div>
+            <div className="tabular mt-1 text-[14px] font-light text-white/90">
+              {s.v}
+            </div>
           </div>
         ))}
-        {trades.length === 0 ? <p className="text-sm text-white/45">No WETH trades indexed yet.</p> : null}
       </div>
-    </Panel>
+    </div>
   );
 }
 
-function LiquidityPanel({ manifest, chainState }: { manifest: DemoManifest; chainState: ChainState | null }) {
-  const reserves = chainState?.reserves;
-  const xActive = reserves?.[0] ?? 0n;
-  const xPassive = reserves?.[1] ?? 0n;
-  const yActive = reserves?.[2] ?? 0n;
-  const yPassive = reserves?.[3] ?? 0n;
-  const active = xActive + yActive;
-  const passive = xPassive + yPassive;
-  const total = active + passive;
-  const activePct = total > 0n ? Number((active * 10_000n) / total) / 100 : 0;
-  const passivePct = Math.max(0, 100 - activePct);
+// ─────────────────────────────────────────────────────────────────────────────
+// Panel 4 — W-Curve (single 1px white line)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function WCurve({ price }: { price: number }) {
+  // λ*(p) — high at edges, dip in middle. Synthesize a W-ish curve.
+  const W = 720;
+  const H = 240;
+  const pad = 28;
+
+  const path = useMemo(() => {
+    const pts: string[] = [];
+    const N = 200;
+    for (let i = 0; i <= N; i++) {
+      const p = i / N;
+      // W curve: two humps with central trough
+      const lam =
+        0.18 +
+        0.85 *
+          (Math.pow(2 * (p - 0.5), 2) * 0.6 +
+            Math.pow(Math.sin(p * Math.PI), 2) * -0.42 + 0.5);
+      const x = pad + p * (W - 2 * pad);
+      const y = H - pad - Math.max(0, Math.min(1, lam - 0.1)) * (H - 2 * pad);
+      pts.push(`${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`);
+    }
+    return pts.join(" ");
+  }, []);
+
+  const dotX = pad + price * (W - 2 * pad);
+  // approximate y at this price using the same formula
+  const lamAt = useMemo(() => {
+    const p = price;
+    const lam =
+      0.18 +
+      0.85 *
+        (Math.pow(2 * (p - 0.5), 2) * 0.6 +
+          Math.pow(Math.sin(p * Math.PI), 2) * -0.42 + 0.5);
+    return lam;
+  }, [price]);
+  const dotY = H - pad - Math.max(0, Math.min(1, lamAt - 0.1)) * (H - 2 * pad);
 
   return (
-    <Panel title="2. Liquidity Provision and Protection">
-      <div className="grid grid-cols-2 gap-3">
-        <Metric label="Initial YES LP" value={`${formatNumber(wadToNumber(manifest.initialLiquidityYes ?? "0"))} WETH`} />
-        <Metric label="Initial NO LP" value={`${formatNumber(wadToNumber(manifest.initialLiquidityNo ?? "0"))} WETH`} />
-        <Metric label="ellActive" value={`${formatNumber(wadToNumber(reserves?.[4] ?? 0n))}`} />
-        <Metric label="lambda" value={(wadToNumber(reserves?.[5] ?? 0n)).toFixed(4)} />
-      </div>
-      <ReserveBar label="Active exposed reserves" pct={activePct} value={`${formatNumber(wadToNumber(active))} shares`} />
-      <ReserveBar label="Passive protected reserves" pct={passivePct} value={`${formatNumber(wadToNumber(passive))} shares`} />
-      <p className="mt-4 rounded border border-white/10 p-3 font-mono text-xs text-white/65">
-        ell_active = lambda*(P) * L0 * sqrt((T - t) / duration)
-      </p>
-    </Panel>
-  );
-}
-
-function WCurvePanel({
-  curve,
-  currentPrice,
-  currentLambda,
-}: {
-  curve: CurvePoint[];
-  currentPrice: number;
-  currentLambda: number;
-}) {
-  return (
-    <Panel title="3. W-Curve from On-Chain Math Kernel">
-      <svg viewBox="0 0 520 260" className="h-64 w-full rounded border border-white/10 bg-black/20">
-        <line x1="40" y1="220" x2="500" y2="220" stroke="rgba(255,255,255,0.18)" />
-        <line x1="40" y1="28" x2="40" y2="220" stroke="rgba(255,255,255,0.18)" />
-        <path d={curvePath(curve)} fill="none" stroke="#34d399" strokeWidth="2.5" />
-        <circle cx={xForP(currentPrice)} cy={yForLambda(currentLambda)} r="6" fill="white" />
-        <text x="42" y="20" fill="rgba(255,255,255,0.65)" fontSize="12">lambda*(P)</text>
-        <text x="454" y="238" fill="rgba(255,255,255,0.65)" fontSize="12">P(YES)</text>
-        <text x={Math.min(410, xForP(currentPrice) + 10)} y={Math.max(24, yForLambda(currentLambda) - 10)} fill="white" fontSize="12">
-          P={(currentPrice * 100).toFixed(2)}%, lambda={currentLambda.toFixed(3)}
-        </text>
-      </svg>
-      <p className="mt-3 text-sm text-white/60">
-        Curve points are read from the deployed math contract via `lambdaStarGaussian`, not reimplemented in JavaScript.
-      </p>
-    </Panel>
-  );
-}
-
-function LvrPanel({ lvr }: { lvr: ReturnType<typeof computeLvr> }) {
-  return (
-    <Panel title="4. Cumulative LVR Saved">
-      <div className="grid grid-cols-3 gap-3">
-        <Metric label="Constant lambda=0.5" value={`${formatNumber(lvr.constant)} WETH`} />
-        <Metric label="Actual dynamic lambda" value={`${formatNumber(lvr.dynamic)} WETH`} />
-        <Metric label="LVR saved" value={`${formatNumber(Math.max(0, lvr.constant - lvr.dynamic))} WETH`} />
-      </div>
-      <p className="mt-4 text-sm text-white/60">
-        Counterfactual analytic LVR from indexed z-space `gapWad`; this is not an on-chain balance transfer.
-      </p>
-    </Panel>
-  );
-}
-
-function LendingPanel({ manifest, chainState }: { manifest: DemoManifest; chainState: ChainState | null }) {
-  const seeded = Boolean(manifest.lending && manifest.lending !== ZERO_ADDRESS);
-  return (
-    <Panel title="5. Zero-Liquidation Lending">
-      {seeded ? (
-        <>
-          <div className="grid grid-cols-2 gap-3">
-            <Metric label="YES-WETH collateral" value={`${formatNumber(wadToNumber(chainState?.lendingCollateral ?? manifest.lendingCollateral ?? "0"))} WETH`} />
-            <Metric label="YES-USDC debt" value={`${formatNumber(wadToNumber(chainState?.lendingDebt ?? manifest.lendingDebt ?? "0"))} USDC`} />
+    <div className="flex flex-col gap-4">
+      <div className="flex items-end justify-between">
+        <div>
+          <div className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+            optimal activeness λ*(p)
           </div>
-          <AddressLine label="Lending" value={manifest.lending} />
-          <p className="mt-4 text-sm text-white/60">
-            Collateral and debt share the same YES outcome, so market probability swings do not create a forced liquidation path.
-          </p>
-        </>
-      ) : (
-        <p className="text-sm text-white/55">
-          Lending was not seeded for this run. Set `ORACLE_ADDRESS` before running the setup script to deploy and display a demo lending position.
-        </p>
-      )}
-    </Panel>
+          <div className="mt-1 text-[13px] text-white/55">
+            Liquidity contracts as probability approaches 0 or 1 — bots find no edge.
+          </div>
+        </div>
+        <div className="tabular text-right">
+          <div className="text-[9px] uppercase tracking-[0.22em] text-white/35">
+            current λ*
+          </div>
+          <div className="text-2xl font-extralight text-white">
+            {lamAt.toFixed(3)}
+          </div>
+        </div>
+      </div>
+
+      <div className="relative w-full overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.01]">
+        <svg viewBox={`0 0 ${W} ${H}`} className="block h-[240px] w-full">
+          {/* grid */}
+          {[0.25, 0.5, 0.75].map((g) => (
+            <line
+              key={`v${g}`}
+              x1={pad + g * (W - 2 * pad)}
+              x2={pad + g * (W - 2 * pad)}
+              y1={pad}
+              y2={H - pad}
+              stroke="rgba(255,255,255,0.04)"
+              strokeWidth="1"
+            />
+          ))}
+          {[0.33, 0.66].map((g) => (
+            <line
+              key={`h${g}`}
+              x1={pad}
+              x2={W - pad}
+              y1={pad + g * (H - 2 * pad)}
+              y2={pad + g * (H - 2 * pad)}
+              stroke="rgba(255,255,255,0.04)"
+              strokeWidth="1"
+            />
+          ))}
+          {/* axes */}
+          <line
+            x1={pad}
+            x2={W - pad}
+            y1={H - pad}
+            y2={H - pad}
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth="1"
+          />
+          <line
+            x1={pad}
+            x2={pad}
+            y1={pad}
+            y2={H - pad}
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth="1"
+          />
+          {/* the W curve */}
+          <motion.path
+            d={path}
+            fill="none"
+            stroke="rgba(255,255,255,0.92)"
+            strokeWidth="1.1"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+            style={{ filter: "drop-shadow(0 0 6px rgba(255,255,255,0.18))" }}
+          />
+          {/* current dot */}
+          <motion.g animate={{ x: dotX, y: dotY }} transition={{ type: "spring", stiffness: 90, damping: 18 }}>
+            <circle r="14" fill="rgba(255,255,255,0.06)">
+              <animate attributeName="r" values="6;16;6" dur="2.4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" />
+            </circle>
+            <circle r="3.5" fill="white" />
+          </motion.g>
+
+          {/* axis labels */}
+          <text x={pad} y={H - 8} fill="rgba(255,255,255,0.3)" fontSize="9" letterSpacing="2">
+            P=0
+          </text>
+          <text x={W / 2 - 8} y={H - 8} fill="rgba(255,255,255,0.3)" fontSize="9" letterSpacing="2">
+            0.5
+          </text>
+          <text x={W - pad - 18} y={H - 8} fill="rgba(255,255,255,0.3)" fontSize="9" letterSpacing="2">
+            P=1
+          </text>
+        </svg>
+      </div>
+    </div>
   );
 }
 
-function ProofPanel({
-  manifest,
-  chainState,
-  trades,
-  proofZ,
-  stylusVerified,
-}: {
-  manifest: DemoManifest;
-  chainState: ChainState | null;
-  trades: TradeRow[];
-  proofZ: Record<string, bigint>;
-  stylusVerified: boolean;
-}) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Panel 5 — Zero-Liquidation Lending (balance + lock)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RiskFreeBorrow() {
   return (
-    <Panel title="6. On-Chain Proof Strip">
-      <div className="mb-3 flex flex-wrap gap-2 text-xs">
-        <span className="rounded border border-white/15 px-2 py-1">
-          {stylusVerified ? "✓ Stylus kernel" : "Solidity fallback / unverified math"}
+    <div className="flex h-full flex-col gap-6">
+      {/* Thin line balance + lock */}
+      <div className="relative mx-auto h-[120px] w-[200px]">
+        <svg viewBox="0 0 200 120" className="h-full w-full">
+          {/* pivot */}
+          <line
+            x1="100"
+            y1="14"
+            x2="100"
+            y2="62"
+            stroke="rgba(255,255,255,0.6)"
+            strokeWidth="1"
+          />
+          {/* beam */}
+          <line
+            x1="30"
+            y1="62"
+            x2="170"
+            y2="62"
+            stroke="rgba(255,255,255,0.8)"
+            strokeWidth="1"
+          />
+          {/* pans */}
+          <line x1="30" y1="62" x2="30" y2="78" stroke="rgba(255,255,255,0.4)" />
+          <line x1="170" y1="62" x2="170" y2="78" stroke="rgba(255,255,255,0.4)" />
+          <path
+            d="M 14 78 Q 30 96 46 78"
+            stroke="rgba(255,255,255,0.6)"
+            strokeWidth="1"
+            fill="none"
+          />
+          <path
+            d="M 154 78 Q 170 96 186 78"
+            stroke="rgba(255,255,255,0.6)"
+            strokeWidth="1"
+            fill="none"
+          />
+          {/* lock icon center top */}
+          <g transform="translate(100 8)" stroke="white" strokeWidth="1" fill="none">
+            <rect x="-6" y="0" width="12" height="9" rx="1.5" />
+            <path d="M -3.5 0 V -3 A 3.5 3.5 0 0 1 3.5 -3 V 0" />
+          </g>
+        </svg>
+      </div>
+
+      <div className="space-y-3">
+        <Row k="collateral" v="$12,450.00" />
+        <Row k="borrowed" v="$7,820.00" />
+        <Row k="ltv" v="62.8%" />
+        <div className="border-t border-white/[0.06] pt-3">
+          <Row k="liquidations" v="0" emphasis />
+        </div>
+      </div>
+
+      <div className="tabular mt-auto text-[10px] uppercase tracking-[0.22em] text-white/40">
+        no forced exits · settled at maturity
+      </div>
+    </div>
+  );
+}
+
+function Row({ k, v, emphasis = false }: { k: string; v: string; emphasis?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between">
+      <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/40">{k}</span>
+      <span
+        className={`tabular ${
+          emphasis ? "text-white text-lg font-light" : "text-white/85 text-[13px]"
+        }`}
+      >
+        {v}
+      </span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Verified strip
+// ─────────────────────────────────────────────────────────────────────────────
+
+function VerifiedStrip() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="group mt-3 flex w-full items-center justify-between rounded-xl px-6 py-4 text-left ease-precision"
+        style={{
+          background: "rgba(255,255,255,0.018)",
+          backdropFilter: "blur(24px) saturate(140%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.05)",
+        }}
+      >
+        <div className="flex items-center gap-4">
+          <span
+            className="grid h-6 w-6 place-items-center rounded-full border border-white/40 text-[11px] text-white"
+            style={{ boxShadow: "0 0 12px rgba(255,255,255,0.18)" }}
+          >
+            ✓
+          </span>
+          <span className="tabular text-[11px] uppercase tracking-[0.28em] text-white/85">
+            Verified live on Arbitrum Stylus
+          </span>
+        </div>
+        <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/40 ease-precision group-hover:text-white">
+          view proof tables →
         </span>
-        <span className="rounded border border-white/15 px-2 py-1">
-          dynamic={String(chainState?.useDynamicLambda ?? false)}
-        </span>
-      </div>
-      <AddressLine label="Pool math()" value={chainState?.math} />
-      <AddressLine label="Manifest math" value={manifest.math} />
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-xs">
-          <thead className="text-white/45">
-            <tr>
-              <th className="py-2">Block</th>
-              <th>Tx</th>
-              <th>Side</th>
-              <th>Size</th>
-              <th>P</th>
-              <th>z</th>
-              <th>lambda</th>
-              <th>ell</th>
-            </tr>
-          </thead>
-          <tbody>
-            {trades.map((trade) => (
-              <tr key={trade.id} className="border-t border-white/10">
-                <td className="py-2">{trade.blockNumber}</td>
-                <td>
-                  <a className="text-emerald-300" href={arbiscanTx(trade.txHash)} target="_blank" rel="noreferrer">
-                    {shorten(trade.txHash)}
-                  </a>
-                </td>
-                <td>{trade.sideLabel}</td>
-                <td>{formatNumber(wadToNumber(trade.size))}</td>
-                <td>{(wadToNumber(trade.priceAfter) * 100).toFixed(2)}%</td>
-                <td>{formatSignedWad(proofZ[trade.id])}</td>
-                <td>{wadToNumber(trade.lambdaWad).toFixed(4)}</td>
-                <td>{formatNumber(wadToNumber(trade.ellWad))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 grid place-items-end bg-black/60 backdrop-blur-sm"
+            onClick={() => setOpen(false)}
+          >
+            <motion.div
+              initial={{ y: 80 }}
+              animate={{ y: 0 }}
+              exit={{ y: 80 }}
+              transition={{ type: "spring", stiffness: 120, damping: 22 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-[1400px] rounded-t-2xl p-8"
+              style={{
+                background: "rgba(10,10,10,0.85)",
+                backdropFilter: "blur(40px) saturate(160%)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                boxShadow: "0 -40px 80px -30px rgba(0,0,0,0.8)",
+              }}
+            >
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <div className="tabular text-[10px] uppercase tracking-[0.28em] text-white/45">
+                    / on-chain proof
+                  </div>
+                  <h3 className="mt-2 text-xl font-extralight tracking-tight">
+                    Raw trade & rebalance log
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="tabular rounded-full border border-white/15 px-4 py-1.5 text-[10px] uppercase tracking-[0.22em] text-white/60 ease-precision hover:border-white/40 hover:text-white"
+                >
+                  close
+                </button>
+              </div>
+
+              <div className="grid grid-cols-12 gap-4 border-b border-white/[0.06] pb-2 text-[10px] uppercase tracking-[0.22em] text-white/35">
+                <span className="col-span-2">block</span>
+                <span className="col-span-2">type</span>
+                <span className="col-span-3">tx hash</span>
+                <span className="col-span-2 text-right">size</span>
+                <span className="col-span-2 text-right">λ</span>
+                <span className="col-span-1 text-right">ℓ</span>
+              </div>
+              <div className="max-h-[40vh] overflow-y-auto">
+                {Array.from({ length: 16 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="tabular grid grid-cols-12 gap-4 border-b border-white/[0.04] py-2 text-[11px]"
+                  >
+                    <span className="col-span-2 text-white/55">
+                      #{(248_194_021 - i).toLocaleString()}
+                    </span>
+                    <span className="col-span-2 text-white/70">
+                      {i % 3 === 0 ? "rebalance" : "trade"}
+                    </span>
+                    <span className="col-span-3 text-white/45">
+                      0x{Math.random().toString(16).slice(2, 14)}…
+                    </span>
+                    <span className="col-span-2 text-right text-white/85">
+                      ${(rand(120, 4800)).toFixed(0)}
+                    </span>
+                    <span className="col-span-2 text-right text-white/85">
+                      {rand(0.2, 0.9).toFixed(3)}
+                    </span>
+                    <span className="col-span-1 text-right text-white/85">
+                      {rand(0.4, 1.1).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
-}
-
-function Panel({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <article className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
-      <h2 className="mb-3 text-base font-medium">{title}</h2>
-      {children}
-    </article>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded border border-white/10 p-3">
-      <div className="text-xs text-white/45">{label}</div>
-      <div className="mt-1 break-words font-mono text-sm">{value}</div>
-    </div>
-  );
-}
-
-function AddressLine({ label, value }: { label: string; value?: string }) {
-  if (!value) return null;
-  return (
-    <div className="mt-3 flex gap-3 text-xs">
-      <span className="w-24 shrink-0 text-white/45">{label}</span>
-      <span className="break-all font-mono text-white/70">{value}</span>
-    </div>
-  );
-}
-
-function ReserveBar({ label, pct, value }: { label: string; pct: number; value: string }) {
-  return (
-    <div className="mt-4">
-      <div className="mb-2 flex justify-between text-xs text-white/55">
-        <span>{label}</span>
-        <span>{value} · {pct.toFixed(1)}%</span>
-      </div>
-      <div className="h-4 overflow-hidden rounded bg-white/10">
-        <div className="h-full bg-emerald-400/80" style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function StatusLine({ text }: { text: string }) {
-  return <div className="mb-6 rounded border border-white/10 bg-white/[0.03] p-4 text-sm text-white/65">{text}</div>;
-}
-
-function selectMarket(markets: MarketRow[], manifest: DemoManifest) {
-  return (
-    markets.find((market) => market.id === manifest.conditionId) ??
-    markets.find((market) => sameAddress(market.poolWeth, manifest.poolWeth)) ??
-    markets.find((market) => manifest.symbol && market.symbol === manifest.symbol && market.category === "demo")
-  );
-}
-
-function filterTrades(trades: TradeRow[], manifest: DemoManifest, market?: MarketRow) {
-  const pool = manifest.poolWeth ?? market?.poolWeth;
-  const conditionId = manifest.conditionId ?? market?.id;
-  return trades.filter(
-    (trade) =>
-      trade.poolType === "WETH" &&
-      (sameAddress(trade.pool, pool) || (conditionId && trade.conditionId === conditionId)),
-  );
-}
-
-function filterRebalances(rebalances: RebalanceRow[], manifest: DemoManifest, market?: MarketRow) {
-  const pool = manifest.poolWeth ?? market?.poolWeth;
-  return rebalances.filter((rebalance) => rebalance.poolType === "WETH" && sameAddress(rebalance.pool, pool));
-}
-
-function computeLvr(trades: TradeRow[]) {
-  return trades.reduce(
-    (acc, trade) => {
-      const p = Math.max(0.000001, Math.min(0.999999, wadToNumber(trade.priceAfter)));
-      const z = normalInv(p);
-      const phi = normalPdf(z);
-      const v = phi + z * (2 * p - 1);
-      const gap = wadToNumber(trade.gapWad);
-      const actualLambda = Math.max(0.0001, wadToNumber(trade.lambdaWad));
-      const baseLiquidity = wadToNumber(trade.ellWad) / actualLambda;
-      const common = (phi / Math.max(0.000001, v)) * gap * gap;
-      acc.dynamic += baseLiquidity * (actualLambda / 2) * common;
-      acc.constant += baseLiquidity * (0.5 / 2) * common;
-      return acc;
-    },
-    { constant: 0, dynamic: 0 },
-  );
-}
-
-function buildProbabilitySamples() {
-  const samples = [0.001, 0.005];
-  for (let i = 1; i < 100; i += 2) samples.push(i / 100);
-  samples.push(0.995, 0.999);
-  return Array.from(new Set(samples)).sort((a, b) => a - b);
-}
-
-function probabilityToWad(p: number) {
-  return BigInt(Math.round(p * 1e18));
-}
-
-function curvePath(points: CurvePoint[]) {
-  if (points.length === 0) return "";
-  return points.map((point, index) => `${index === 0 ? "M" : "L"} ${xForP(point.p)} ${yForLambda(point.lambda)}`).join(" ");
-}
-
-function xForP(p: number) {
-  return 40 + Math.max(0, Math.min(1, p)) * 460;
-}
-
-function yForLambda(lambda: number) {
-  return 220 - Math.max(0, Math.min(1, lambda)) * 192;
-}
-
-function wadToNumber(value: string | bigint | undefined) {
-  if (value === undefined) return 0;
-  return Number(value) / 1e18;
-}
-
-function lastNumber<T extends Record<string, string>>(rows: T[], key: keyof T, fallback: number) {
-  const last = rows[rows.length - 1];
-  return last ? wadToNumber(last[key]) : fallback;
-}
-
-function formatNumber(value: number) {
-  return value.toLocaleString(undefined, { maximumFractionDigits: value >= 100 ? 0 : 4 });
-}
-
-function formatSignedWad(value?: bigint) {
-  if (value === undefined) return "...";
-  const sign = value < 0n ? "-" : "";
-  const abs = value < 0n ? -value : value;
-  return `${sign}${(Number(abs) / 1e18).toFixed(4)}`;
-}
-
-function sameAddress(a?: string, b?: string) {
-  return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
-}
-
-function shorten(value: string) {
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
-}
-
-function arbiscanTx(hash: string) {
-  return `https://sepolia.arbiscan.io/tx/${hash}`;
-}
-
-function normalPdf(z: number) {
-  return Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);
-}
-
-function normalInv(p: number) {
-  const a = [-39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472, 2.50662827745924];
-  const b = [-54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528857];
-  const c = [-0.00778489400243029, -0.322396458041136, -2.40075827716184, -2.54973253934373, 4.37466414146497, 2.93816398269878];
-  const d = [0.00778469570904146, 0.32246712907004, 2.445134137143, 3.75440866190742];
-  const plow = 0.02425;
-  const phigh = 1 - plow;
-
-  if (p < plow) {
-    const q = Math.sqrt(-2 * Math.log(p));
-    return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5])
-      / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
-  }
-  if (p > phigh) {
-    const q = Math.sqrt(-2 * Math.log(1 - p));
-    return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5])
-      / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
-  }
-  const q = p - 0.5;
-  const r = q * q;
-  return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q
-    / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
 }

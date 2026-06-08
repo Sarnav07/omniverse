@@ -1,276 +1,79 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion } from "motion/react";
-import { useState, useEffect } from "react";
-import { ParametricMesh } from "@/components/parametric-mesh";
-import { SpotlightCard } from "@/components/spotlight-card";
+import { motion, useInView, useMotionValue, useSpring } from "motion/react";
+import { useEffect, useRef } from "react";
+import {
+  ShieldCheck,
+  Cpu,
+  LockKeyhole,
+  ArrowRight,
+  CheckCircle2,
+  Activity,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { NavBar } from "@/components/nav-bar";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "OMNIVERSE — Institutional execution terminal" },
+      { title: "Omniverse — Stop bleeding liquidity to bots" },
       {
         name: "description",
         content:
-          "Zero-liquidation execution layer for active liquidity. Probability-bounded collateral curves, oracle-grade telemetry, and an execution desk built for funds.",
+          "The first prediction market protocol with dynamic LP defense, powered by Arbitrum Stylus. Zero liquidations, adaptive fees, on-chain Gaussian math.",
       },
-      { property: "og:title", content: "OMNIVERSE — Institutional execution terminal" },
+      { property: "og:title", content: "Omniverse — Stop bleeding liquidity to bots" },
       {
         property: "og:description",
         content:
-          "Zero-liquidation execution layer. Probability-bounded collateral curves and an institutional execution desk.",
+          "Dynamic LP defense + zero-liquidation lending for prediction markets, powered by Arbitrum Stylus.",
       },
     ],
   }),
-  component: Index,
+  component: Landing,
 });
 
-const spring = { type: "spring" as const, stiffness: 320, damping: 32 };
-const ease = [0.16, 1, 0.3, 1] as const;
+const EASE = [0.16, 1, 0.3, 1] as const;
 
-function Index() {
+/* ─────────────────────────── page ─────────────────────────── */
+
+function Landing() {
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-abyss text-foreground">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-abyss text-foreground antialiased">
+      {/* Same monochrome wash as /demo */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 h-[60vh] opacity-[0.35]"
+        style={{
+          background:
+            "radial-gradient(60% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 70%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 h-[40vh] opacity-[0.22]"
+        style={{
+          background:
+            "radial-gradient(60% 60% at 50% 100%, rgba(255,255,255,0.05), transparent 70%)",
+        }}
+      />
       <div className="noise-overlay" />
 
-      {/* NAV */}
       <NavBar hideWallet />
 
-      {/* HERO */}
-      <section className="relative z-10 mx-auto w-full max-w-[1400px] px-8 pt-32 pb-40">
-        <ParametricMesh />
-        {/* horizontal axis line anchoring floating data */}
-        <div className="pointer-events-none absolute left-8 right-8 top-[55%] hidden h-px bg-white/[0.05] md:block" />
+      <Hero />
+      <TrustTicker />
+      <BentoSection />
+      <ValueSavedSection />
+      <FooterCTA />
 
-        <DataCallout
-          className="absolute right-8 top-[52%] md:right-16"
-          value="+65,210"
-          label="positions opened"
-        />
-        <DataCallout
-          className="absolute left-8 top-[52%] md:left-16"
-          value="$1.524b"
-          label="tvl protected"
-          align="left"
-        />
-
-        <div className="relative mx-auto max-w-[1100px] text-center">
-          <div
-            className="tabular mb-12 text-[10px] uppercase tracking-[0.32em] text-white/70"
-            style={{ textShadow: "0 0 18px rgba(3,3,3,0.9)" }}
-          >
-            / 01 · execution layer
-          </div>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...spring, delay: 0.05 }}
-            className="font-display text-balance text-[14vw] font-light leading-[0.88] tracking-[-0.045em] md:text-[8.5rem]"
-            style={{ textShadow: "0 0 40px rgba(3,3,3,0.85)" }}
-          >
-            protect <span className="italic font-extralight text-white/85">your</span> yields
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...spring, delay: 0.2 }}
-            className="mx-auto mt-12 max-w-md text-balance text-[14px] leading-relaxed text-white/80"
-            style={{ textShadow: "0 0 24px rgba(3,3,3,0.95)" }}
-          >
-            a zero-liquidation execution layer for active liquidity. probability-bounded collateral,
-            settled without forced exits.
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...spring, delay: 0.35 }}
-            className="mt-14 flex items-center justify-center gap-3"
-          >
-            <Link
-              to="/demo"
-              className="group relative inline-block overflow-hidden rounded-full border border-white/20 px-7 py-3 text-[12px] tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss"
-              style={{ backdropFilter: "blur(10px)" }}
-            >
-              <span className="absolute inset-0 -translate-x-full bg-white transition-transform duration-500 ease-precision group-hover:translate-x-0" />
-              <span className="relative">enter terminal →</span>
-            </Link>
-            <a href="https://arxiv.org/html/2602.09887" target="_blank" rel="noreferrer" className="rounded-full px-7 py-3 text-[12px] text-white/55 transition-colors duration-300 ease-precision hover:text-white">
-              read whitepaper ↗
-            </a>
-          </motion.div>
-        </div>
-
-        {/* corner technical brackets */}
-        <CornerBracket className="left-8 top-24" pos="tl" />
-        <CornerBracket className="right-8 top-24" pos="tr" />
-      </section>
-
-      {/* METRICS BAR — enclosed dashboard */}
-      <section className="relative z-10 mx-auto w-full max-w-[1400px] px-8">
-        <div className="omni-glass grid grid-cols-2 divide-x divide-white/5 rounded-xl md:grid-cols-4">
-          {[
-            { k: "active markets", v: "1,284", d: "+18 24h" },
-            { k: "median apy", v: "12.43", u: "%", d: "γ-bounded" },
-            { k: "oracle latency", v: "240", u: "ms", d: "p99 480" },
-            { k: "liquidations", v: "0", d: "since genesis" },
-          ].map((s) => (
-            <div key={s.k} className="flex flex-col px-6 py-6">
-              <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/35">
-                {s.k}
-              </span>
-              <div className="mt-3 flex items-baseline gap-1">
-                <span className="tabular text-[28px] font-light tracking-tight">{s.v}</span>
-                {s.u && <span className="tabular text-sm text-white/40">{s.u}</span>}
-              </div>
-              <span className="tabular mt-1 text-[10px] uppercase tracking-[0.18em] text-white/30">
-                {s.d}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* BENTO */}
-      <section className="relative z-10 mx-auto w-full max-w-[1400px] px-8 py-32">
-        <div className="mb-16 flex items-end justify-between">
-          <div>
-            <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
-              / 02 · capabilities
-            </span>
-            <h2 className="mt-4 max-w-2xl text-balance text-4xl font-light leading-[1.05] tracking-[-0.035em] md:text-5xl">
-              built for traders who survived the last cycle.
-            </h2>
-          </div>
-          <a
-            href="#"
-            className="hidden text-[12px] text-white/50 ease-precision hover:text-white md:block"
-          >
-            view all primitives →
-          </a>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:grid-rows-2">
-          {/* THREAT DETECTION — radar sweep */}
-          <SpotlightCard className="md:row-span-2 p-8">
-            <CardIndex n="01" label="threat detection" />
-            <h3 className="mt-5 text-[22px] font-light leading-tight tracking-[-0.02em]">
-              proactive threat detection
-            </h3>
-            <p className="mt-3 max-w-[28ch] text-[13px] leading-relaxed text-white/50">
-              continuous oracle-drift, mempool-sandwich and liquidity-flight monitoring. anomalies
-              are quarantined before they touch reserves.
-            </p>
-
-            <div className="relative mt-12 aspect-square">
-              <RadarSweep />
-              <div className="absolute inset-0 grid place-items-center">
-                <div className="text-center">
-                  <div className="tabular font-display text-4xl font-light tracking-tight">
-                    99.94<span className="text-white/30">%</span>
-                  </div>
-                  <div className="tabular mt-2 text-[10px] uppercase tracking-[0.22em] text-white/35">
-                    detection coverage
-                  </div>
-                </div>
-              </div>
-            </div>
-          </SpotlightCard>
-
-          {/* EXPERTISE — spline chart */}
-          <SpotlightCard className="p-8">
-            <CardIndex n="02" label="track record" />
-            <h3 className="mt-5 text-[22px] font-light leading-tight tracking-[-0.02em]">
-              fourteen years of quant track.
-            </h3>
-            <div className="tabular mt-6 flex items-baseline gap-2">
-              <span className="font-display text-[64px] font-extralight leading-none tracking-[-0.04em]">
-                14
-              </span>
-              <span className="text-[11px] uppercase tracking-[0.22em] text-white/40">
-                yrs · 4 cycles
-              </span>
-            </div>
-            <SplineChart />
-          </SpotlightCard>
-
-          {/* ZERO LIQUIDATION — precision slider */}
-          <SpotlightCard className="p-8">
-            <CardIndex n="03" label="invariant" />
-            <h3 className="mt-5 text-[22px] font-light leading-tight tracking-[-0.02em]">
-              zero-liquidation logic
-            </h3>
-            <p className="mt-3 text-[13px] leading-relaxed text-white/50">
-              probability-bounded collateral curves replace hard thresholds. crashes settle, not
-              cascade.
-            </p>
-            <PrecisionSlider />
-          </SpotlightCard>
-
-          {/* EXECUTION DESK — connecting line */}
-          <SpotlightCard className="p-8 md:col-span-2">
-            <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-              <div className="flex-1">
-                <CardIndex n="04" label="execution desk" />
-                <h3 className="mt-5 max-w-md text-[22px] font-light leading-tight tracking-[-0.02em]">
-                  drag capital. drop intent. settle without typing a digit.
-                </h3>
-                <p className="mt-3 max-w-md text-[13px] leading-relaxed text-white/50">
-                  same-leg validation rejects mismatched collateral physically on the canvas — no
-                  modals, no toasts.
-                </p>
-              </div>
-              <ExecutionDesk />
-            </div>
-          </SpotlightCard>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="relative z-10 mx-auto w-full max-w-[1400px] px-8 pb-32">
-        <div className="omni-glass-heavy relative overflow-hidden rounded-2xl p-16 md:p-24">
-          <ParticleMesh />
-          <div className="relative z-10 grid grid-cols-1 gap-12 md:grid-cols-[1.4fr_1fr] md:items-end">
-            <div>
-              <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
-                / 05 · open
-              </span>
-              <h2 className="mt-6 text-balance text-5xl font-light leading-[1.02] tracking-[-0.04em] md:text-7xl">
-                the terminal is open.
-                <br />
-                <span className="text-white/35">your capital decides.</span>
-              </h2>
-            </div>
-            <div className="flex flex-col gap-3">
-              <Link to="/demo" className="group relative inline-block overflow-hidden rounded-full border border-white/25 px-7 py-3.5 text-[12px] text-center tracking-wide text-white transition-colors duration-500 ease-precision hover:text-abyss">
-                <span className="absolute inset-0 -translate-x-full bg-white transition-transform duration-500 ease-precision group-hover:translate-x-0" />
-                <span className="relative">enter terminal →</span>
-              </Link>
-              <a href="mailto:hello@omniverse.finance" className="inline-block rounded-full border border-white/10 px-7 py-3.5 text-center text-[12px] text-white/65 ease-precision hover:border-white/25 hover:text-white">
-                book a walkthrough
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FOOTER */}
       <footer className="relative z-10 mx-auto w-full max-w-[1400px] border-t border-white/5 px-8 py-10">
-        <div className="flex flex-wrap items-center justify-between gap-4 tabular text-[11px] uppercase tracking-[0.18em] text-white/35">
-          <span>© omniverse labs · execution layer v4.0</span>
+        <div className="tabular flex flex-wrap items-center justify-between gap-4 text-[11px] uppercase tracking-[0.18em] text-white/35">
+          <span>© omniverse labs · v4.0 · arbitrum</span>
           <div className="flex items-center gap-8">
-            <NetworkStatus />
-            <a className="ease-precision hover:text-white" href="https://sepolia.arbiscan.io/" target="_blank" rel="noreferrer">
-              status
-            </a>
-            <a className="ease-precision hover:text-white" href="https://github.com/vihaan1016/omniverse" target="_blank" rel="noreferrer">
-              github
-            </a>
-            <a className="ease-precision hover:text-white" href="#">
-              terms
-            </a>
+            <a className="hover:text-white" href="https://sepolia.arbiscan.io/" target="_blank" rel="noreferrer">status</a>
+            <a className="hover:text-white" href="https://github.com/vihaan1016/omniverse" target="_blank" rel="noreferrer">github</a>
+            <a className="hover:text-white" href="https://arxiv.org/html/2602.09887" target="_blank" rel="noreferrer">whitepaper</a>
           </div>
         </div>
       </footer>
@@ -278,481 +81,641 @@ function Index() {
   );
 }
 
-/* ─────────────────────────── primitives ─────────────────────────── */
+/* ─────────────────────────── hero ─────────────────────────── */
 
-function CardIndex({ n, label }: { n: string; label: string }) {
+function Hero() {
   return (
-    <div className="flex items-center gap-3">
-      <span className="tabular text-[10px] uppercase tracking-[0.28em] text-white/50">{n}</span>
-      <span className="h-px w-8 bg-white/10" />
-      <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/35">{label}</span>
-    </div>
-  );
-}
+    <section className="relative z-10 mx-auto w-full max-w-[1300px] px-8 pt-28 pb-32 md:pt-36 md:pb-44">
+      <WCurveBackdrop />
 
-function CornerBracket({ className = "", pos }: { className?: string; pos: "tl" | "tr" }) {
-  const path = pos === "tl" ? "M0 24 L0 0 L24 0" : "M24 24 L24 0 L0 0";
-  return (
-    <svg
-      className={`pointer-events-none absolute hidden h-6 w-6 md:block ${className}`}
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <path d={path} stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-    </svg>
-  );
-}
-
-function DataCallout({
-  value,
-  label,
-  className = "",
-  align = "right",
-}: {
-  value: string;
-  label: string;
-  className?: string;
-  align?: "left" | "right";
-}) {
-  return (
-    <div className={`pointer-events-none z-10 hidden md:block ${className}`}>
-      <div className={`flex flex-col ${align === "left" ? "items-start" : "items-end"}`}>
-        <div className="tabular text-2xl font-light tracking-[-0.02em]">{value}</div>
-        <div className="tabular mt-1.5 text-[10px] uppercase tracking-[0.22em] text-white/40">
-          {label}
-        </div>
-        <div
-          className={`mt-3 flex items-center gap-1.5 ${align === "left" ? "" : "flex-row-reverse"}`}
-        >
-          <span className="h-1 w-1 rounded-full bg-white/60" />
-          <span className="h-px w-10 bg-white/15" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────── radar ─────────────────────────── */
-
-function RadarSweep() {
-  return (
-    <svg viewBox="0 0 200 200" className="absolute inset-0 h-full w-full">
-      <defs>
-        <radialGradient id="radar-grad" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.08)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-        </radialGradient>
-        <linearGradient id="sweep-grad" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0%" stopColor="rgba(0,229,255,0)" />
-          <stop offset="100%" stopColor="rgba(0,229,255,0.45)" />
-        </linearGradient>
-      </defs>
-      {/* micro grid */}
-      <g stroke="rgba(255,255,255,0.04)" strokeWidth="0.5">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <line key={`v${i}`} x1={i * 20} y1={0} x2={i * 20} y2={200} />
-        ))}
-        {Array.from({ length: 10 }).map((_, i) => (
-          <line key={`h${i}`} x1={0} y1={i * 20} x2={200} y2={i * 20} />
-        ))}
-      </g>
-      {/* concentric rings */}
-      {[30, 55, 80, 95].map((r) => (
-        <circle
-          key={r}
-          cx="100"
-          cy="100"
-          r={r}
-          stroke="rgba(255,255,255,0.08)"
-          strokeWidth="0.5"
-          fill="none"
-        />
-      ))}
-      {/* crosshair */}
-      <line x1="100" y1="5" x2="100" y2="195" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
-      <line x1="5" y1="100" x2="195" y2="100" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
-      <circle cx="100" cy="100" r="95" fill="url(#radar-grad)" />
-      {/* sweep */}
-      <g className="radar-sweep" style={{ transformOrigin: "100px 100px" }}>
-        <path d="M 100 100 L 195 100 A 95 95 0 0 0 100 5 Z" fill="url(#sweep-grad)" />
-      </g>
-      {/* detection markers */}
-      <circle cx="138" cy="68" r="1.5" fill="rgba(0,229,255,0.9)" />
-      <circle cx="62" cy="142" r="1.5" fill="rgba(255,140,0,0.9)" />
-      <circle cx="150" cy="130" r="1.5" fill="rgba(255,255,255,0.9)" />
-    </svg>
-  );
-}
-
-/* ─────────────────────────── spline ─────────────────────────── */
-
-function SplineChart() {
-  // 14-year monotone-ish upward path
-  const points = [10, 18, 14, 26, 38, 32, 48, 60, 54, 72, 88, 82, 102, 120];
-  const W = 280,
-    H = 80;
-  const max = Math.max(...points);
-  const path = points
-    .map((p, i) => {
-      const x = (i / (points.length - 1)) * W;
-      const y = H - (p / max) * H;
-      return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(" ");
-  const area = `${path} L ${W} ${H} L 0 ${H} Z`;
-  return (
-    <div className="mt-6 -mx-2">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-20 w-full">
-        <defs>
-          <linearGradient id="area-grad" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.12)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-          </linearGradient>
-        </defs>
-        <g stroke="rgba(255,255,255,0.04)" strokeWidth="0.5">
-          {[0, 1, 2, 3].map((i) => (
-            <line key={i} x1={0} x2={W} y1={(i * H) / 3} y2={(i * H) / 3} />
-          ))}
-        </g>
-        <path d={area} fill="url(#area-grad)" />
-        <path d={path} stroke="white" strokeWidth="1" fill="none" />
-        {points.map((p, i) => {
-          const x = (i / (points.length - 1)) * W;
-          const y = H - (p / max) * H;
-          return (
-            <circle
-              key={i}
-              cx={x}
-              cy={y}
-              r="1"
-              fill="white"
-              opacity={i === points.length - 1 ? 1 : 0.4}
-            />
-          );
-        })}
-      </svg>
-      <div className="tabular mt-3 flex justify-between text-[9px] uppercase tracking-[0.2em] text-white/30">
-        <span>2011</span>
-        <span>2018</span>
-        <span>2025</span>
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────── precision slider ─────────────────────────── */
-
-function PrecisionSlider() {
-  const ticks = Array.from({ length: 21 });
-  const pos = 0.74;
-  return (
-    <div className="mt-8">
-      <div className="relative">
-        {/* tick marks */}
-        <div className="absolute inset-x-0 -top-3 flex justify-between">
-          {ticks.map((_, i) => (
-            <span key={i} className="w-px bg-white/20" style={{ height: i % 5 === 0 ? 6 : 3 }} />
-          ))}
-        </div>
-        {/* track */}
-        <div className="relative h-px w-full bg-white/10">
-          <div className="absolute inset-y-0 left-0 bg-white" style={{ width: `${pos * 100}%` }} />
-          {/* thumb */}
-          <div
-            className="absolute -top-[3px] h-[7px] w-[7px] -translate-x-1/2 rounded-full bg-white"
-            style={{
-              left: `${pos * 100}%`,
-              boxShadow: "0 0 12px rgba(255,255,255,0.85), 0 0 24px rgba(0,229,255,0.4)",
-            }}
-          />
-        </div>
-      </div>
-      <div className="tabular mt-4 flex justify-between text-[10px] uppercase tracking-[0.22em] text-white/40">
-        <span>γ 0.00</span>
-        <span className="text-white/80">λ* = 0.74</span>
-        <span>γ 1.00</span>
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────── execution desk ─────────────────────────── */
-
-function ExecutionDesk() {
-  const pills = ["wETH 12.4", "USDC 40k", "wBTC 0.8", "rETH 6.1"];
-  return (
-    <div className="omni-glass-soft w-full flex-1 rounded-xl p-5 md:max-w-md">
-      <div className="flex items-center justify-between border-b border-white/5 pb-3 tabular text-[10px] uppercase tracking-[0.22em] text-white/40">
-        <span>active reserve</span>
-        <span className="tabular text-white/70">$124,820.41</span>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {pills.map((t) => (
-          <motion.div
-            key={t}
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.96 }}
-            transition={spring}
-            className="cursor-grab select-none rounded-full border border-white/10 bg-white/[0.025] px-3 py-1.5 tabular text-[11px] text-white/85"
-          >
-            {t}
-          </motion.div>
-        ))}
-      </div>
-      {/* connecting routing line */}
-      <svg className="mt-4 h-10 w-full" viewBox="0 0 320 40" fill="none">
-        <path
-          d="M 30 8 C 30 30, 160 30, 160 20 C 160 10, 290 10, 290 32"
-          stroke="rgba(0,229,255,0.5)"
-          strokeWidth="1"
-          strokeDasharray="3 3"
-        >
-          <animate
-            attributeName="stroke-dashoffset"
-            from="0"
-            to="-12"
-            dur="1.4s"
-            repeatCount="indefinite"
-          />
-        </path>
-        <circle cx="30" cy="8" r="2" fill="white" />
-        <circle cx="290" cy="32" r="2" fill="white" />
-      </svg>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-lg border border-dashed border-white/15 bg-white/[0.015] px-3 py-4 text-center tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
-          yes-pool
-        </div>
-        <div className="rounded-lg border border-dashed border-white/15 bg-white/[0.015] px-3 py-4 text-center tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
-          no-pool
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────── math band ─────────────────────────── */
-
-function MathBand() {
-  const [hover, setHover] = useState(false);
-  return (
-    <section className="relative z-10 mx-auto w-full max-w-[1400px] px-8 py-24">
-      <div
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        className="omni-glass-heavy overflow-hidden rounded-2xl"
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: EASE }}
+        className="relative mx-auto flex max-w-3xl flex-col items-center text-center"
       >
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1.2fr]">
-          <div className="border-b border-white/5 p-12 md:border-b-0 md:border-r">
-            <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
-              / 03 · invariant
-            </span>
-            <h3 className="mt-5 text-3xl font-light leading-[1.05] tracking-[-0.035em]">
-              we publish the math. <br />
-              <span className="text-white/45">the math holds.</span>
-            </h3>
-            <p className="mt-5 max-w-md text-[13px] leading-relaxed text-white/55">
-              the optimal activeness λ* bounding lp risk for any gaussian volatility γ<sub>G</sub>.
-              derivation and bounds are formally verified.
-            </p>
-            <div className="mt-8 flex items-center gap-2">
-              <a href="https://arxiv.org/html/2602.09887" target="_blank" rel="noreferrer" className="inline-block rounded-full border border-white/15 px-4 py-2 tabular text-[11px] uppercase tracking-[0.18em] text-white/80 ease-precision hover:border-white/40">
-                whitepaper ↗
-              </a>
-              <button className="rounded-full px-4 py-2 tabular text-[11px] uppercase tracking-[0.18em] text-white/55 ease-precision hover:text-white">
-                audits →
-              </button>
-            </div>
-          </div>
-
-          <div className="relative grid place-items-center p-12">
-            {/* targeted white spotlight */}
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(ellipse 60% 50% at center, rgba(255,255,255,0.06), transparent 70%)",
-              }}
-            />
-            {/* gaussian curve */}
-            <svg
-              viewBox="0 0 400 160"
-              className="pointer-events-none absolute inset-0 m-auto h-full w-full"
-              fill="none"
-            >
-              <path
-                d="M 20 140 C 80 140, 130 140, 170 60 C 190 20, 210 20, 230 60 C 270 140, 320 140, 380 140"
-                stroke="rgba(0,229,255,0.5)"
-                strokeWidth="1"
-                strokeDasharray="600"
-                strokeDashoffset={hover ? 0 : 600}
-                style={{ transition: "stroke-dashoffset 1.4s var(--ease-precision)" }}
-              />
-              <line
-                x1="20"
-                y1="140"
-                x2="380"
-                y2="140"
-                stroke="rgba(255,255,255,0.08)"
-                strokeWidth="0.5"
-              />
-            </svg>
-
-            {/* formula */}
-            <div className="relative tabular flex items-center gap-3 text-2xl text-white/95 md:text-[28px]">
-              <span className="italic font-light">λ*</span>
-              <span className="text-white/40">(P</span>
-              <sub className="text-xs text-white/40">true</sub>
-              <span className="text-white/40">)</span>
-              <span className="text-white/60">=</span>
-              <Fraction
-                top={
-                  <>
-                    1 +{" "}
-                    <Sqrt>
-                      1 + 2γ<sub className="text-[0.6em]">G</sub>
-                    </Sqrt>
-                  </>
-                }
-                bot={
-                  <>
-                    1 + γ<sub className="text-[0.6em]">G</sub> +{" "}
-                    <Sqrt>
-                      1 + 2γ<sub className="text-[0.6em]">G</sub>
-                    </Sqrt>
-                  </>
-                }
-              />
-            </div>
-          </div>
+        <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 backdrop-blur-md">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60 opacity-60" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+          </span>
+          <span className="text-[11px] uppercase tracking-[0.2em] text-white/70">
+            Live on Arbitrum Stylus
+          </span>
         </div>
+
+        <h1
+          className="text-balance font-display text-[12vw] font-light leading-[0.95] tracking-[-0.04em] md:text-[5.6rem]"
+          style={{ fontFamily: "'Outfit', 'Space Grotesk', system-ui, sans-serif" }}
+        >
+          <motion.span
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: EASE, delay: 0.05 }}
+            className="block"
+          >
+            Stop bleeding liquidity
+          </motion.span>
+          <motion.span
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: EASE, delay: 0.18 }}
+            className="block"
+          >
+            to <span className="italic text-white/55">bots</span>.
+          </motion.span>
+        </h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: EASE, delay: 0.35 }}
+          className="mt-8 max-w-xl text-balance text-[15px] leading-relaxed text-white/60"
+        >
+          The first prediction market protocol with dynamic LP defense — powered by Arbitrum
+          Stylus and on-chain Gaussian math.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: EASE, delay: 0.5 }}
+          className="mt-12 flex flex-col items-center gap-3 sm:flex-row"
+        >
+          <Link
+            to="/demo"
+            className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-white px-7 py-3.5 text-[13px] font-medium text-abyss transition-colors hover:bg-white/90"
+          >
+            <span className="relative">Launch App</span>
+            <ArrowRight
+              className="relative h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
+              strokeWidth={1.5}
+            />
+          </Link>
+          <Link
+            to="/demo"
+            className="group inline-flex items-center gap-2 rounded-full border border-white/10 px-6 py-3 text-[13px] text-white/70 transition hover:border-white/25 hover:text-white"
+          >
+            View Live Demo
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={1.5} />
+          </Link>
+        </motion.div>
+      </motion.div>
+    </section>
+  );
+}
+
+function WCurveBackdrop() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onMove = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      const x = (e.clientX - r.left - r.width / 2) / r.width;
+      const y = (e.clientY - r.top - r.height / 2) / r.height;
+      el.style.transform = `translate3d(${x * 12}px, ${y * 10}px, 0)`;
+    };
+    window.addEventListener("pointermove", onMove);
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      aria-hidden
+      className="pointer-events-none absolute inset-0 grid place-items-center transition-transform duration-700 ease-out"
+    >
+      <svg
+        viewBox="0 0 800 320"
+        className="w-[min(110%,1100px)] opacity-[0.45]"
+        style={{
+          maskImage: "radial-gradient(ellipse at center, #000 30%, transparent 75%)",
+        }}
+      >
+        <defs>
+          <linearGradient id="w-grad" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="50%" stopColor="#ffffff" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+          <filter id="w-blur">
+            <feGaussianBlur stdDeviation="0.4" />
+          </filter>
+        </defs>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <path
+            key={i}
+            d="M 0 160 C 120 160, 180 40, 320 200 S 520 280, 640 80 S 760 160, 800 160"
+            stroke="url(#w-grad)"
+            strokeWidth={1 + i * 0.4}
+            fill="none"
+            opacity={0.12 + i * 0.08}
+            filter="url(#w-blur)"
+          >
+            <animate
+              attributeName="d"
+              dur={`${8 + i}s`}
+              repeatCount="indefinite"
+              values="
+                M 0 160 C 120 160, 180 40, 320 200 S 520 280, 640 80 S 760 160, 800 160;
+                M 0 160 C 120 180, 180 60, 320 180 S 520 260, 640 100 S 760 140, 800 160;
+                M 0 160 C 120 160, 180 40, 320 200 S 520 280, 640 80 S 760 160, 800 160"
+            />
+          </path>
+        ))}
+        <line x1="0" y1="160" x2="800" y2="160" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 6" />
+      </svg>
+    </div>
+  );
+}
+
+/* ─────────────────────────── trust ticker ─────────────────────────── */
+
+function TrustTicker() {
+  const items = [
+    { icon: CheckCircle2, label: "Verified on Arbitrum" },
+    { icon: ShieldCheck, label: "Zero Liquidations" },
+    { icon: Cpu, label: "Stylus Math Kernel" },
+    { icon: Activity, label: "Dynamic λ Fees" },
+    { icon: Sparkles, label: "Gaussian W-Curve" },
+    { icon: Zap, label: "Sub-second Settlement" },
+  ];
+  const loop = [...items, ...items];
+  return (
+    <section className="relative z-10 border-y border-white/[0.05] bg-white/[0.012] py-5 backdrop-blur-sm">
+      <div className="relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,#000_12%,#000_88%,transparent)]">
+        <div className="flex w-max animate-[ticker_38s_linear_infinite] gap-12 px-6">
+          {loop.map((it, i) => (
+            <div key={i} className="flex items-center gap-2.5 whitespace-nowrap text-[12px] text-white/55">
+              <it.icon className="h-3.5 w-3.5 text-white/70" strokeWidth={1.5} />
+              <span className="tracking-wide">{it.label}</span>
+              <span className="text-white/15">•</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <style>{`@keyframes ticker { from { transform: translateX(0) } to { transform: translateX(-50%) } }`}</style>
+    </section>
+  );
+}
+
+/* ─────────────────────────── bento ─────────────────────────── */
+
+function BentoSection() {
+  return (
+    <section className="relative z-10 mx-auto w-full max-w-[1300px] px-8 py-28 md:py-36">
+      <Reveal>
+        <div className="mb-14 max-w-2xl">
+          <span className="tabular text-[11px] uppercase tracking-[0.3em] text-white/40">
+            / How it works
+          </span>
+          <h2
+            className="mt-4 text-balance text-4xl font-light leading-[1.05] tracking-[-0.03em] md:text-5xl"
+            style={{ fontFamily: "'Outfit', 'Space Grotesk', system-ui, sans-serif" }}
+          >
+            A protocol that <span className="italic text-white/60">defends</span> your liquidity —
+            not just lists it.
+          </h2>
+        </div>
+      </Reveal>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:grid-rows-2">
+        <BentoCard
+          className="md:row-span-2"
+          index={0}
+          icon={<ShieldCheck className="h-6 w-6 text-white/85" strokeWidth={1.5} />}
+          tag="01 · Dynamic Defense"
+          title="Adaptive fees that protect LPs exactly when markets get certain."
+          body="As probability moves to the edges, our dynamic λ kicks in — locking passive liquidity from bots while routing fees back to active LPs."
+        >
+          <ShieldVisual />
+        </BentoCard>
+
+        <BentoCard
+          index={1}
+          icon={<Cpu className="h-6 w-6 text-white/85" strokeWidth={1.5} />}
+          tag="02 · Stylus Powered"
+          title="Gaussian math executing natively on-chain. Zero compromises."
+          body="Arbitrum Stylus runs the heavy W-curve kernel as a Rust contract — at the speed of native code, with the security of Ethereum."
+        >
+          <StylusVisual />
+        </BentoCard>
+
+        <BentoCard
+          index={2}
+          icon={<Activity className="h-6 w-6 text-white/85" strokeWidth={1.5} />}
+          tag="03 · Real-time λ"
+          title="The W-curve, watching every block."
+          body="Dynamic fees recalibrate on every state change — no governance lag, no manual tuning."
+        >
+          <LambdaVisual />
+        </BentoCard>
+
+        <BentoCard
+          className="md:col-span-2"
+          index={3}
+          icon={<LockKeyhole className="h-6 w-6 text-white/85" strokeWidth={1.5} />}
+          tag="04 · Zero-Liquidation Lending"
+          title="Borrow against your predictions. No margin calls. Sleep soundly."
+          body="Positions settle, never liquidate. Probability-bounded collateral curves replace the brutal mechanics of hard-threshold liquidation engines."
+        >
+          <ScaleVisual />
+        </BentoCard>
       </div>
     </section>
   );
 }
 
-function Sqrt({ children }: { children: React.ReactNode }) {
+function BentoCard({
+  index,
+  icon,
+  tag,
+  title,
+  body,
+  className = "",
+  children,
+}: {
+  index: number;
+  icon: React.ReactNode;
+  tag: string;
+  title: string;
+  body: string;
+  className?: string;
+  children?: React.ReactNode;
+}) {
   return (
-    <span className="inline-flex items-start">
-      <span className="mr-0.5 text-[0.85em] text-white/70">√</span>
-      <span className="border-t border-white/60 pt-px">{children}</span>
-    </span>
-  );
-}
-
-function Fraction({ top, bot }: { top: React.ReactNode; bot: React.ReactNode }) {
-  return (
-    <span className="inline-flex flex-col items-center text-base md:text-lg">
-      <span className="px-2 leading-tight">{top}</span>
-      <span className="my-1 h-px w-full bg-white/50" />
-      <span className="px-2 leading-tight">{bot}</span>
-    </span>
-  );
-}
-
-/* ─────────────────────────── particle mesh ─────────────────────────── */
-
-function ParticleMesh() {
-  // deterministic pseudo-random network nodes
-  const nodes = Array.from({ length: 36 }).map((_, i) => {
-    const x = (i * 137.508) % 100;
-    const y = (i * 53.17) % 100;
-    return { x, y };
-  });
-  return (
-    <svg
-      className="pointer-events-none absolute inset-0 h-full w-full opacity-50"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.6, ease: EASE, delay: index * 0.08 }}
+      className={`group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.018] p-7 backdrop-blur-xl transition-colors hover:border-white/[0.16] ${className}`}
+      style={{
+        boxShadow:
+          "inset 0 1px 0 0 rgba(255,255,255,0.04), 0 30px 80px -30px rgba(0,0,0,0.7)",
+      }}
     >
-      <defs>
-        <radialGradient id="mesh-fade" cx="50%" cy="50%" r="60%">
-          <stop offset="0%" stopColor="white" stopOpacity="1" />
-          <stop offset="100%" stopColor="white" stopOpacity="0" />
-        </radialGradient>
-        <mask id="mesh-mask">
-          <rect width="100" height="100" fill="url(#mesh-fade)" />
-        </mask>
-      </defs>
-      <g mask="url(#mesh-mask)">
-        {nodes.map((n, i) =>
-          nodes
-            .slice(i + 1)
-            .filter((m) => Math.hypot(m.x - n.x, m.y - n.y) < 22)
-            .map((m, j) => (
-              <line
-                key={`${i}-${j}`}
-                x1={n.x}
-                y1={n.y}
-                x2={m.x}
-                y2={m.y}
-                stroke="rgba(255,255,255,0.15)"
-                strokeWidth="0.08"
-              />
-            )),
-        )}
-        {nodes.map((n, i) => (
-          <circle key={i} cx={n.x} cy={n.y} r="0.25" fill="white">
+      <div className="relative flex items-center gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/[0.03] transition-transform duration-500 group-hover:scale-105">
+          {icon}
+        </div>
+        <span className="tabular text-[10px] uppercase tracking-[0.24em] text-white/40">{tag}</span>
+      </div>
+
+      <h3
+        className="relative mt-6 max-w-[26ch] text-[20px] font-light leading-tight tracking-[-0.02em] text-white"
+        style={{ fontFamily: "'Outfit', 'Space Grotesk', system-ui, sans-serif" }}
+      >
+        {title}
+      </h3>
+      <p className="relative mt-3 max-w-[34ch] text-[13.5px] leading-relaxed text-white/55">
+        {body}
+      </p>
+
+      {children && <div className="relative mt-auto pt-8">{children}</div>}
+    </motion.div>
+  );
+}
+
+/* ─────────────────────────── visuals ─────────────────────────── */
+
+function ShieldVisual() {
+  return (
+    <div className="relative grid aspect-square place-items-center">
+      <div className="absolute inset-6 rounded-full border border-white/10" />
+      <div className="absolute inset-12 rounded-full border border-white/[0.07]" />
+      <div className="absolute inset-20 rounded-full border border-white/[0.04]" />
+      <motion.div
+        animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0.8, 0.4] }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute inset-0 m-auto h-40 w-40 rounded-full bg-white/[0.05] blur-2xl"
+      />
+      <ShieldCheck className="relative h-20 w-20 text-white/90" strokeWidth={1.2} />
+      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/35">
+        <span>λ active</span>
+        <span className="tabular text-white/70">99.4%</span>
+      </div>
+    </div>
+  );
+}
+
+function StylusVisual() {
+  return (
+    <div className="relative h-32 overflow-hidden rounded-xl border border-white/5 bg-black/40">
+      <svg viewBox="0 0 300 120" className="h-full w-full">
+        {Array.from({ length: 18 }).map((_, i) => (
+          <rect
+            key={i}
+            x={i * 17 + 4}
+            y={60 - Math.sin(i * 0.6) * 30 - 8}
+            width="10"
+            height={Math.sin(i * 0.6) * 30 + 40}
+            rx="2"
+            fill="#ffffff"
+            opacity={0.18 + (i % 3) * 0.12}
+          >
             <animate
-              attributeName="opacity"
-              values="0.3;1;0.3"
-              dur={`${3 + (i % 5)}s`}
+              attributeName="height"
+              dur={`${2 + (i % 4) * 0.3}s`}
+              values={`${20 + (i % 5) * 6};${60 + (i % 4) * 8};${20 + (i % 5) * 6}`}
               repeatCount="indefinite"
             />
-          </circle>
+          </rect>
         ))}
-      </g>
+      </svg>
+      <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-white/45">
+        <span>stylus.kernel</span>
+        <span className="text-white/65">240ms p99</span>
+      </div>
+    </div>
+  );
+}
+
+function LambdaVisual() {
+  return (
+    <div className="relative h-32 overflow-hidden rounded-xl border border-white/5 bg-black/40">
+      <svg viewBox="0 0 300 120" className="h-full w-full">
+        <defs>
+          <linearGradient id="lam-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#ffffff" stopOpacity="0.18" />
+            <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M 0 90 C 60 90 80 30 150 60 S 250 90 300 50 L 300 120 L 0 120 Z"
+          fill="url(#lam-grad)"
+        />
+        <path
+          d="M 0 90 C 60 90 80 30 150 60 S 250 90 300 50"
+          stroke="rgba(255,255,255,0.75)"
+          strokeWidth="1.5"
+          fill="none"
+        />
+        <circle cx="150" cy="60" r="3" fill="#fff">
+          <animate attributeName="cx" values="40;150;260;150;40" dur="6s" repeatCount="indefinite" />
+          <animate attributeName="cy" values="86;60;72;60;86" dur="6s" repeatCount="indefinite" />
+        </circle>
+      </svg>
+      <div className="absolute top-2 left-3 font-mono text-[10px] uppercase tracking-[0.18em] text-white/45">
+        λ(p)
+      </div>
+    </div>
+  );
+}
+
+function ScaleVisual() {
+  return (
+    <div className="relative grid h-32 place-items-center">
+      <motion.svg
+        viewBox="0 0 220 120"
+        className="h-full"
+        animate={{ rotate: [-3, 3, -3] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <line x1="110" y1="20" x2="110" y2="100" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+        <line x1="40" y1="40" x2="180" y2="40" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+        <line x1="40" y1="40" x2="40" y2="70" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+        <line x1="180" y1="40" x2="180" y2="70" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+        <rect x="20" y="68" width="40" height="20" rx="3" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.55)" strokeWidth="1" />
+        <rect x="160" y="68" width="40" height="20" rx="3" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
+        <circle cx="110" cy="20" r="3" fill="#fff" />
+        <text x="40" y="105" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.5)" fontFamily="monospace">COLLATERAL</text>
+        <text x="180" y="105" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.5)" fontFamily="monospace">DEBT</text>
+      </motion.svg>
+    </div>
+  );
+}
+
+/* ─────────────────────────── value saved ─────────────────────────── */
+
+function ValueSavedSection() {
+  return (
+    <section className="relative z-10 mx-auto w-full max-w-[1300px] px-8 py-28 md:py-36">
+      <div className="grid grid-cols-1 items-center gap-12 md:grid-cols-2 md:gap-20">
+        <Reveal>
+          <span className="tabular text-[11px] uppercase tracking-[0.3em] text-white/40">
+            / The math in action
+          </span>
+          <h2
+            className="mt-4 text-balance text-4xl font-light leading-[1.05] tracking-[-0.03em] md:text-5xl"
+            style={{ fontFamily: "'Outfit', 'Space Grotesk', system-ui, sans-serif" }}
+          >
+            See how our dynamic curve <span className="italic text-white/60">out-performs</span>{" "}
+            constant pools in real time.
+          </h2>
+          <p className="mt-6 max-w-md text-[14px] leading-relaxed text-white/55">
+            Every block, the W-curve recalibrates fees to neutralize arbitrage flow. The savings
+            don't go to bots — they stay with the LPs who actually provided the liquidity.
+          </p>
+          <ul className="mt-8 space-y-3 text-[13.5px] text-white/70">
+            {[
+              "Outperforms constant-product AMMs on volatile markets",
+              "Zero liquidations since genesis",
+              "Bot-extraction approaching zero across the curve",
+            ].map((t) => (
+              <li key={t} className="flex items-start gap-3">
+                <CheckCircle2 className="mt-[3px] h-4 w-4 flex-shrink-0 text-white/75" strokeWidth={1.5} />
+                <span>{t}</span>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+
+        <SavedDashboard />
+      </div>
+    </section>
+  );
+}
+
+function SavedDashboard() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.7, ease: EASE }}
+      className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] p-8 backdrop-blur-xl"
+      style={{
+        boxShadow:
+          "inset 0 1px 0 0 rgba(255,255,255,0.05), 0 40px 120px -40px rgba(0,0,0,0.8)",
+      }}
+    >
+      <div className="absolute -top-24 right-0 h-64 w-64 rounded-full bg-white/[0.04] blur-3xl" />
+
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/40" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+          </span>
+          <span className="text-[11px] uppercase tracking-[0.22em] text-white/55">live · LVR shield</span>
+        </div>
+        <span className="tabular text-[11px] text-white/40">block 198,341,022</span>
+      </div>
+
+      <div className="relative mt-8">
+        <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">Money saved from bots</div>
+        <div className="mt-3 flex items-baseline gap-2">
+          <span className="text-white/70 text-4xl font-light">$</span>
+          <Counter to={1010.42} />
+          <span className="ml-1 text-white/40">WETH</span>
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-[12px] text-white/55">
+          <span>▲</span>
+          <span className="tabular">+12.84 in the last 60s</span>
+        </div>
+      </div>
+
+      <div className="relative mt-8 rounded-xl border border-white/5 bg-black/30 p-4">
+        <CompareChart />
+      </div>
+
+      <div className="relative mt-6 grid grid-cols-3 gap-3 text-center">
+        {[
+          { k: "Constant", v: "−$842", dim: true },
+          { k: "Omniverse", v: "+$168", dim: false },
+          { k: "Δ to LPs", v: "+$1,010", dim: false },
+        ].map((s) => (
+          <div key={s.k} className="rounded-lg border border-white/5 bg-white/[0.02] py-3">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-white/40">{s.k}</div>
+            <div className={`tabular mt-1 text-[15px] ${s.dim ? "text-white/40 line-through" : "text-white"}`}>
+              {s.v}
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+function Counter({ to }: { to: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-100px" });
+  const mv = useMotionValue(0);
+  const spring = useSpring(mv, { stiffness: 60, damping: 22 });
+  useEffect(() => {
+    if (inView) mv.set(to);
+  }, [inView, to, mv]);
+  useEffect(() => {
+    return spring.on("change", (v) => {
+      if (ref.current) {
+        ref.current.textContent = v.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      }
+    });
+  }, [spring]);
+  return (
+    <span
+      ref={ref}
+      className="tabular text-5xl font-light tracking-[-0.02em] text-white"
+      style={{ fontFamily: "'Outfit','Space Grotesk',system-ui,sans-serif" }}
+    >
+      0.00
+    </span>
+  );
+}
+
+function CompareChart() {
+  return (
+    <svg viewBox="0 0 300 110" className="h-28 w-full">
+      <defs>
+        <linearGradient id="cmp-omni" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.22" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[0, 1, 2, 3].map((i) => (
+        <line key={i} x1="0" x2="300" y1={i * 27 + 5} y2={i * 27 + 5} stroke="rgba(255,255,255,0.04)" />
+      ))}
+      {/* constant pool — decaying (dimmed white dashed) */}
+      <path
+        d="M 0 30 C 60 35 100 60 150 70 S 240 92 300 96"
+        stroke="rgba(255,255,255,0.32)"
+        strokeWidth="1.5"
+        fill="none"
+        strokeDasharray="4 4"
+      />
+      {/* omniverse — climbing (bright white) */}
+      <path
+        d="M 0 70 C 60 60 110 40 160 28 S 250 18 300 14 L 300 110 L 0 110 Z"
+        fill="url(#cmp-omni)"
+      />
+      <path
+        d="M 0 70 C 60 60 110 40 160 28 S 250 18 300 14"
+        stroke="#ffffff"
+        strokeWidth="1.8"
+        fill="none"
+      />
+      <circle cx="300" cy="14" r="3" fill="#ffffff" />
+      <text x="6" y="20" fontSize="9" fill="rgba(255,255,255,0.4)" fontFamily="monospace">PNL</text>
+      <text x="262" y="105" fontSize="9" fill="rgba(255,255,255,0.4)" fontFamily="monospace">constant</text>
+      <text x="252" y="22" fontSize="9" fill="rgba(255,255,255,0.85)" fontFamily="monospace">omniverse</text>
     </svg>
   );
 }
 
-/* ─────────────────────────── network status ─────────────────────────── */
+/* ─────────────────────────── footer cta ─────────────────────────── */
 
-function NetworkStatus() {
-  const [status, setStatus] = useState<"checking" | "nominal" | "degraded" | "offline">("checking");
-
-  useEffect(() => {
-    const checkRpc = async () => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        
-        const res = await fetch("https://sepolia-rollup.arbitrum.io/rpc", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1 }),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        if (res.ok) {
-          setStatus("nominal");
-        } else {
-          setStatus("degraded");
-        }
-      } catch {
-        setStatus("offline");
-      }
-    };
-    
-    checkRpc();
-    const interval = setInterval(checkRpc, 15000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const colorClass = 
-    status === "nominal" ? "bg-white" :
-    status === "degraded" ? "bg-yellow-500" :
-    status === "offline" ? "bg-red-500" : "bg-white/30";
-
-  const text = 
-    status === "nominal" ? "all systems nominal" :
-    status === "degraded" ? "rpc degraded" :
-    status === "offline" ? "rpc offline" : "checking systems...";
-
+function FooterCTA() {
   return (
-    <span className="flex items-center gap-2">
-      <span className={`precision-pulse h-1.5 w-1.5 rounded-full ${colorClass}`} />
-      {text}
-    </span>
+    <section className="relative z-10 mx-auto w-full max-w-[1400px] px-8 pb-32">
+      <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.018] p-16 text-center md:p-24">
+        <div
+          className="absolute inset-x-0 -top-40 mx-auto h-80 w-[640px] rounded-full blur-3xl"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(255,255,255,0.10) 0%, transparent 70%)",
+          }}
+        />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-abyss to-transparent" />
+
+        <Reveal>
+          <h2
+            className="relative text-balance text-5xl font-light leading-[1.02] tracking-[-0.035em] md:text-7xl"
+            style={{ fontFamily: "'Outfit', 'Space Grotesk', system-ui, sans-serif" }}
+          >
+            Ready to trade smarter?
+          </h2>
+          <p className="relative mx-auto mt-6 max-w-md text-[15px] text-white/55">
+            The terminal is open. The math is on-chain. Your capital decides.
+          </p>
+          <div className="relative mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              to="/demo"
+              className="group relative inline-flex items-center gap-2 rounded-full bg-white px-9 py-4 text-[14px] font-medium text-abyss transition-colors hover:bg-white/90"
+            >
+              <span className="relative">Enter the Omniverse</span>
+              <ArrowRight className="relative h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={1.5} />
+            </Link>
+            <a
+              href="https://arxiv.org/html/2602.09887"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full border border-white/10 px-7 py-4 text-[13px] text-white/65 transition hover:border-white/25 hover:text-white"
+            >
+              Read the whitepaper ↗
+            </a>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────── reveal ─────────────────────────── */
+
+function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.6, ease: EASE, delay }}
+    >
+      {children}
+    </motion.div>
   );
 }

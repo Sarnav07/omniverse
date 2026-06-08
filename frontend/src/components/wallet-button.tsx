@@ -34,7 +34,7 @@ export function WalletButton() {
             </span>
             <span>{account.displayName}</span>
             <span className="text-white/30">·</span>
-            <span className="text-[#00FFAA]/80">{chain.name.toLowerCase()}</span>
+            <span className="text-[#00FFAA]/80">{(chain.name ?? "").toLowerCase()}</span>
           </button>
         );
       }}
