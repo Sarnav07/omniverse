@@ -26,20 +26,19 @@ ponder.on("MarketFactory:EventCreated", async ({ event, context }) => {
 
   // 2. Read the lambda mode from the WETH pool. Current PmAmmPool source has
   // `bool public useDynamicLambda`, but older Sepolia pools may predate the
-  // getter. For those pre-upgrade demo deployments, allow an explicit
-  // manifest/env-driven fallback instead of dropping the EventCreated row.
-  let useDynamicLambda: boolean;
+  // getter. If the RPC node has pruned state ("missing trie node"), default to true.
+  let useDynamicLambda: boolean = true; // Safe default for modern pools
   try {
     useDynamicLambda = await context.client.readContract({
       abi: PmAmmPoolAbi,
       address: poolWeth,
       functionName: "useDynamicLambda",
     });
-  } catch (error) {
-    const demoConditionId = process.env.DEMO_CONDITION_ID?.toLowerCase();
-    const isDemoFallback = category === "demo" || demoConditionId === conditionId.toLowerCase();
-    if (!isDemoFallback) throw error;
-    useDynamicLambda = true;
+  } catch (error: any) {
+    // RPC state unavailable (pruned node, missing trie, etc.) — log and continue
+    context.logger.warn(
+      `Failed to read useDynamicLambda for pool ${poolWeth} at block ${event.block.number}: ${error?.shortMessage ?? error?.message ?? "unknown error"}. Defaulting to true.`
+    );
   }
 
   // 3. Insert the Market row.
