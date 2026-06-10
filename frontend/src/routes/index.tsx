@@ -45,8 +45,7 @@ function Landing() {
         aria-hidden
         className="pointer-events-none fixed inset-x-0 top-0 h-[60vh] opacity-[0.35]"
         style={{
-          background:
-            "radial-gradient(60% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 70%)",
+          background: "radial-gradient(60% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 70%)",
         }}
       />
       <div
@@ -71,9 +70,30 @@ function Landing() {
         <div className="tabular flex flex-wrap items-center justify-between gap-4 text-[11px] uppercase tracking-[0.18em] text-white/35">
           <span>© omniverse labs · v4.0 · arbitrum</span>
           <div className="flex items-center gap-8">
-            <a className="hover:text-white" href="https://sepolia.arbiscan.io/" target="_blank" rel="noreferrer">status</a>
-            <a className="hover:text-white" href="https://github.com/vihaan1016/omniverse" target="_blank" rel="noreferrer">github</a>
-            <a className="hover:text-white" href="https://arxiv.org/html/2602.09887" target="_blank" rel="noreferrer">whitepaper</a>
+            <a
+              className="hover:text-white"
+              href="https://sepolia.arbiscan.io/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              status
+            </a>
+            <a
+              className="hover:text-white"
+              href="https://github.com/vihaan1016/omniverse"
+              target="_blank"
+              rel="noreferrer"
+            >
+              github
+            </a>
+            <a
+              className="hover:text-white"
+              href="https://arxiv.org/html/2602.09887"
+              target="_blank"
+              rel="noreferrer"
+            >
+              whitepaper
+            </a>
           </div>
         </div>
       </footer>
@@ -132,8 +152,8 @@ function Hero() {
           transition={{ duration: 0.6, ease: EASE, delay: 0.35 }}
           className="mt-8 max-w-xl text-balance text-[15px] leading-relaxed text-white/60"
         >
-          The first prediction market protocol with dynamic LP defense — powered by Arbitrum
-          Stylus and on-chain Gaussian math.
+          The first prediction market protocol with dynamic LP defense — powered by Arbitrum Stylus
+          and on-chain Gaussian math.
         </motion.p>
 
         <motion.div
@@ -157,7 +177,10 @@ function Hero() {
             className="group inline-flex items-center gap-2 rounded-full border border-white/10 px-6 py-3 text-[13px] text-white/70 transition hover:border-white/25 hover:text-white"
           >
             View Live Demo
-            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={1.5} />
+            <ArrowRight
+              className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+              strokeWidth={1.5}
+            />
           </Link>
         </motion.div>
       </motion.div>
@@ -224,7 +247,14 @@ function WCurveBackdrop() {
             />
           </path>
         ))}
-        <line x1="0" y1="160" x2="800" y2="160" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 6" />
+        <line
+          x1="0"
+          y1="160"
+          x2="800"
+          y2="160"
+          stroke="rgba(255,255,255,0.06)"
+          strokeDasharray="2 6"
+        />
       </svg>
     </div>
   );
@@ -247,7 +277,10 @@ function TrustTicker() {
       <div className="relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,#000_12%,#000_88%,transparent)]">
         <div className="flex w-max animate-[ticker_38s_linear_infinite] gap-12 px-6">
           {loop.map((it, i) => (
-            <div key={i} className="flex items-center gap-2.5 whitespace-nowrap text-[12px] text-white/55">
+            <div
+              key={i}
+              className="flex items-center gap-2.5 whitespace-nowrap text-[12px] text-white/55"
+            >
               <it.icon className="h-3.5 w-3.5 text-white/70" strokeWidth={1.5} />
               <span className="tracking-wide">{it.label}</span>
               <span className="text-white/15">•</span>
@@ -352,8 +385,7 @@ function BentoCard({
       transition={{ duration: 0.6, ease: EASE, delay: index * 0.08 }}
       className={`group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.018] p-7 backdrop-blur-xl transition-colors hover:border-white/[0.16] ${className}`}
       style={{
-        boxShadow:
-          "inset 0 1px 0 0 rgba(255,255,255,0.04), 0 30px 80px -30px rgba(0,0,0,0.7)",
+        boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.04), 0 30px 80px -30px rgba(0,0,0,0.7)",
       }}
     >
       <div className="relative flex items-center gap-3">
@@ -453,7 +485,12 @@ function LambdaVisual() {
           fill="none"
         />
         <circle cx="150" cy="60" r="3" fill="#fff">
-          <animate attributeName="cx" values="40;150;260;150;40" dur="6s" repeatCount="indefinite" />
+          <animate
+            attributeName="cx"
+            values="40;150;260;150;40"
+            dur="6s"
+            repeatCount="indefinite"
+          />
           <animate attributeName="cy" values="86;60;72;60;86" dur="6s" repeatCount="indefinite" />
         </circle>
       </svg>
@@ -477,11 +514,47 @@ function ScaleVisual() {
         <line x1="40" y1="40" x2="180" y2="40" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
         <line x1="40" y1="40" x2="40" y2="70" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
         <line x1="180" y1="40" x2="180" y2="70" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
-        <rect x="20" y="68" width="40" height="20" rx="3" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.55)" strokeWidth="1" />
-        <rect x="160" y="68" width="40" height="20" rx="3" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
+        <rect
+          x="20"
+          y="68"
+          width="40"
+          height="20"
+          rx="3"
+          fill="rgba(255,255,255,0.08)"
+          stroke="rgba(255,255,255,0.55)"
+          strokeWidth="1"
+        />
+        <rect
+          x="160"
+          y="68"
+          width="40"
+          height="20"
+          rx="3"
+          fill="rgba(255,255,255,0.04)"
+          stroke="rgba(255,255,255,0.35)"
+          strokeWidth="1"
+        />
         <circle cx="110" cy="20" r="3" fill="#fff" />
-        <text x="40" y="105" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.5)" fontFamily="monospace">COLLATERAL</text>
-        <text x="180" y="105" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.5)" fontFamily="monospace">DEBT</text>
+        <text
+          x="40"
+          y="105"
+          textAnchor="middle"
+          fontSize="9"
+          fill="rgba(255,255,255,0.5)"
+          fontFamily="monospace"
+        >
+          COLLATERAL
+        </text>
+        <text
+          x="180"
+          y="105"
+          textAnchor="middle"
+          fontSize="9"
+          fill="rgba(255,255,255,0.5)"
+          fontFamily="monospace"
+        >
+          DEBT
+        </text>
       </motion.svg>
     </div>
   );
@@ -515,7 +588,10 @@ function ValueSavedSection() {
               "Bot-extraction approaching zero across the curve",
             ].map((t) => (
               <li key={t} className="flex items-start gap-3">
-                <CheckCircle2 className="mt-[3px] h-4 w-4 flex-shrink-0 text-white/75" strokeWidth={1.5} />
+                <CheckCircle2
+                  className="mt-[3px] h-4 w-4 flex-shrink-0 text-white/75"
+                  strokeWidth={1.5}
+                />
                 <span>{t}</span>
               </li>
             ))}
@@ -537,8 +613,7 @@ function SavedDashboard() {
       transition={{ duration: 0.7, ease: EASE }}
       className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] p-8 backdrop-blur-xl"
       style={{
-        boxShadow:
-          "inset 0 1px 0 0 rgba(255,255,255,0.05), 0 40px 120px -40px rgba(0,0,0,0.8)",
+        boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.05), 0 40px 120px -40px rgba(0,0,0,0.8)",
       }}
     >
       <div className="absolute -top-24 right-0 h-64 w-64 rounded-full bg-white/[0.04] blur-3xl" />
@@ -549,13 +624,17 @@ function SavedDashboard() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/40" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
           </span>
-          <span className="text-[11px] uppercase tracking-[0.22em] text-white/55">live · LVR shield</span>
+          <span className="text-[11px] uppercase tracking-[0.22em] text-white/55">
+            live · LVR shield
+          </span>
         </div>
         <span className="tabular text-[11px] text-white/40">block 198,341,022</span>
       </div>
 
       <div className="relative mt-8">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">Money saved from bots</div>
+        <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">
+          Money saved from bots
+        </div>
         <div className="mt-3 flex items-baseline gap-2">
           <span className="text-white/70 text-4xl font-light">$</span>
           <Counter to={1010.42} />
@@ -579,7 +658,9 @@ function SavedDashboard() {
         ].map((s) => (
           <div key={s.k} className="rounded-lg border border-white/5 bg-white/[0.02] py-3">
             <div className="text-[10px] uppercase tracking-[0.2em] text-white/40">{s.k}</div>
-            <div className={`tabular mt-1 text-[15px] ${s.dim ? "text-white/40 line-through" : "text-white"}`}>
+            <div
+              className={`tabular mt-1 text-[15px] ${s.dim ? "text-white/40 line-through" : "text-white"}`}
+            >
               {s.v}
             </div>
           </div>
@@ -628,7 +709,14 @@ function CompareChart() {
         </linearGradient>
       </defs>
       {[0, 1, 2, 3].map((i) => (
-        <line key={i} x1="0" x2="300" y1={i * 27 + 5} y2={i * 27 + 5} stroke="rgba(255,255,255,0.04)" />
+        <line
+          key={i}
+          x1="0"
+          x2="300"
+          y1={i * 27 + 5}
+          y2={i * 27 + 5}
+          stroke="rgba(255,255,255,0.04)"
+        />
       ))}
       {/* constant pool — decaying (dimmed white dashed) */}
       <path
@@ -650,9 +738,15 @@ function CompareChart() {
         fill="none"
       />
       <circle cx="300" cy="14" r="3" fill="#ffffff" />
-      <text x="6" y="20" fontSize="9" fill="rgba(255,255,255,0.4)" fontFamily="monospace">PNL</text>
-      <text x="262" y="105" fontSize="9" fill="rgba(255,255,255,0.4)" fontFamily="monospace">constant</text>
-      <text x="252" y="22" fontSize="9" fill="rgba(255,255,255,0.85)" fontFamily="monospace">omniverse</text>
+      <text x="6" y="20" fontSize="9" fill="rgba(255,255,255,0.4)" fontFamily="monospace">
+        PNL
+      </text>
+      <text x="262" y="105" fontSize="9" fill="rgba(255,255,255,0.4)" fontFamily="monospace">
+        constant
+      </text>
+      <text x="252" y="22" fontSize="9" fill="rgba(255,255,255,0.85)" fontFamily="monospace">
+        omniverse
+      </text>
     </svg>
   );
 }
@@ -666,8 +760,7 @@ function FooterCTA() {
         <div
           className="absolute inset-x-0 -top-40 mx-auto h-80 w-[640px] rounded-full blur-3xl"
           style={{
-            background:
-              "radial-gradient(circle, rgba(255,255,255,0.10) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(255,255,255,0.10) 0%, transparent 70%)",
           }}
         />
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-abyss to-transparent" />
@@ -688,7 +781,10 @@ function FooterCTA() {
               className="group relative inline-flex items-center gap-2 rounded-full bg-white px-9 py-4 text-[14px] font-medium text-abyss transition-colors hover:bg-white/90"
             >
               <span className="relative">Enter the Omniverse</span>
-              <ArrowRight className="relative h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={1.5} />
+              <ArrowRight
+                className="relative h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
+                strokeWidth={1.5}
+              />
             </Link>
             <a
               href="https://arxiv.org/html/2602.09887"

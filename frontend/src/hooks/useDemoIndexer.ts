@@ -61,7 +61,7 @@ export function useDemoMarket(conditionId?: string) {
     isError: !!result.error,
     error: result.error,
     refetch: () => reexecute({ requestPolicy: "network-only" }),
-    source: result.data?.market ? "indexed" as const : "unavailable" as const,
+    source: result.data?.market ? ("indexed" as const) : ("unavailable" as const),
   };
 }
 
@@ -81,6 +81,6 @@ export function useDemoTrades(conditionId?: string, poolType = "WETH") {
     error: result.error,
     isEmpty: !result.fetching && trades.length === 0,
     refetch: () => reexecute({ requestPolicy: "network-only" }),
-    source: trades.length > 0 ? "indexed" as const : "unavailable" as const,
+    source: trades.length > 0 ? ("indexed" as const) : ("unavailable" as const),
   };
 }

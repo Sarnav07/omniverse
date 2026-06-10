@@ -22,6 +22,9 @@ import PmAmmPoolAbi from "@/abis/PmAmmPool.abi.json";
 import { DataSourceBadge } from "@/components/data-source-badge";
 import { useDemoManifest } from "@/hooks/useDemoManifest";
 import { useDemoMarket, useDemoTrades } from "@/hooks/useDemoIndexer";
+import { AttackPresets } from "@/components/attack-presets";
+import { PreDemoReadinessPanel } from "@/components/pre-demo-readiness-panel";
+import { BorrowDemoTab } from "@/components/borrow-demo-tab";
 import {
   useLiveBlockNumber,
   useMathKernelStatus,
@@ -138,7 +141,10 @@ function TerminalPage() {
   const { reserves } = usePoolReserves(livePool);
   const { liquidity } = usePoolLiquidity(livePool);
   const mathStatus = useMathKernelStatus(livePool, manifest?.math);
-  const { trades: demoTrades } = useDemoTrades(isDemoMarket ? manifest?.conditionId : undefined, "WETH");
+  const { trades: demoTrades } = useDemoTrades(
+    isDemoMarket ? manifest?.conditionId : undefined,
+    "WETH",
+  );
   const { data: expiryWad } = useReadContract({
     address: livePool ?? "0x0000000000000000000000000000000000000000",
     abi: PmAmmPoolAbi,
@@ -282,26 +288,51 @@ function TerminalPage() {
           </div>
 
           {tab === "swap" && (
-            <SwapTab
-              poolWeth={MARKET.poolWeth}
-              poolUsdc={MARKET.poolUsdc}
-              yesPrice={liveYes}
-              isDemoMarket={isDemoMarket}
-              manifestConditionId={manifest?.conditionId}
-              manifestPoolUsdc={manifest?.poolUsdc}
-              poolFrozen={
-                typeof expiryWad === "bigint" ? Number(expiryWad) - Math.floor(Date.now() / 1000) <= 3600 : false
-              }
-              indexerReady={!!indexedDemoMarket}
-            />
+            <div className="flex-1 overflow-y-auto">
+              {isDemoMarket && (
+                <div className="border-b border-white/[0.06] bg-black/20 p-6">
+                  <PreDemoReadinessPanel />
+                </div>
+              )}
+              {isDemoMarket ? (
+                <div className="p-6">
+                  <AttackPresets
+                    onConfirmed={() => {
+                      // We could trigger refetches here if needed
+                    }}
+                  />
+                </div>
+              ) : (
+                <SwapTab
+                  poolWeth={MARKET.poolWeth}
+                  poolUsdc={MARKET.poolUsdc}
+                  yesPrice={liveYes}
+                  isDemoMarket={isDemoMarket}
+                  manifestConditionId={manifest?.conditionId}
+                  manifestPoolUsdc={manifest?.poolUsdc}
+                  poolFrozen={
+                    typeof expiryWad === "bigint"
+                      ? Number(expiryWad) - Math.floor(Date.now() / 1000) <= 3600
+                      : false
+                  }
+                  indexerReady={!!indexedDemoMarket}
+                />
+              )}
+            </div>
           )}
           {tab === "borrow" && (
-            <IntentEngine
-              mode="execute"
-              poolWeth={MARKET.poolWeth}
-              poolUsdc={MARKET.poolUsdc}
-              lending={MARKET.lending}
-            />
+            <div className="flex-1 overflow-y-auto p-6">
+              {isDemoMarket && manifest ? (
+                <BorrowDemoTab manifest={manifest} />
+              ) : (
+                <IntentEngine
+                  mode="execute"
+                  poolWeth={MARKET.poolWeth}
+                  poolUsdc={MARKET.poolUsdc}
+                  lending={MARKET.lending}
+                />
+              )}
+            </div>
           )}
           {tab === "manage" && <ManageTab lending={MARKET.lending} />}
           {tab === "provide" && (
@@ -386,7 +417,9 @@ function AttackModeStrip({
             attack mode
           </span>
           <DataSourceBadge source="live" />
-          <DataSourceBadge source={indexed ? "indexed" : indexerLoading ? "unavailable" : "unavailable"} />
+          <DataSourceBadge
+            source={indexed ? "indexed" : indexerLoading ? "unavailable" : "unavailable"}
+          />
           <span className="tabular text-[10px] uppercase tracking-[0.2em] text-white/35">
             condition · {formatAddress(conditionId, 8, 6)}
           </span>
@@ -396,13 +429,12 @@ function AttackModeStrip({
           <AttackMetric label="λ" value={reserves ? formatWad(reserves.lambdaWad, 3) : "—"} />
           <AttackMetric label="active" value={total > 0n ? `${activePct.toFixed(1)}%` : "—"} />
           <AttackMetric label="shielded" value={total > 0n ? `${passivePct.toFixed(1)}%` : "—"} />
-          <AttackMetric label="ell" value={reserves ? formatCompactToken(reserves.ellActive) : "—"} />
-          <AttackMetric label="L_t" value={formatCompactToken(liquidity ?? reserves?.lT)} />
           <AttackMetric
-            label="math"
-            value={mathLabel}
-            accent={mathMatches}
+            label="ell"
+            value={reserves ? formatCompactToken(reserves.ellActive) : "—"}
           />
+          <AttackMetric label="L_t" value={formatCompactToken(liquidity ?? reserves?.lT)} />
+          <AttackMetric label="math" value={mathLabel} accent={mathMatches} />
           <a
             href={pool ? `https://sepolia.arbiscan.io/address/${pool}` : undefined}
             target="_blank"
@@ -439,7 +471,9 @@ function AttackMetric({
   return (
     <div className="flex flex-col items-end">
       <span className="tabular text-[8px] uppercase tracking-[0.2em] text-white/30">{label}</span>
-      <span className={`tabular text-[11px] ${accent ? "text-white" : "text-white/75"}`}>{value}</span>
+      <span className={`tabular text-[11px] ${accent ? "text-white" : "text-white/75"}`}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -694,7 +728,7 @@ function IntentEngine({
   // Same-leg validation: ratio must stay ≤ 0.85
   const c = parseFloat(collateral) || 0;
   const b = parseFloat(borrow) || 0;
-  const valid = isProvide ? c > 0 : (c > 0 && b > 0);
+  const valid = isProvide ? c > 0 : c > 0 && b > 0;
   const ratio = c > 0 ? b / c : 0;
   const tokenToApprove = isProvide ? CONTRACT_ADDRESSES.USDC : CONTRACT_ADDRESSES.WETH;
   const amountToApprove = parseUnits(c.toString(), 18);
@@ -840,7 +874,9 @@ function IntentEngine({
             <span
               className={`h-1.5 w-1.5 rounded-full ${valid ? "bg-white" : "bg-[#FF4D5E]"} ${valid ? "" : "animate-pulse"}`}
               style={{
-                boxShadow: valid ? "0 0 10px rgba(255,255,255,0.5)" : "0 0 10px rgba(255,77,94,0.5)",
+                boxShadow: valid
+                  ? "0 0 10px rgba(255,255,255,0.5)"
+                  : "0 0 10px rgba(255,77,94,0.5)",
               }}
             />
             <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/55">
@@ -1080,19 +1116,11 @@ function SwapTab({
             </span>
             <span
               className={`tabular text-[14px] ${side === s ? "text-white" : "text-white/40"}`}
-              style={
-                side === s
-                  ? { textShadow: "0 0 12px rgba(255,255,255,0.35)" }
-                  : undefined
-              }
+              style={side === s ? { textShadow: "0 0 12px rgba(255,255,255,0.35)" } : undefined}
             >
               {s === "yes" ? "0.84" : "0.16"}
             </span>
-            {side === s && (
-              <span
-                className="absolute inset-x-0 bottom-0 h-px bg-white/60"
-              />
-            )}
+            {side === s && <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />}
           </button>
         ))}
       </div>
@@ -1116,9 +1144,7 @@ function SwapTab({
             </div>
           </div>
           <div className="flex flex-col items-end pb-2">
-            <span
-              className="rounded-full border border-white/20 bg-white/[0.04] px-3 py-1 tabular text-[10px] uppercase tracking-[0.22em] text-white"
-            >
+            <span className="rounded-full border border-white/20 bg-white/[0.04] px-3 py-1 tabular text-[10px] uppercase tracking-[0.22em] text-white">
               {side} · shares
             </span>
             <span className="mt-1.5 tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
@@ -1305,9 +1331,7 @@ function ManageTab({ lending }: { lending: `0x${string}` }) {
           >
             withdraw collat
           </span>
-          {mode === "withdraw" && (
-            <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />
-          )}
+          {mode === "withdraw" && <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />}
         </button>
       </div>
 

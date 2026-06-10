@@ -2,6 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { NavBar } from "@/components/nav-bar";
+import { useDemoManifest } from "@/hooks/useDemoManifest";
+import { usePoolPrice, usePoolReserves } from "@/hooks/useLiveDemoReads";
+import { useDemoTrades } from "@/hooks/useDemoTrades";
+import { assembleDashboardData } from "@/lib/dashboardData";
+import { WCurveLive } from "@/components/w-curve-live";
+import { AttackTranscript } from "@/components/attack-transcript";
+import { LpShieldPanel } from "@/components/lp-shield-panel";
 
 export const Route = createFileRoute("/demo")({
   head: () => ({
@@ -76,9 +83,7 @@ function useSimulatedFeed() {
       setTrades((prev) => [t, ...prev].slice(0, 14));
       setPrice(t.price);
       setSavedTotal((s) => s + t.saved);
-      setShielded((s) =>
-        Math.max(0.9, Math.min(0.998, s + rand(-0.002, 0.0025))),
-      );
+      setShielded((s) => Math.max(0.9, Math.min(0.998, s + rand(-0.002, 0.0025))));
     }, 1800);
     return () => clearInterval(tradeInterval);
   }, [price]);
@@ -91,7 +96,19 @@ function useSimulatedFeed() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DemoPage() {
-  const { trades, price, savedTotal, shielded } = useSimulatedFeed();
+  // ── Live data hooks ──────────────────────────────────────────────────────
+  const { data: manifest } = useDemoManifest();
+  const { price: livePrice, source: priceSource } = usePoolPrice(manifest?.poolWeth);
+  const { reserves, source: reserveSource } = usePoolReserves(manifest?.poolWeth);
+  const { trades, isLoading: tradesLoading, source: tradesSource, refetch: refetchTrades } = useDemoTrades(manifest?.conditionId, "WETH");
+
+  const dashboard = manifest
+    ? assembleDashboardData(manifest, livePrice, reserves, trades)
+    : null;
+
+  // Fall back to simulated feed for panels that haven't been replaced yet
+  const { trades: simTrades, price: simPrice, savedTotal, shielded } = useSimulatedFeed();
+  const liveYes = dashboard ? dashboard.priceFloat : simPrice;
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-abyss text-foreground">
@@ -100,8 +117,7 @@ function DemoPage() {
         aria-hidden
         className="pointer-events-none fixed inset-x-0 top-0 h-[60vh] opacity-[0.35]"
         style={{
-          background:
-            "radial-gradient(60% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 70%)",
+          background: "radial-gradient(60% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 70%)",
         }}
       />
       <div className="noise-overlay" />
@@ -111,31 +127,60 @@ function DemoPage() {
       <main className="relative z-10 mx-auto w-full max-w-[1400px] px-8 pt-14 pb-32">
         <PageHeader />
 
+        {/* ─── Live Proof Section (when demo manifest present) ─────────────── */}
+        {manifest && dashboard && (
+          <div className="mt-10 grid grid-cols-1 gap-3 md:grid-cols-12">
+            <Panel className="md:col-span-8 p-6" label="04 · dynamic market defenses · live">
+              <WCurveLive
+                price={dashboard.priceFloat}
+                lambdaWad={dashboard.lambdaWad}
+                source={priceSource}
+              />
+            </Panel>
+
+            <Panel className="md:col-span-4 p-6" label="02 · lp safety shield · live">
+              <LpShieldPanel reserves={reserves} source={reserveSource} />
+            </Panel>
+
+            <Panel className="md:col-span-12 p-6" label="07 · attack transcript · indexed">
+              <AttackTranscript
+                trades={dashboard.attackTrades}
+                isLoading={tradesLoading}
+                source={tradesSource}
+              />
+            </Panel>
+          </div>
+        )}
+
         {/* ─── Row 1 — Core ──────────────────────────────────────────────── */}
-        <div className="mt-10 grid grid-cols-1 gap-3 md:grid-cols-12">
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
           <Panel className="md:col-span-5 p-6" label="01 · live activity">
-            <LiveActivityFeed trades={trades} price={price} />
+            <LiveActivityFeed trades={simTrades} price={liveYes} />
           </Panel>
 
-          <Panel className="md:col-span-3 p-6" label="02 · lp safety shield">
-            <SafetyShield shielded={shielded} />
-          </Panel>
+          {!manifest && (
+            <Panel className="md:col-span-3 p-6" label="02 · lp safety shield">
+              <SafetyShield shielded={shielded} />
+            </Panel>
+          )}
 
           <Panel className="md:col-span-4 p-6" label="03 · cumulative value saved">
             <ValueSaved total={savedTotal} />
           </Panel>
         </div>
 
-        {/* ─── Row 2 — Deep Dive ────────────────────────────────────────── */}
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
-          <Panel className="md:col-span-8 p-6" label="04 · dynamic market defenses">
-            <WCurve price={price} />
-          </Panel>
+        {/* ─── Row 2 — Deep Dive (fallback when no manifest) ────────────── */}
+        {!manifest && (
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
+            <Panel className="md:col-span-8 p-6" label="04 · dynamic market defenses">
+              <WCurve price={liveYes} />
+            </Panel>
 
-          <Panel className="md:col-span-4 p-6" label="05 · zero-liquidation lending">
-            <RiskFreeBorrow />
-          </Panel>
-        </div>
+            <Panel className="md:col-span-4 p-6" label="05 · zero-liquidation lending">
+              <RiskFreeBorrow />
+            </Panel>
+          </div>
+        )}
 
         {/* ─── Verified Strip ───────────────────────────────────────────── */}
         <VerifiedStrip />
@@ -143,6 +188,7 @@ function DemoPage() {
     </div>
   );
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Header
@@ -206,8 +252,7 @@ function Panel({
         background: "rgba(255,255,255,0.022)",
         backdropFilter: "blur(24px) saturate(140%)",
         border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow:
-          "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 30px 80px -40px rgba(0,0,0,0.8)",
+        boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 30px 80px -40px rgba(0,0,0,0.8)",
         transition: "background 0.5s var(--ease-precision)",
       }}
     >
@@ -250,8 +295,7 @@ function LiveActivityFeed({ trades, price }: { trades: Trade[]; price: number })
             transition={{ type: "spring", stiffness: 110, damping: 22 }}
             className="absolute left-0 top-0 h-full"
             style={{
-              background:
-                "linear-gradient(90deg, rgba(255,255,255,0.55), rgba(255,255,255,0.9))",
+              background: "linear-gradient(90deg, rgba(255,255,255,0.55), rgba(255,255,255,0.9))",
             }}
           />
           <motion.div
@@ -298,15 +342,9 @@ function LiveActivityFeed({ trades, price }: { trades: Trade[]; price: number })
                 >
                   {t.side}
                 </span>
-                <span className="col-span-3 text-right text-white/85">
-                  ${t.size.toFixed(0)}
-                </span>
-                <span className="col-span-2 text-right text-white/55">
-                  {t.price.toFixed(3)}
-                </span>
-                <span className="col-span-2 text-right text-white">
-                  +{t.saved.toFixed(1)}
-                </span>
+                <span className="col-span-3 text-right text-white/85">${t.size.toFixed(0)}</span>
+                <span className="col-span-2 text-right text-white/55">{t.price.toFixed(3)}</span>
+                <span className="col-span-2 text-right text-white">+{t.saved.toFixed(1)}</span>
                 <span className="col-span-3 text-right text-white/40">{t.trader}</span>
               </motion.div>
             ))}
@@ -315,8 +353,7 @@ function LiveActivityFeed({ trades, price }: { trades: Trade[]; price: number })
             aria-hidden
             className="pointer-events-none absolute inset-x-0 bottom-0 h-16"
             style={{
-              background:
-                "linear-gradient(to bottom, transparent, var(--abyss))",
+              background: "linear-gradient(to bottom, transparent, var(--abyss))",
             }}
           />
         </div>
@@ -429,9 +466,7 @@ function ValueSaved({ total }: { total: number }) {
             <div className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
               {s.k}
             </div>
-            <div className="tabular mt-1 text-[14px] font-light text-white/90">
-              {s.v}
-            </div>
+            <div className="tabular mt-1 text-[14px] font-light text-white/90">{s.v}</div>
           </div>
         ))}
       </div>
@@ -458,8 +493,7 @@ function WCurve({ price }: { price: number }) {
       const lam =
         0.18 +
         0.85 *
-          (Math.pow(2 * (p - 0.5), 2) * 0.6 +
-            Math.pow(Math.sin(p * Math.PI), 2) * -0.42 + 0.5);
+          (Math.pow(2 * (p - 0.5), 2) * 0.6 + Math.pow(Math.sin(p * Math.PI), 2) * -0.42 + 0.5);
       const x = pad + p * (W - 2 * pad);
       const y = H - pad - Math.max(0, Math.min(1, lam - 0.1)) * (H - 2 * pad);
       pts.push(`${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`);
@@ -473,9 +507,7 @@ function WCurve({ price }: { price: number }) {
     const p = price;
     const lam =
       0.18 +
-      0.85 *
-        (Math.pow(2 * (p - 0.5), 2) * 0.6 +
-          Math.pow(Math.sin(p * Math.PI), 2) * -0.42 + 0.5);
+      0.85 * (Math.pow(2 * (p - 0.5), 2) * 0.6 + Math.pow(Math.sin(p * Math.PI), 2) * -0.42 + 0.5);
     return lam;
   }, [price]);
   const dotY = H - pad - Math.max(0, Math.min(1, lamAt - 0.1)) * (H - 2 * pad);
@@ -492,12 +524,8 @@ function WCurve({ price }: { price: number }) {
           </div>
         </div>
         <div className="tabular text-right">
-          <div className="text-[9px] uppercase tracking-[0.22em] text-white/35">
-            current λ*
-          </div>
-          <div className="text-2xl font-extralight text-white">
-            {lamAt.toFixed(3)}
-          </div>
+          <div className="text-[9px] uppercase tracking-[0.22em] text-white/35">current λ*</div>
+          <div className="text-2xl font-extralight text-white">{lamAt.toFixed(3)}</div>
         </div>
       </div>
 
@@ -555,10 +583,18 @@ function WCurve({ price }: { price: number }) {
             style={{ filter: "drop-shadow(0 0 6px rgba(255,255,255,0.18))" }}
           />
           {/* current dot */}
-          <motion.g animate={{ x: dotX, y: dotY }} transition={{ type: "spring", stiffness: 90, damping: 18 }}>
+          <motion.g
+            animate={{ x: dotX, y: dotY }}
+            transition={{ type: "spring", stiffness: 90, damping: 18 }}
+          >
             <circle r="14" fill="rgba(255,255,255,0.06)">
               <animate attributeName="r" values="6;16;6" dur="2.4s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite" />
+              <animate
+                attributeName="opacity"
+                values="0.6;0;0.6"
+                dur="2.4s"
+                repeatCount="indefinite"
+              />
             </circle>
             <circle r="3.5" fill="white" />
           </motion.g>
@@ -570,7 +606,13 @@ function WCurve({ price }: { price: number }) {
           <text x={W / 2 - 8} y={H - 8} fill="rgba(255,255,255,0.3)" fontSize="9" letterSpacing="2">
             0.5
           </text>
-          <text x={W - pad - 18} y={H - 8} fill="rgba(255,255,255,0.3)" fontSize="9" letterSpacing="2">
+          <text
+            x={W - pad - 18}
+            y={H - 8}
+            fill="rgba(255,255,255,0.3)"
+            fontSize="9"
+            letterSpacing="2"
+          >
             P=1
           </text>
         </svg>
@@ -590,23 +632,9 @@ function RiskFreeBorrow() {
       <div className="relative mx-auto h-[120px] w-[200px]">
         <svg viewBox="0 0 200 120" className="h-full w-full">
           {/* pivot */}
-          <line
-            x1="100"
-            y1="14"
-            x2="100"
-            y2="62"
-            stroke="rgba(255,255,255,0.6)"
-            strokeWidth="1"
-          />
+          <line x1="100" y1="14" x2="100" y2="62" stroke="rgba(255,255,255,0.6)" strokeWidth="1" />
           {/* beam */}
-          <line
-            x1="30"
-            y1="62"
-            x2="170"
-            y2="62"
-            stroke="rgba(255,255,255,0.8)"
-            strokeWidth="1"
-          />
+          <line x1="30" y1="62" x2="170" y2="62" stroke="rgba(255,255,255,0.8)" strokeWidth="1" />
           {/* pans */}
           <line x1="30" y1="62" x2="30" y2="78" stroke="rgba(255,255,255,0.4)" />
           <line x1="170" y1="62" x2="170" y2="78" stroke="rgba(255,255,255,0.4)" />
@@ -759,7 +787,7 @@ function VerifiedStrip() {
                       0x{Math.random().toString(16).slice(2, 14)}…
                     </span>
                     <span className="col-span-2 text-right text-white/85">
-                      ${(rand(120, 4800)).toFixed(0)}
+                      ${rand(120, 4800).toFixed(0)}
                     </span>
                     <span className="col-span-2 text-right text-white/85">
                       {rand(0.2, 0.9).toFixed(3)}

@@ -91,7 +91,7 @@ function MarketsPage() {
       const curve = [0.5];
       let curr = 0.5;
       for (let i = 0; i < 3; i++) {
-        curr = curr + (Math.sin(seed + i) * 0.15);
+        curr = curr + Math.sin(seed + i) * 0.15;
         curr = Math.max(0.1, Math.min(0.9, curr));
         curve.push(curr);
       }
@@ -185,11 +185,17 @@ function MarketsPage() {
           <Divider />
           <HeaderMetric label="24h intent volume" value={headerVol} />
           <Divider />
-          <HeaderMetric label="active markets" value={fetching ? "..." : filteredMarkets.length.toString()} />
+          <HeaderMetric
+            label="active markets"
+            value={fetching ? "..." : filteredMarkets.length.toString()}
+          />
           <Divider />
           <HeaderMetric label="settlement latency" value="218ms" accent />
           <Divider />
-          <HeaderMetric label="solver agents" value={fetching ? "..." : String(filteredMarkets.length * 42)} />
+          <HeaderMetric
+            label="solver agents"
+            value={fetching ? "..." : String(filteredMarkets.length * 42)}
+          />
         </div>
       </section>
 

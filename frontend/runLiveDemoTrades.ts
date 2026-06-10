@@ -147,14 +147,20 @@ const PARTITION = [1n, 2n];
 async function main() {
   loadEnv(join(resolve(dirname(fileURLToPath(import.meta.url)), ".."), ".env"));
   const rpcUrl = process.env.ARB_SEPOLIA_RPC ?? process.env.RPC_URL;
-  const privateKey = (process.env.BOT_PRIVATE_KEY ?? process.env.DEPLOYER_PRIVATE_KEY) as Hex | undefined;
+  const privateKey = (process.env.BOT_PRIVATE_KEY ?? process.env.DEPLOYER_PRIVATE_KEY) as
+    | Hex
+    | undefined;
   if (!rpcUrl) throw new Error("ARB_SEPOLIA_RPC or RPC_URL is required.");
   if (!privateKey) throw new Error("BOT_PRIVATE_KEY or DEPLOYER_PRIVATE_KEY is required.");
 
   const manifest = loadManifest();
   const account = privateKeyToAccount(privateKey);
   const publicClient = createPublicClient({ chain: arbitrumSepolia, transport: http(rpcUrl) });
-  const walletClient = createWalletClient({ account, chain: arbitrumSepolia, transport: http(rpcUrl) });
+  const walletClient = createWalletClient({
+    account,
+    chain: arbitrumSepolia,
+    transport: http(rpcUrl),
+  });
 
   const ctf = await publicClient.readContract({
     abi: FACTORY_ABI,
@@ -194,8 +200,12 @@ async function main() {
   console.log(`Live trade runner wallet: ${account.address}`);
   console.log(`Target probability: ${formatWad(targetP)}`);
   console.log(`Starting probability: ${formatWad(currentPrice)}`);
-  console.log(`Trade direction: ${direction === "up" ? "buyNo with YES-WETH input" : "buyYes with NO-WETH input"}`);
-  console.log(`Planned trades: ${schedule.map((amount) => `${formatEther(amount)} WETH`).join(", ")}`);
+  console.log(
+    `Trade direction: ${direction === "up" ? "buyNo with YES-WETH input" : "buyYes with NO-WETH input"}`,
+  );
+  console.log(
+    `Planned trades: ${schedule.map((amount) => `${formatEther(amount)} WETH`).join(", ")}`,
+  );
 
   for (let i = 0; i < schedule.length; i++) {
     const priceBefore = await readPrice(publicClient, manifest.poolWeth);
@@ -208,7 +218,9 @@ async function main() {
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
     const functionName = direction === "up" ? "buyNo" : "buyYes";
     const inputName = direction === "up" ? "YES-WETH" : "NO-WETH";
-    console.log(`Trade ${i + 1}/${schedule.length}: ${functionName} with ${formatEther(amount)} ${inputName}`);
+    console.log(
+      `Trade ${i + 1}/${schedule.length}: ${functionName} with ${formatEther(amount)} ${inputName}`,
+    );
 
     const hash = await walletClient.writeContract({
       abi: POOL_ABI,
@@ -303,7 +315,9 @@ async function ensureWethPositionInventory({
 
   if (balance < needed) {
     const shortfall = needed - balance;
-    console.log(`${positionName} shortfall ${formatEther(shortfall)}. Minting and splitting mock WETH...`);
+    console.log(
+      `${positionName} shortfall ${formatEther(shortfall)}. Minting and splitting mock WETH...`,
+    );
 
     try {
       const mintHash = await walletClient.writeContract({
@@ -314,7 +328,9 @@ async function ensureWethPositionInventory({
       });
       await publicClient.waitForTransactionReceipt({ hash: mintHash });
     } catch (error) {
-      throw new Error(`Unable to mint mock WETH for trade runner. Shortfall=${formatEther(shortfall)}. ${String(error)}`);
+      throw new Error(
+        `Unable to mint mock WETH for trade runner. Shortfall=${formatEther(shortfall)}. ${String(error)}`,
+      );
     }
 
     const approveHash = await walletClient.writeContract({
@@ -370,13 +386,18 @@ function calibrateTradeSchedule({
   }
 
   if (remaining > 0n) {
-    console.warn(`Calibration hit max trade count. Remaining estimate not scheduled: ${formatEther(remaining)} WETH`);
+    console.warn(
+      `Calibration hit max trade count. Remaining estimate not scheduled: ${formatEther(remaining)} WETH`,
+    );
   }
 
   return schedule.length > 0 ? schedule : [parseEther("10000")];
 }
 
-async function waitForNextBlock(publicClient: ReturnType<typeof createPublicClient>, blockNumber: bigint) {
+async function waitForNextBlock(
+  publicClient: ReturnType<typeof createPublicClient>,
+  blockNumber: bigint,
+) {
   const timeoutAt = Date.now() + 60_000;
   while (Date.now() < timeoutAt) {
     const latest = await publicClient.getBlockNumber();
@@ -401,9 +422,17 @@ function formatWad(value: bigint) {
 // Acklam inverse-normal approximation. Used only for runner sizing; on-chain
 // lambda values still come from the deployed math kernel.
 function normalInv(p: number) {
-  const a = [-39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472, 2.50662827745924];
-  const b = [-54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528857];
-  const c = [-0.00778489400243029, -0.322396458041136, -2.40075827716184, -2.54973253934373, 4.37466414146497, 2.93816398269878];
+  const a = [
+    -39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472,
+    2.50662827745924,
+  ];
+  const b = [
+    -54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528857,
+  ];
+  const c = [
+    -0.00778489400243029, -0.322396458041136, -2.40075827716184, -2.54973253934373,
+    4.37466414146497, 2.93816398269878,
+  ];
   const d = [0.00778469570904146, 0.32246712907004, 2.445134137143, 3.75440866190742];
   const plow = 0.02425;
   const phigh = 1 - plow;
@@ -411,18 +440,24 @@ function normalInv(p: number) {
   if (p <= 0 || p >= 1) throw new Error(`normalInv p out of range: ${p}`);
   if (p < plow) {
     const q = Math.sqrt(-2 * Math.log(p));
-    return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5])
-      / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    return (
+      (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+    );
   }
   if (p > phigh) {
     const q = Math.sqrt(-2 * Math.log(1 - p));
-    return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5])
-      / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    return (
+      -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+    );
   }
   const q = p - 0.5;
   const r = q * q;
-  return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q
-    / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+  return (
+    ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
+    (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+  );
 }
 
 main().catch((error) => {

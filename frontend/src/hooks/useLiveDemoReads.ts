@@ -6,7 +6,7 @@ const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 
 export function useLiveBlockNumber() {
   const result = useBlockNumber({ watch: true });
-  return { ...result, source: result.data ? "live" as const : "unavailable" as const };
+  return { ...result, source: result.data ? ("live" as const) : ("unavailable" as const) };
 }
 
 export function usePoolPrice(pool?: `0x${string}`) {
@@ -16,7 +16,11 @@ export function usePoolPrice(pool?: `0x${string}`) {
     functionName: "currentPrice",
     query: { enabled: !!pool && pool !== ZERO, refetchInterval: 2_000 },
   });
-  return { ...result, price: result.data as bigint | undefined, source: result.data ? "live" as const : "unavailable" as const };
+  return {
+    ...result,
+    price: result.data as bigint | undefined,
+    source: result.data ? ("live" as const) : ("unavailable" as const),
+  };
 }
 
 export type PoolReserves = {
@@ -48,7 +52,7 @@ export function usePoolReserves(pool?: `0x${string}`) {
         lT: raw[6],
       }
     : undefined;
-  return { ...result, reserves, source: reserves ? "live" as const : "unavailable" as const };
+  return { ...result, reserves, source: reserves ? ("live" as const) : ("unavailable" as const) };
 }
 
 export function usePoolLiquidity(pool?: `0x${string}`) {
@@ -58,7 +62,11 @@ export function usePoolLiquidity(pool?: `0x${string}`) {
     functionName: "currentLiquidity",
     query: { enabled: !!pool && pool !== ZERO, refetchInterval: 2_000 },
   });
-  return { ...result, liquidity: result.data as bigint | undefined, source: result.data ? "live" as const : "unavailable" as const };
+  return {
+    ...result,
+    liquidity: result.data as bigint | undefined,
+    source: result.data ? ("live" as const) : ("unavailable" as const),
+  };
 }
 
 export function useMathKernelStatus(pool?: `0x${string}`, expectedMath?: string) {
@@ -76,11 +84,15 @@ export function useMathKernelStatus(pool?: `0x${string}`, expectedMath?: string)
     mathAddress,
     matches,
     label: matches ? "Stylus kernel" : mathAddress ? "Fallback math" : "Math unavailable",
-    source: mathAddress ? "live" as const : "unavailable" as const,
+    source: mathAddress ? ("live" as const) : ("unavailable" as const),
   };
 }
 
-export function useTokenAllowance(token?: `0x${string}`, owner?: `0x${string}`, spender?: `0x${string}`) {
+export function useTokenAllowance(
+  token?: `0x${string}`,
+  owner?: `0x${string}`,
+  spender?: `0x${string}`,
+) {
   const result = useReadContract({
     address: token ?? ZERO,
     abi: Erc20Abi,
@@ -88,7 +100,11 @@ export function useTokenAllowance(token?: `0x${string}`, owner?: `0x${string}`, 
     args: [owner ?? ZERO, spender ?? ZERO],
     query: { enabled: !!token && !!owner && !!spender, refetchInterval: 2_000 },
   });
-  return { ...result, allowance: (result.data as bigint | undefined) ?? 0n, source: result.data !== undefined ? "live" as const : "unavailable" as const };
+  return {
+    ...result,
+    allowance: (result.data as bigint | undefined) ?? 0n,
+    source: result.data !== undefined ? ("live" as const) : ("unavailable" as const),
+  };
 }
 
 export function useTokenBalance(token?: `0x${string}`, owner?: `0x${string}`) {
@@ -99,5 +115,9 @@ export function useTokenBalance(token?: `0x${string}`, owner?: `0x${string}`) {
     args: [owner ?? ZERO],
     query: { enabled: !!token && !!owner, refetchInterval: 2_000 },
   });
-  return { ...result, balance: (result.data as bigint | undefined) ?? 0n, source: result.data !== undefined ? "live" as const : "unavailable" as const };
+  return {
+    ...result,
+    balance: (result.data as bigint | undefined) ?? 0n,
+    source: result.data !== undefined ? ("live" as const) : ("unavailable" as const),
+  };
 }

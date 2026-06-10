@@ -100,7 +100,7 @@ function CreateMarketPage() {
         onError: (err) => {
           toast.error(`Deployment failed: ${err.message}`, { id: "create-market" });
         },
-      }
+      },
     );
   }
 
@@ -130,9 +130,7 @@ function CreateMarketPage() {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#00FFAA]/30 bg-[#00FFAA]/5">
               <span className="text-[#00FFAA] text-xl">✓</span>
             </div>
-            <h3 className="mt-6 font-display text-2xl font-light text-white">
-              Market Synthesized
-            </h3>
+            <h3 className="mt-6 font-display text-2xl font-light text-white">Market Synthesized</h3>
             <p className="mt-3 text-[13px] text-white/55 max-w-md mx-auto leading-relaxed">
               Your pools have been successfully deployed to Arbitrum Sepolia. The Ponder indexer is
               processing the block logs and the market will appear on the dashboard shortly.
@@ -140,7 +138,9 @@ function CreateMarketPage() {
 
             {txHash && (
               <div className="mt-6 p-4 rounded-lg bg-white/[0.02] border border-white/5 inline-block text-left max-w-md w-full">
-                <div className="text-[10px] uppercase tracking-wider text-white/35">Transaction Hash</div>
+                <div className="text-[10px] uppercase tracking-wider text-white/35">
+                  Transaction Hash
+                </div>
                 <div className="mt-1 font-mono text-[11px] text-white/80 break-all select-all">
                   {txHash}
                 </div>

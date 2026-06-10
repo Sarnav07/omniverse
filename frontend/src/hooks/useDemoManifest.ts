@@ -57,5 +57,11 @@ export function useDemoManifest() {
     };
   }, []);
 
-  return { data, isLoading, isError: !!error, error, source: data ? "manifest" as const : "unavailable" as const };
+  return {
+    data,
+    isLoading,
+    isError: !!error,
+    error,
+    source: data ? ("manifest" as const) : ("unavailable" as const),
+  };
 }

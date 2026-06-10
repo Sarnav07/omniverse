@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { NavBar } from "@/components/nav-bar";
+import { SimulationBanner } from "@/components/simulation-banner";
 
 export const Route = createFileRoute("/simulate")({
   head: () => ({
@@ -52,6 +53,10 @@ function SimulatePage() {
           watch what survives.
         </p>
       </motion.section>
+      {/* SIMULATION BANNER — always visible, including presentMode */}
+      <section className="relative z-10 mx-auto mt-6 w-full max-w-[1400px] px-8">
+        <SimulationBanner />
+      </section>
 
       {/* SPLIT */}
       <section className="relative z-10 mx-auto mt-12 grid w-full max-w-[1400px] grid-cols-1 gap-6 px-8 lg:grid-cols-2">
@@ -316,7 +321,9 @@ function OmniversePanel({ crashed }: { crashed: boolean }) {
           >
             <div
               className="flex items-center gap-3 rounded-full border border-[#00FFAA]/50 bg-abyss/40 px-6 py-3 backdrop-blur-md"
-              style={{ boxShadow: "0 0 40px rgba(0,255,170,0.25), inset 0 0 20px rgba(0,255,170,0.15)" }}
+              style={{
+                boxShadow: "0 0 40px rgba(0,255,170,0.25), inset 0 0 20px rgba(0,255,170,0.15)",
+              }}
             >
               <span
                 className="h-2 w-2 rounded-full bg-[#00FFAA]"
