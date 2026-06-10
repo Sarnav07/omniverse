@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { PresentModeContext } from "./__root";
 import { WalletButton } from "@/components/wallet-button";
 import {
   useWriteContract,
@@ -80,10 +81,25 @@ export const Route = createFileRoute("/markets/$id")({
 
 function TerminalPage() {
   const { id } = Route.useParams();
+  const presentMode = useContext(PresentModeContext);
   type TerminalTab = "swap" | "borrow" | "manage" | "provide" | "redeem";
   const [tab, setTab] = useState<TerminalTab>("borrow");
   const { data: manifest } = useDemoManifest();
   const { data: blockNumber } = useLiveBlockNumber();
+
+  // Estimate RPC latency from block update cadence
+  const lastBlockTimeRef = useRef<number>(0);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  useEffect(() => {
+    if (!blockNumber) return;
+    const now = Date.now();
+    if (lastBlockTimeRef.current > 0) {
+      const delta = now - lastBlockTimeRef.current;
+      // Smooth: blend previous with new
+      setLatencyMs((prev) => (prev ? Math.round(prev * 0.6 + delta * 0.4) : delta));
+    }
+    lastBlockTimeRef.current = now;
+  }, [blockNumber]);
 
   const [result] = useQuery({
     query: MARKET_BY_ID_QUERY,
@@ -98,14 +114,13 @@ function TerminalPage() {
         poolWeth: "0x0000000000000000000000000000000000000000" as `0x${string}`,
         poolUsdc: "0x0000000000000000000000000000000000000000" as `0x${string}`,
         lending: CONTRACT_ADDRESSES.MultiverseLending as `0x${string}`,
-        symbol: "...",
-        question: "Loading...",
-        category: "...",
+        symbol: manifest?.symbol ?? "...",
+        question: manifest?.question ?? "Loading...",
+        category: "prediction",
         yes: 0.5,
         tvl: "$0.00",
         volume24: "$0.00",
         expiry: "...",
-        latency: "...",
       };
     const yesPrice = Number(item.lastPriceWeth) / 1e18;
     const volWeth = Number(item.totalVolumeWeth) / 1e18;
@@ -117,15 +132,14 @@ function TerminalPage() {
       lending: (item.lending ?? CONTRACT_ADDRESSES.MultiverseLending) as `0x${string}`,
       lastPriceWeth: item.lastPriceWeth,
       symbol: item.symbol,
-      question: item.question,
-      category: item.category,
+      question: item.question ?? manifest?.question ?? "Loading...",
+      category: item.category ?? "prediction",
       yes: yesPrice > 0 ? yesPrice : 0.5,
       tvl: "---",
       volume24: vol > 0 ? `$${vol.toFixed(1)}` : "$0.00",
       expiry: "2026·12·31",
-      latency: "218ms",
     };
-  }, [data]);
+  }, [data, manifest]);
 
   const isDemoMarket =
     !!manifest &&
@@ -196,7 +210,10 @@ function TerminalPage() {
         </div>
         <div className="flex items-center gap-5 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
           <span>
-            latency · <span className="text-white/45">unavailable</span>
+            latency ·{" "}
+            <span className={latencyMs ? "text-white/75" : "text-white/45"}>
+              {latencyMs ? `${latencyMs}ms` : blockNumber ? "< 1s" : "..."}
+            </span>
           </span>
           <span>block · {formatBlockNumber(blockNumber)}</span>
           <span className="flex items-center gap-1.5">
@@ -235,6 +252,7 @@ function TerminalPage() {
           <StripStat label="tvl" value={tvlLabel} />
           <StripStat label="24h vol" value={MARKET.volume24} />
           <StripStat label="expiry" value={expiryLabel} />
+          {!presentMode && <DataSourceBadge source={livePrice ? "live" : "indexed"} />}
         </div>
       </section>
 
@@ -291,14 +309,18 @@ function TerminalPage() {
             <div className="flex-1 overflow-y-auto">
               {isDemoMarket && (
                 <div className="border-b border-white/[0.06] bg-black/20 p-6">
-                  <PreDemoReadinessPanel />
+                  <PreDemoReadinessPanel manifest={manifest} pool={livePool} />
                 </div>
               )}
               {isDemoMarket ? (
                 <div className="p-6">
                   <AttackPresets
+                    pool={livePool!}
+                    conditionId={manifest?.conditionId!}
+                    yesPrice={liveYes}
                     onConfirmed={() => {
-                      // We could trigger refetches here if needed
+                      // Trigger refetch of live data after trade confirms
+                      refetchTrades();
                     }}
                   />
                 </div>
@@ -425,16 +447,17 @@ function AttackModeStrip({
           </span>
         </div>
         <div className="flex items-center gap-5">
-          <AttackMetric label="p(yes)" value={price ? formatProbability(price) : "—"} />
-          <AttackMetric label="λ" value={reserves ? formatWad(reserves.lambdaWad, 3) : "—"} />
-          <AttackMetric label="active" value={total > 0n ? `${activePct.toFixed(1)}%` : "—"} />
-          <AttackMetric label="shielded" value={total > 0n ? `${passivePct.toFixed(1)}%` : "—"} />
+          <AttackMetric label="p(yes)" value={price ? formatProbability(price) : "—"} source="live" />
+          <AttackMetric label="λ" value={reserves ? formatWad(reserves.lambdaWad, 3) : "—"} source="live" />
+          <AttackMetric label="active" value={total > 0n ? `${activePct.toFixed(1)}%` : "—"} source="computed" />
+          <AttackMetric label="shielded" value={total > 0n ? `${passivePct.toFixed(1)}%` : "—"} source="computed" />
           <AttackMetric
             label="ell"
             value={reserves ? formatCompactToken(reserves.ellActive) : "—"}
+            source="live"
           />
-          <AttackMetric label="L_t" value={formatCompactToken(liquidity ?? reserves?.lT)} />
-          <AttackMetric label="math" value={mathLabel} accent={mathMatches} />
+          <AttackMetric label="L_t" value={formatCompactToken(liquidity ?? reserves?.lT)} source="live" />
+          <AttackMetric label="math" value={mathLabel} accent={mathMatches} source="live" />
           <a
             href={pool ? `https://sepolia.arbiscan.io/address/${pool}` : undefined}
             target="_blank"
@@ -463,17 +486,21 @@ function AttackMetric({
   label,
   value,
   accent,
+  source,
 }: {
   label: string;
   value: string;
   accent?: boolean;
+  source?: "live" | "indexed" | "manifest" | "computed" | "simulated" | "unavailable";
 }) {
+  const presentMode = useContext(PresentModeContext);
   return (
     <div className="flex flex-col items-end">
       <span className="tabular text-[8px] uppercase tracking-[0.2em] text-white/30">{label}</span>
       <span className={`tabular text-[11px] ${accent ? "text-white" : "text-white/75"}`}>
         {value}
       </span>
+      {!presentMode && source && <DataSourceBadge source={source} />}
     </div>
   );
 }
@@ -1445,6 +1472,20 @@ function RedeemTab() {
   const [token, setToken] = useState<"USDC" | "WETH">("USDC");
   const payout = (parseFloat(shares) || 0).toFixed(2);
 
+  // On-chain resolution check: payoutDenominator > 0 means resolved
+  const { data: payoutDenominator } = useReadContract({
+    address: CONTRACT_ADDRESSES.ConditionalTokens,
+    abi: ConditionalTokensAbi,
+    functionName: "payoutDenominator",
+    args: [id],
+    query: { refetchInterval: 10_000 },
+  });
+
+  const isResolved =
+    payoutDenominator !== undefined &&
+    payoutDenominator !== null &&
+    BigInt(payoutDenominator as bigint) > 0n;
+
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
   const signing = isPending || isConfirming;
@@ -1456,7 +1497,7 @@ function RedeemTab() {
   }, [isPending, isConfirming, isSuccess]);
 
   function onRedeem() {
-    if (signing) return;
+    if (signing || !isResolved) return;
     writeContract(
       {
         address: CONTRACT_ADDRESSES.ConditionalTokens,
@@ -1476,21 +1517,39 @@ function RedeemTab() {
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
       <div className="border-b border-white/[0.06] bg-gradient-to-r from-white/[0.04] to-transparent px-6 py-5">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inset-0 animate-ping rounded-full bg-white/60" />
-            <span className="relative h-1.5 w-1.5 rounded-full bg-white" />
-          </span>
-          <span
-            className="tabular text-[10px] uppercase tracking-[0.32em] text-white"
-            style={{ textShadow: "0 0 12px rgba(255,255,255,0.35)" }}
-          >
-            market resolved · yes
-          </span>
-        </div>
-        <p className="mt-2 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
-          settlement block 21·482·113 · 1 yes ≡ 1 usdc
-        </p>
+        {isResolved ? (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inset-0 animate-ping rounded-full bg-white/60" />
+                <span className="relative h-1.5 w-1.5 rounded-full bg-white" />
+              </span>
+              <span
+                className="tabular text-[10px] uppercase tracking-[0.32em] text-white"
+                style={{ textShadow: "0 0 12px rgba(255,255,255,0.35)" }}
+              >
+                market resolved · yes
+              </span>
+            </div>
+            <p className="mt-2 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
+              1 yes ≡ 1 collateral token · redeemable now
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
+              </span>
+              <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/55">
+                market active · not yet resolved
+              </span>
+            </div>
+            <p className="mt-2 tabular text-[10px] uppercase tracking-[0.22em] text-white/35">
+              redemption available after oracle settlement
+            </p>
+          </>
+        )}
       </div>
 
       <div className="flex-1 px-6 pt-6">
@@ -1511,7 +1570,7 @@ function RedeemTab() {
               className="tabular mt-1 text-[40px] font-light tracking-[-0.02em] text-white"
               style={{ textShadow: "0 0 18px rgba(255,255,255,0.35)" }}
             >
-              {payout}
+              {isResolved ? payout : "—"}
             </div>
           </div>
           <div className="flex flex-col items-end pb-2">
@@ -1524,33 +1583,33 @@ function RedeemTab() {
               <option value="WETH">WETH</option>
             </select>
             <span className="mt-1.5 tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
-              1:1 redemption
+              {isResolved ? "1:1 redemption" : "pending resolution"}
             </span>
           </div>
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-3 border-t border-white/5 pt-4">
           <PreviewCell label="oracle" value="uma · v3" />
-          <PreviewCell label="resolved" value="2026·12·31" />
-          <PreviewCell label="claim window" value="open" />
+          <PreviewCell label="status" value={isResolved ? "resolved" : "active"} />
+          <PreviewCell label="claim window" value={isResolved ? "open" : "—"} />
         </div>
       </div>
 
       <div className="border-t border-white/[0.06] p-6">
         <button
           onClick={onRedeem}
-          disabled={signing}
-          className={`group relative flex h-12 w-full items-center justify-center overflow-hidden rounded-full border border-white/25 bg-white/[0.04] ease-precision hover:border-white/40 hover:bg-white/[0.07] ${signing ? "opacity-50 cursor-not-allowed" : ""}`}
+          disabled={signing || !isResolved}
+          className={`group relative flex h-12 w-full items-center justify-center overflow-hidden rounded-full border ease-precision ${isResolved ? "border-white/25 bg-white/[0.04] hover:border-white/40 hover:bg-white/[0.07]" : "border-white/10 bg-white/[0.01] cursor-not-allowed"} ${signing ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <span
-            className="tabular text-[12px] uppercase tracking-[0.32em] text-white"
-            style={{ textShadow: "0 0 12px rgba(255,255,255,0.45)" }}
+            className={`tabular text-[12px] uppercase tracking-[0.32em] ${isResolved ? "text-white" : "text-white/30"}`}
+            style={isResolved ? { textShadow: "0 0 12px rgba(255,255,255,0.45)" } : undefined}
           >
-            burn yes shares for {token.toLowerCase()}
+            {isResolved ? `burn yes shares for ${token.toLowerCase()}` : "awaiting oracle resolution"}
           </span>
         </button>
         <div className="mt-3 flex items-center justify-between tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
-          <span>oracle attested · final</span>
+          <span>{isResolved ? "oracle attested · final" : "oracle pending"}</span>
           <span>no slippage · no fees</span>
         </div>
       </div>

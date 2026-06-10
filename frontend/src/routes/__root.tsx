@@ -4,19 +4,21 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useSearch,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { createContext, useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
+
+export const PresentModeContext = createContext<boolean>(false);
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
-import "@rainbow-me/rainbowkit/styles.css";
-import { RainbowKitProvider, getDefaultConfig } from "@rainbow-me/rainbowkit";
-import { WagmiProvider } from "wagmi";
+import { WagmiProvider, createConfig, http } from "wagmi";
 import { arbitrumSepolia } from "wagmi/chains";
+import { injected } from "wagmi/connectors";
 import { Provider as UrqlProvider } from "urql";
 import { urqlClient } from "../lib/urql";
 
@@ -124,41 +126,44 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-const wagmiConfig = getDefaultConfig({
-  appName: "Omniverse Terminal",
-  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "demo",
+const wagmiConfig = createConfig({
   chains: [arbitrumSepolia],
-  ssr: false,
+  connectors: [injected()],
+  transports: { [arbitrumSepolia.id]: http() },
 });
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const search = useSearch({ strict: false }) as Record<string, string>;
+  const presentMode = search.present === "true";
 
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <UrqlProvider value={urqlClient}>
-          <RainbowKitProvider>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-            <Toaster
-              theme="dark"
-              position="bottom-right"
-              toastOptions={{
-                unstyled: false,
-                classNames: {
-                  toast:
-                    "omni-glass-heavy !bg-white/[0.02] !border-white/10 !text-white/90 !rounded-xl !shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
-                  title: "tabular !text-[11px] uppercase tracking-[0.22em] !text-white",
-                  description: "tabular !text-[10px] uppercase tracking-[0.18em] !text-white/45",
-                  success: "!text-[#00FFAA]",
-                  loader: "!text-white/70",
-                },
-              }}
-            />
-          </RainbowKitProvider>
-        </UrqlProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+          <PresentModeContext.Provider value={presentMode}>
+            <div className={presentMode ? "present-mode" : ""}>
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+              <Toaster
+                  theme="dark"
+                  position="bottom-right"
+                  toastOptions={{
+                    unstyled: false,
+                    classNames: {
+                      toast:
+                        "omni-glass-heavy !bg-white/[0.02] !border-white/10 !text-white/90 !rounded-xl !shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
+                      title: "tabular !text-[11px] uppercase tracking-[0.22em] !text-white",
+                      description: "tabular !text-[10px] uppercase tracking-[0.18em] !text-white/45",
+                      success: "!text-[#00FFAA]",
+                      loader: "!text-white/70",
+                    },
+                  }}
+                />
+            </div>
+          </PresentModeContext.Provider>
+          </UrqlProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
   );
 }

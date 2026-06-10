@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { PresentModeContext } from "./__root";
 import { motion, AnimatePresence } from "motion/react";
 import { NavBar } from "@/components/nav-bar";
 import { useDemoManifest } from "@/hooks/useDemoManifest";
@@ -9,6 +10,7 @@ import { assembleDashboardData } from "@/lib/dashboardData";
 import { WCurveLive } from "@/components/w-curve-live";
 import { AttackTranscript } from "@/components/attack-transcript";
 import { LpShieldPanel } from "@/components/lp-shield-panel";
+import { DataSourceBadge } from "@/components/data-source-badge";
 
 export const Route = createFileRoute("/demo")({
   head: () => ({
@@ -25,90 +27,22 @@ export const Route = createFileRoute("/demo")({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Simulated live data — keeps the dashboard alive regardless of indexer state.
-// ─────────────────────────────────────────────────────────────────────────────
-
-type Trade = {
-  id: number;
-  side: "YES" | "NO";
-  size: number;
-  price: number;
-  saved: number;
-  trader: string;
-  ts: number;
-};
-
-const SIDES = ["YES", "NO"] as const;
-const SAMPLE_TRADERS = [
-  "0x4b…3f9",
-  "0xa1…c70",
-  "0x7c…d12",
-  "0x9e…b88",
-  "0x3d…041",
-  "0xff…aa2",
-  "0x21…e5b",
-];
-
-function rand(min: number, max: number) {
-  return min + Math.random() * (max - min);
-}
-
-function useSimulatedFeed() {
-  const [trades, setTrades] = useState<Trade[]>(() =>
-    Array.from({ length: 8 }, (_, i) => ({
-      id: Date.now() - i * 9000,
-      side: SIDES[Math.round(Math.random())],
-      size: rand(120, 4800),
-      price: rand(0.18, 0.86),
-      saved: rand(2, 180),
-      trader: SAMPLE_TRADERS[Math.floor(Math.random() * SAMPLE_TRADERS.length)],
-      ts: Date.now() - i * 9000,
-    })),
-  );
-  const [price, setPrice] = useState(0.62);
-  const [savedTotal, setSavedTotal] = useState(2_481_392);
-  const [shielded, setShielded] = useState(0.964);
-
-  useEffect(() => {
-    const tradeInterval = setInterval(() => {
-      const t: Trade = {
-        id: Date.now(),
-        side: SIDES[Math.round(Math.random())],
-        size: rand(80, 5800),
-        price: Math.max(0.02, Math.min(0.98, price + rand(-0.04, 0.04))),
-        saved: rand(1.2, 240),
-        trader: SAMPLE_TRADERS[Math.floor(Math.random() * SAMPLE_TRADERS.length)],
-        ts: Date.now(),
-      };
-      setTrades((prev) => [t, ...prev].slice(0, 14));
-      setPrice(t.price);
-      setSavedTotal((s) => s + t.saved);
-      setShielded((s) => Math.max(0.9, Math.min(0.998, s + rand(-0.002, 0.0025))));
-    }, 1800);
-    return () => clearInterval(tradeInterval);
-  }, [price]);
-
-  return { trades, price, savedTotal, shielded };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DemoPage() {
   // ── Live data hooks ──────────────────────────────────────────────────────
+  const presentMode = useContext(PresentModeContext);
   const { data: manifest } = useDemoManifest();
-  const { price: livePrice, source: priceSource } = usePoolPrice(manifest?.poolWeth);
-  const { reserves, source: reserveSource } = usePoolReserves(manifest?.poolWeth);
-  const { trades, isLoading: tradesLoading, source: tradesSource, refetch: refetchTrades } = useDemoTrades(manifest?.conditionId, "WETH");
+  const { price: livePrice } = usePoolPrice(manifest?.poolWeth);
+  const { reserves } = usePoolReserves(manifest?.poolWeth);
+  const { trades, isLoading: tradesLoading, refetch: refetchTrades } = useDemoTrades(manifest?.conditionId, "WETH");
 
   const dashboard = manifest
     ? assembleDashboardData(manifest, livePrice, reserves, trades)
     : null;
 
-  // Fall back to simulated feed for panels that haven't been replaced yet
-  const { trades: simTrades, price: simPrice, savedTotal, shielded } = useSimulatedFeed();
-  const liveYes = dashboard ? dashboard.priceFloat : simPrice;
+  const liveYes = dashboard ? dashboard.priceFloat : 0.5;
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-abyss text-foreground">
@@ -131,22 +65,28 @@ function DemoPage() {
         {manifest && dashboard && (
           <div className="mt-10 grid grid-cols-1 gap-3 md:grid-cols-12">
             <Panel className="md:col-span-8 p-6" label="04 · dynamic market defenses · live">
+              <div className="mb-2 flex items-center justify-between">
+                {!presentMode && <DataSourceBadge source={dashboard.priceSource} />}
+              </div>
               <WCurveLive
                 price={dashboard.priceFloat}
                 lambdaWad={dashboard.lambdaWad}
-                source={priceSource}
+                source={dashboard.priceSource}
               />
             </Panel>
 
             <Panel className="md:col-span-4 p-6" label="02 · lp safety shield · live">
-              <LpShieldPanel reserves={reserves} source={reserveSource} />
+              <div className="mb-2">
+                {!presentMode && <DataSourceBadge source={dashboard.reserveSource} />}
+              </div>
+              <LpShieldPanel reserves={reserves} source={dashboard.reserveSource} />
             </Panel>
 
             <Panel className="md:col-span-12 p-6" label="07 · attack transcript · indexed">
               <AttackTranscript
                 trades={dashboard.attackTrades}
                 isLoading={tradesLoading}
-                source={tradesSource}
+                source={dashboard.priceSource === "unavailable" ? "unavailable" : "indexed"}
               />
             </Panel>
           </div>
@@ -155,17 +95,19 @@ function DemoPage() {
         {/* ─── Row 1 — Core ──────────────────────────────────────────────── */}
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
           <Panel className="md:col-span-5 p-6" label="01 · live activity">
-            <LiveActivityFeed trades={simTrades} price={liveYes} />
+            <LiveActivityFeed trades={dashboard?.allTrades.slice(0, 8) ?? []} price={liveYes} />
+            {!presentMode && <DataSourceBadge source={dashboard ? "indexed" : "unavailable"} />}
           </Panel>
 
           {!manifest && (
             <Panel className="md:col-span-3 p-6" label="02 · lp safety shield">
-              <SafetyShield shielded={shielded} />
+              <SafetyShield shielded={0.96} />
             </Panel>
           )}
 
           <Panel className="md:col-span-4 p-6" label="03 · cumulative value saved">
-            <ValueSaved total={savedTotal} />
+            <ValueSaved total={dashboard ? Number(dashboard.allTrades.reduce((sum, t) => sum + t.size, 0n)) / 1e18 : 0} />
+            {!presentMode && <DataSourceBadge source={dashboard ? "computed" : "unavailable"} />}
           </Panel>
         </div>
 
@@ -275,7 +217,7 @@ function Panel({
 // Panel 1 — Live Activity Feed + Thermometer
 // ─────────────────────────────────────────────────────────────────────────────
 
-function LiveActivityFeed({ trades, price }: { trades: Trade[]; price: number }) {
+function LiveActivityFeed({ trades, price }: { trades: any[]; price: number }) {
   return (
     <div className="flex flex-col gap-5">
       {/* Thermometer */}
@@ -318,14 +260,14 @@ function LiveActivityFeed({ trades, price }: { trades: Trade[]; price: number })
           <span className="col-span-2">side</span>
           <span className="col-span-3 text-right">size</span>
           <span className="col-span-2 text-right">px</span>
-          <span className="col-span-2 text-right">saved</span>
+          <span className="col-span-2 text-right">block</span>
           <span className="col-span-3 text-right">trader</span>
         </div>
         <div className="relative h-[260px] overflow-hidden">
           <AnimatePresence initial={false}>
             {trades.map((t, i) => (
               <motion.div
-                key={t.id}
+                key={t.id || i}
                 initial={{ opacity: 0, y: -12 }}
                 animate={{
                   opacity: Math.max(0.15, 1 - i * 0.08),
@@ -337,15 +279,23 @@ function LiveActivityFeed({ trades, price }: { trades: Trade[]; price: number })
               >
                 <span
                   className={`col-span-2 uppercase tracking-[0.18em] text-[9px] ${
-                    t.side === "YES" ? "text-white" : "text-white/50"
+                    t.sideLabel === "BUY YES" || t.side === "YES" ? "text-white" : "text-white/50"
                   }`}
                 >
-                  {t.side}
+                  {t.sideLabel || t.side || "YES"}
                 </span>
-                <span className="col-span-3 text-right text-white/85">${t.size.toFixed(0)}</span>
-                <span className="col-span-2 text-right text-white/55">{t.price.toFixed(3)}</span>
-                <span className="col-span-2 text-right text-white">+{t.saved.toFixed(1)}</span>
-                <span className="col-span-3 text-right text-white/40">{t.trader}</span>
+                <span className="col-span-3 text-right text-white/85">
+                  {t.size ? (Number(t.size) / 1e18).toFixed(0) : t.size?.toFixed?.(0) || "0"}
+                </span>
+                <span className="col-span-2 text-right text-white/55">
+                  {t.priceAfter ? (Number(t.priceAfter) / 1e18).toFixed(3) : t.price?.toFixed?.(3) || "—"}
+                </span>
+                <span className="col-span-2 text-right text-white">
+                  {t.blockNumber || "—"}
+                </span>
+                <span className="col-span-3 text-right text-white/40">
+                  {t.trader ? `${t.trader.slice(0, 6)}...${t.trader.slice(-3)}` : t.trader || "—"}
+                </span>
               </motion.div>
             ))}
           </AnimatePresence>
@@ -787,13 +737,13 @@ function VerifiedStrip() {
                       0x{Math.random().toString(16).slice(2, 14)}…
                     </span>
                     <span className="col-span-2 text-right text-white/85">
-                      ${rand(120, 4800).toFixed(0)}
+                      ${(120 + Math.random() * (4800 - 120)).toFixed(0)}
                     </span>
                     <span className="col-span-2 text-right text-white/85">
-                      {rand(0.2, 0.9).toFixed(3)}
+                      {(0.2 + Math.random() * (0.9 - 0.2)).toFixed(3)}
                     </span>
                     <span className="col-span-1 text-right text-white/85">
-                      {rand(0.4, 1.1).toFixed(2)}
+                      {(0.4 + Math.random() * (1.1 - 0.4)).toFixed(2)}
                     </span>
                   </div>
                 ))}
