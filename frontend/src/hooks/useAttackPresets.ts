@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
 import Erc20Abi from "@/abis/ERC20.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
-import { parseUnits } from "viem";
+import { parseUnits, parseGwei } from "viem";
 
 export type TxPhase = "idle" | "wallet" | "pending" | "confirmed" | "failed";
 
@@ -124,6 +124,8 @@ export function useAttackPresets(
           CONTRACT_ADDRESSES.OmniverseRouter,
           115792089237316195423570985008687907853269984665640564039457584007913129639935n,
         ],
+        maxPriorityFeePerGas: parseGwei("0.01"),
+        maxFeePerGas: parseGwei("0.05"),
       });
       return;
     }
@@ -144,6 +146,8 @@ export function useAttackPresets(
       abi: OmniverseRouterAbi,
       functionName: "buyYes",
       args: [pool, conditionId, amountWad, minOut],
+      maxPriorityFeePerGas: parseGwei("0.01"),
+      maxFeePerGas: parseGwei("0.05"),
     });
   };
 
