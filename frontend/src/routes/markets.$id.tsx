@@ -2,7 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { WalletButton } from "@/components/wallet-button";
-import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract } from "wagmi";
+import {
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  useAccount,
+  useReadContract,
+  useChainId,
+} from "wagmi";
+import { arbitrumSepolia } from "wagmi/chains";
 import MultiverseLendingAbi from "@/abis/MultiverseLending.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
 import { toast } from "sonner";
@@ -11,6 +18,25 @@ import { parseUnits } from "viem";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
 import ConditionalTokensAbi from "@/abis/ConditionalTokens.abi.json";
 import Erc20Abi from "@/abis/ERC20.abi.json";
+import PmAmmPoolAbi from "@/abis/PmAmmPool.abi.json";
+import { DataSourceBadge } from "@/components/data-source-badge";
+import { useDemoManifest } from "@/hooks/useDemoManifest";
+import { useDemoMarket, useDemoTrades } from "@/hooks/useDemoIndexer";
+import {
+  useLiveBlockNumber,
+  useMathKernelStatus,
+  usePoolLiquidity,
+  usePoolPrice,
+  usePoolReserves,
+} from "@/hooks/useLiveDemoReads";
+import {
+  arbiscanTxUrl,
+  formatAddress,
+  formatBlockNumber,
+  formatCompactToken,
+  formatProbability,
+  formatWad,
+} from "@/lib/formatters";
 const MARKET_BY_ID_QUERY = `
   query MarketById($id: String!) {
     market(id: $id) {
@@ -53,6 +79,8 @@ function TerminalPage() {
   const { id } = Route.useParams();
   type TerminalTab = "swap" | "borrow" | "manage" | "provide" | "redeem";
   const [tab, setTab] = useState<TerminalTab>("borrow");
+  const { data: manifest } = useDemoManifest();
+  const { data: blockNumber } = useLiveBlockNumber();
 
   const [result] = useQuery({
     query: MARKET_BY_ID_QUERY,
@@ -96,6 +124,46 @@ function TerminalPage() {
     };
   }, [data]);
 
+  const isDemoMarket =
+    !!manifest &&
+    (id.toLowerCase() === manifest.conditionId.toLowerCase() ||
+      MARKET.poolWeth.toLowerCase() === manifest.poolWeth.toLowerCase() ||
+      MARKET.poolUsdc.toLowerCase() === manifest.poolUsdc.toLowerCase());
+  const demoConditionId = isDemoMarket ? manifest?.conditionId : id;
+  const livePool = isDemoMarket ? manifest?.poolWeth : MARKET.poolWeth;
+  const { market: indexedDemoMarket, isLoading: demoMarketLoading } = useDemoMarket(
+    isDemoMarket ? manifest?.conditionId : undefined,
+  );
+  const { price: livePrice } = usePoolPrice(livePool);
+  const { reserves } = usePoolReserves(livePool);
+  const { liquidity } = usePoolLiquidity(livePool);
+  const mathStatus = useMathKernelStatus(livePool, manifest?.math);
+  const { trades: demoTrades } = useDemoTrades(isDemoMarket ? manifest?.conditionId : undefined, "WETH");
+  const { data: expiryWad } = useReadContract({
+    address: livePool ?? "0x0000000000000000000000000000000000000000",
+    abi: PmAmmPoolAbi,
+    functionName: "T",
+    query: { enabled: !!livePool, refetchInterval: 5_000 },
+  });
+
+  const liveYes = livePrice ? Number(livePrice) / 1e18 : MARKET.yes;
+  const activeReserves = reserves ? reserves.xActive + reserves.yActive : 0n;
+  const totalReserves = reserves
+    ? reserves.xActive + reserves.xPassive + reserves.yActive + reserves.yPassive
+    : 0n;
+  const activePct =
+    totalReserves > 0n ? (Number(activeReserves) / Number(totalReserves)) * 100 : undefined;
+  const passivePct = activePct === undefined ? undefined : 100 - activePct;
+  const tvlLabel = totalReserves > 0n ? formatCompactToken(totalReserves, "pos") : MARKET.tvl;
+  const expiryLabel =
+    typeof expiryWad === "bigint"
+      ? new Date(Number(expiryWad) * 1000).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })
+      : "Unavailable";
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-abyss text-foreground">
       <div className="noise-overlay" />
@@ -122,9 +190,9 @@ function TerminalPage() {
         </div>
         <div className="flex items-center gap-5 tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
           <span>
-            latency · <span className="text-white">{MARKET.latency}</span>
+            latency · <span className="text-white/45">unavailable</span>
           </span>
-          <span>block · 21·482·113</span>
+          <span>block · {formatBlockNumber(blockNumber)}</span>
           <span className="flex items-center gap-1.5">
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inset-0 animate-ping rounded-full bg-white/60" />
@@ -156,16 +224,34 @@ function TerminalPage() {
           </span>
         </div>
         <div className="flex items-center gap-7">
-          <StripStat label="yes" value={MARKET.yes.toFixed(2)} accent />
-          <StripStat label="no" value={(1 - MARKET.yes).toFixed(2)} />
-          <StripStat label="tvl" value={MARKET.tvl} />
+          <StripStat label="yes" value={liveYes.toFixed(2)} accent />
+          <StripStat label="no" value={(1 - liveYes).toFixed(2)} />
+          <StripStat label="tvl" value={tvlLabel} />
           <StripStat label="24h vol" value={MARKET.volume24} />
-          <StripStat label="expiry" value={MARKET.expiry} />
+          <StripStat label="expiry" value={expiryLabel} />
         </div>
       </section>
 
+      {isDemoMarket && (
+        <AttackModeStrip
+          conditionId={demoConditionId}
+          pool={livePool}
+          price={livePrice}
+          reserves={reserves}
+          liquidity={liquidity}
+          mathLabel={mathStatus.label}
+          mathMatches={mathStatus.matches}
+          indexed={!!indexedDemoMarket}
+          indexerLoading={demoMarketLoading}
+          latestTx={demoTrades[0]?.txHash}
+        />
+      )}
+
       {/* DUAL PANE */}
-      <main className="relative z-10 grid h-[calc(100vh-104px)] grid-cols-[1.857fr_1fr]">
+      <main
+        className="relative z-10 grid grid-cols-[1.857fr_1fr]"
+        style={{ height: `calc(100vh - ${isDemoMarket ? 168 : 104}px)` }}
+      >
         {/* LEFT — Intent Engine */}
         <section className="relative flex flex-col border-r border-white/[0.06]">
           {/* tab strip */}
@@ -196,7 +282,18 @@ function TerminalPage() {
           </div>
 
           {tab === "swap" && (
-            <SwapTab poolWeth={MARKET.poolWeth} poolUsdc={MARKET.poolUsdc} yesPrice={MARKET.yes} />
+            <SwapTab
+              poolWeth={MARKET.poolWeth}
+              poolUsdc={MARKET.poolUsdc}
+              yesPrice={liveYes}
+              isDemoMarket={isDemoMarket}
+              manifestConditionId={manifest?.conditionId}
+              manifestPoolUsdc={manifest?.poolUsdc}
+              poolFrozen={
+                typeof expiryWad === "bigint" ? Number(expiryWad) - Math.floor(Date.now() / 1000) <= 3600 : false
+              }
+              indexerReady={!!indexedDemoMarket}
+            />
           )}
           {tab === "borrow" && (
             <IntentEngine
@@ -220,7 +317,7 @@ function TerminalPage() {
 
         {/* RIGHT — Probability Canvas */}
         <section className="relative">
-          <ProbabilityCanvas mu={MARKET.yes} />
+          <ProbabilityCanvas mu={liveYes} />
         </section>
       </main>
     </div>
@@ -239,6 +336,110 @@ function StripStat({ label, value, accent }: { label: string; value: string; acc
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+function AttackModeStrip({
+  conditionId,
+  pool,
+  price,
+  reserves,
+  liquidity,
+  mathLabel,
+  mathMatches,
+  indexed,
+  indexerLoading,
+  latestTx,
+}: {
+  conditionId?: string;
+  pool?: string;
+  price?: bigint;
+  reserves?: {
+    xActive: bigint;
+    xPassive: bigint;
+    yActive: bigint;
+    yPassive: bigint;
+    ellActive: bigint;
+    lambdaWad: bigint;
+    lT: bigint;
+  };
+  liquidity?: bigint;
+  mathLabel: string;
+  mathMatches: boolean;
+  indexed: boolean;
+  indexerLoading: boolean;
+  latestTx?: string;
+}) {
+  const active = reserves ? reserves.xActive + reserves.yActive : 0n;
+  const total = reserves
+    ? reserves.xActive + reserves.xPassive + reserves.yActive + reserves.yPassive
+    : 0n;
+  const activePct = total > 0n ? (Number(active) / Number(total)) * 100 : 0;
+  const passivePct = total > 0n ? 100 - activePct : 0;
+
+  return (
+    <section className="relative z-10 border-b border-white/[0.06] bg-white/[0.012] px-6 py-3">
+      <div className="flex items-center justify-between gap-5">
+        <div className="flex items-center gap-3">
+          <span className="rounded-full border border-white/20 bg-white/[0.04] px-3 py-1 tabular text-[10px] uppercase tracking-[0.24em] text-white">
+            attack mode
+          </span>
+          <DataSourceBadge source="live" />
+          <DataSourceBadge source={indexed ? "indexed" : indexerLoading ? "unavailable" : "unavailable"} />
+          <span className="tabular text-[10px] uppercase tracking-[0.2em] text-white/35">
+            condition · {formatAddress(conditionId, 8, 6)}
+          </span>
+        </div>
+        <div className="flex items-center gap-5">
+          <AttackMetric label="p(yes)" value={price ? formatProbability(price) : "—"} />
+          <AttackMetric label="λ" value={reserves ? formatWad(reserves.lambdaWad, 3) : "—"} />
+          <AttackMetric label="active" value={total > 0n ? `${activePct.toFixed(1)}%` : "—"} />
+          <AttackMetric label="shielded" value={total > 0n ? `${passivePct.toFixed(1)}%` : "—"} />
+          <AttackMetric label="ell" value={reserves ? formatCompactToken(reserves.ellActive) : "—"} />
+          <AttackMetric label="L_t" value={formatCompactToken(liquidity ?? reserves?.lT)} />
+          <AttackMetric
+            label="math"
+            value={mathLabel}
+            accent={mathMatches}
+          />
+          <a
+            href={pool ? `https://sepolia.arbiscan.io/address/${pool}` : undefined}
+            target="_blank"
+            rel="noreferrer"
+            className="tabular text-[10px] uppercase tracking-[0.18em] text-white/45 hover:text-white"
+          >
+            pool · {formatAddress(pool)}
+          </a>
+          {latestTx && (
+            <a
+              href={arbiscanTxUrl(latestTx)}
+              target="_blank"
+              rel="noreferrer"
+              className="tabular text-[10px] uppercase tracking-[0.18em] text-white/45 hover:text-white"
+            >
+              latest tx ↗
+            </a>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AttackMetric({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-end">
+      <span className="tabular text-[8px] uppercase tracking-[0.2em] text-white/30">{label}</span>
+      <span className={`tabular text-[11px] ${accent ? "text-white" : "text-white/75"}`}>{value}</span>
     </div>
   );
 }
