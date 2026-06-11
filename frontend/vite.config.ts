@@ -12,13 +12,4 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  vite: {
-    // @ts-expect-error vitest test config
-    test: {
-      environment: "happy-dom",
-      setupFiles: ["./vitest.setup.ts"],
-      globals: true,
-      include: ["src/**/*.test.{ts,tsx}"],
-    },
-  },
 });

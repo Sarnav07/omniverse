@@ -124,7 +124,7 @@ export function usePreDemoReadiness(
   }
 
   // 4. Balance
-  if ((wethBalance as bigint) < REQUIRED_WETH) {
+  if (wethBalance < REQUIRED_WETH) {
     checks.push({
       label: "WETH balance",
       status: "fail",
@@ -139,7 +139,7 @@ export function usePreDemoReadiness(
   }
 
   // 5. Allowance
-  if ((wethAllowance as bigint) < REQUIRED_WETH) {
+  if (wethAllowance < REQUIRED_WETH) {
     checks.push({
       label: "WETH allowance",
       status: "warning",

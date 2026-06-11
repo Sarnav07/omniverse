@@ -4,21 +4,20 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
-  useSearch,
   HeadContent,
   Scripts,
+  useSearch,
 } from "@tanstack/react-router";
-import { createContext, useEffect, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
-
-export const PresentModeContext = createContext<boolean>(false);
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
-import { WagmiProvider, createConfig, http } from "wagmi";
+import "@rainbow-me/rainbowkit/styles.css";
+import { RainbowKitProvider, getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { WagmiProvider } from "wagmi";
 import { arbitrumSepolia } from "wagmi/chains";
-import { injected } from "wagmi/connectors";
 import { Provider as UrqlProvider } from "urql";
 import { urqlClient } from "../lib/urql";
 
@@ -126,44 +125,51 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-const wagmiConfig = createConfig({
+const wagmiConfig = getDefaultConfig({
+  appName: "Omniverse Terminal",
+  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "demo",
   chains: [arbitrumSepolia],
-  connectors: [injected()],
-  transports: { [arbitrumSepolia.id]: http() },
+  ssr: false,
 });
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const search = useSearch({ strict: false }) as Record<string, string>;
-  const presentMode = search.present === "true";
+  const search = useSearch({ strict: false });
+  const presentMode = search?.present === "true" || search?.present === true;
+
+  useEffect(() => {
+    if (presentMode) {
+      document.body.classList.add("present-mode");
+    } else {
+      document.body.classList.remove("present-mode");
+    }
+  }, [presentMode]);
 
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <UrqlProvider value={urqlClient}>
-          <PresentModeContext.Provider value={presentMode}>
-            <div className={presentMode ? "present-mode" : ""}>
-              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-              <Outlet />
-              <Toaster
-                  theme="dark"
-                  position="bottom-right"
-                  toastOptions={{
-                    unstyled: false,
-                    classNames: {
-                      toast:
-                        "omni-glass-heavy !bg-white/[0.02] !border-white/10 !text-white/90 !rounded-xl !shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
-                      title: "tabular !text-[11px] uppercase tracking-[0.22em] !text-white",
-                      description: "tabular !text-[10px] uppercase tracking-[0.18em] !text-white/45",
-                      success: "!text-[#00FFAA]",
-                      loader: "!text-white/70",
-                    },
-                  }}
-                />
-            </div>
-          </PresentModeContext.Provider>
-          </UrqlProvider>
-        </QueryClientProvider>
-      </WagmiProvider>
+          <RainbowKitProvider>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <Outlet />
+            <Toaster
+              theme="dark"
+              position="bottom-right"
+              toastOptions={{
+                unstyled: false,
+                classNames: {
+                  toast:
+                    "omni-glass-heavy !bg-white/[0.02] !border-white/10 !text-white/90 !rounded-xl !shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
+                  title: "tabular !text-[11px] uppercase tracking-[0.22em] !text-white",
+                  description: "tabular !text-[10px] uppercase tracking-[0.18em] !text-white/45",
+                  success: "!text-[#00FFAA]",
+                  loader: "!text-white/70",
+                },
+              }}
+            />
+          </RainbowKitProvider>
+        </UrqlProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }

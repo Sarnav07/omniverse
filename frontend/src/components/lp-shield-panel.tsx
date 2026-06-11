@@ -31,55 +31,50 @@ export function LpShieldPanel({ reserves, source }: LpShieldPanelProps) {
   return (
     <div className="flex flex-col items-center gap-6 rounded-lg border border-white/10 bg-white/5 p-6">
       {/* Donut */}
-      <div className="relative grid place-items-center">
+      <div className="relative grid place-items-center mt-4">
         <svg width="170" height="170" viewBox="0 0 170 170">
           {/* track — active (dim) */}
-          <circle cx="85" cy="85" r={R} stroke="rgba(255,255,255,0.06)" strokeWidth="6" fill="none" />
+          <circle cx="85" cy="85" r={R} stroke="rgba(255,255,255,0.05)" strokeWidth="1.5" fill="none" />
           {/* shielded arc (passive) — bright */}
           <motion.circle
             cx="85"
             cy="85"
             r={R}
-            stroke="rgba(255,255,255,0.92)"
-            strokeWidth="6"
+            stroke="rgba(255,255,255,1)"
+            strokeWidth="1.5"
             fill="none"
             strokeLinecap="round"
             transform="rotate(-90 85 85)"
             strokeDasharray={C}
             animate={{ strokeDashoffset: C - dash }}
             transition={{ type: "spring", stiffness: 90, damping: 22 }}
-            style={{ filter: "drop-shadow(0 0 8px rgba(255,255,255,0.35))" }}
+            style={{ filter: "drop-shadow(0 0 4px rgba(255,255,255,0.8))" }}
           />
-          {/* shield icon */}
-          <g transform="translate(85 85)" stroke="rgba(255,255,255,0.85)" strokeWidth="1" fill="none">
-            <path d="M 0 -22 L 18 -14 L 18 6 C 18 16 10 22 0 26 C -10 22 -18 16 -18 6 L -18 -14 Z" strokeLinejoin="round" />
-          </g>
         </svg>
-        <div className="absolute -bottom-1 text-center">
-          <div className="tabular text-[10px] uppercase tracking-[0.22em] text-white/40">shielded</div>
+        <div className="absolute inset-0 grid place-items-center">
+          <div className="tabular text-4xl font-extralight tracking-tight text-white">
+            {passivePct.toFixed(1)}
+            <span className="text-base text-white/40">%</span>
+          </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="w-full space-y-2 text-center">
-        <div className="tabular text-4xl font-extralight tracking-tight text-white">
-          {passivePct.toFixed(1)}
-          <span className="text-base text-white/40">%</span>
-        </div>
-        <div className="tabular text-[10px] uppercase tracking-[0.2em] text-white/40">
+      <div className="w-full">
+        <div className="tabular text-[10px] uppercase tracking-[0.2em] text-white/40 text-center mb-4">
           of lp value insulated
         </div>
-        <div className="flex justify-between border-t border-white/[0.06] pt-3 text-xs">
+        <div className="flex justify-between border-t border-white/[0.06] pt-3 text-xs tabular">
           <div>
             <div className="text-white/40">active</div>
-            <div className="text-white">{activePct.toFixed(1)}%</div>
+            <div className="text-white font-mono">{activePct.toFixed(1)}%</div>
           </div>
-          <div>
+          <div className="text-right">
             <div className="text-white/40">passive (shielded)</div>
-            <div className="text-white">{passivePct.toFixed(1)}%</div>
+            <div className="text-white font-mono">{passivePct.toFixed(1)}%</div>
           </div>
         </div>
-        <div className="text-[8px] uppercase tracking-[0.2em] text-white/30">{source}</div>
+        <div className="mt-4 text-center text-[8px] uppercase tracking-[0.2em] text-white/30">{source}</div>
       </div>
     </div>
   );

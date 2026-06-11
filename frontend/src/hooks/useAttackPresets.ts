@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
 import Erc20Abi from "@/abis/ERC20.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
-import { parseUnits, parseGwei } from "viem";
+import { parseUnits } from "viem";
 
 export type TxPhase = "idle" | "wallet" | "pending" | "confirmed" | "failed";
 
@@ -26,13 +26,9 @@ export function useAttackPresets(
   conditionId: `0x${string}` | undefined,
   yesPrice: number,
   onConfirmed?: () => void,
-  router?: `0x${string}`,
 ) {
   const { address: walletAddress } = useAccount();
   const [txState, setTxState] = useState<TxState>({ phase: "idle" });
-
-  // Use the router from the live manifest; fall back to the static config only if absent.
-  const routerAddress = router ?? CONTRACT_ADDRESSES.OmniverseRouter;
 
   const { data: wethAllowance = 0n, refetch: refetchAllowance } = useReadContract({
     address: CONTRACT_ADDRESSES.WETH,
@@ -40,7 +36,7 @@ export function useAttackPresets(
     functionName: "allowance",
     args: [
       walletAddress ?? "0x0000000000000000000000000000000000000000",
-      routerAddress,
+      CONTRACT_ADDRESSES.OmniverseRouter,
     ],
     query: { enabled: !!walletAddress },
   });
@@ -119,17 +115,15 @@ export function useAttackPresets(
     const amountWad = parseUnits(preset.amount, 18);
 
     // Check allowance
-    if ((wethAllowance as bigint) < amountWad) {
+    if (wethAllowance < amountWad) {
       writeApprove({
         address: CONTRACT_ADDRESSES.WETH,
         abi: Erc20Abi,
         functionName: "approve",
         args: [
-          routerAddress,
+          CONTRACT_ADDRESSES.OmniverseRouter,
           115792089237316195423570985008687907853269984665640564039457584007913129639935n,
         ],
-        maxPriorityFeePerGas: parseGwei("0.02"),
-        maxFeePerGas: parseGwei("0.2"),
       });
       return;
     }
@@ -146,12 +140,10 @@ export function useAttackPresets(
     const minOut = parseUnits(minOutFloat.toFixed(18), 18);
 
     writeContract({
-      address: routerAddress,
+      address: CONTRACT_ADDRESSES.OmniverseRouter,
       abi: OmniverseRouterAbi,
       functionName: "buyYes",
       args: [pool, conditionId, amountWad, minOut],
-      maxPriorityFeePerGas: parseGwei("0.02"),
-      maxFeePerGas: parseGwei("0.2"),
     });
   };
 

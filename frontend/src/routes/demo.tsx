@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { PresentModeContext } from "./__root";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { NavBar } from "@/components/nav-bar";
 import { useDemoManifest } from "@/hooks/useDemoManifest";
@@ -10,7 +9,8 @@ import { assembleDashboardData } from "@/lib/dashboardData";
 import { WCurveLive } from "@/components/w-curve-live";
 import { AttackTranscript } from "@/components/attack-transcript";
 import { LpShieldPanel } from "@/components/lp-shield-panel";
-import { DataSourceBadge } from "@/components/data-source-badge";
+import { ParametricMesh } from "@/components/parametric-mesh";
+import { MacroDashboard } from "@/components/macro-dashboard";
 
 export const Route = createFileRoute("/demo")({
   head: () => ({
@@ -27,107 +27,133 @@ export const Route = createFileRoute("/demo")({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Simulated live data — keeps the dashboard alive regardless of indexer state.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SIDES = ["YES", "NO"] as const;
+const SAMPLE_TRADERS = [
+  "0x4b…3f9",
+  "0xa1…c70",
+  "0x7c…d12",
+  "0x9e…b88",
+  "0x3d…041",
+  "0xff…aa2",
+  "0x21…e5b",
+];
+
+function rand(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
+function useSimulatedFeed() {
+  const [trades, setTrades] = useState<any[]>(() =>
+    Array.from({ length: 8 }, (_, i) => ({
+      id: String(Date.now() - i * 9000),
+      txHash: "0xsimulated" + i,
+      blockNumber: String(248194021 - i * 12),
+      side: Math.round(Math.random()),
+      sideLabel: Math.random() > 0.5 ? "YES" : "NO",
+      size: String(rand(120, 4800) * 1e18),
+      priceAfter: String(rand(0.18, 0.86) * 1e16),
+      trader: SAMPLE_TRADERS[Math.floor(Math.random() * SAMPLE_TRADERS.length)],
+      timestamp: String(Date.now() - i * 9000),
+      saved: rand(2, 180)
+    })),
+  );
+  const [price, setPrice] = useState(0.62);
+  const [savedTotal, setSavedTotal] = useState(2_481_392);
+  const [shielded, setShielded] = useState(0.964);
+
+  useEffect(() => {
+    const tradeInterval = setInterval(() => {
+      const t = {
+        id: String(Date.now()),
+        txHash: "0xsimulated" + Date.now(),
+        blockNumber: String(248194021 + Math.floor(Math.random() * 100)),
+        side: Math.round(Math.random()),
+        sideLabel: Math.random() > 0.5 ? "YES" : "NO",
+        size: String(rand(80, 5800) * 1e18),
+        priceAfter: String(Math.max(0.02, Math.min(0.98, price + rand(-0.04, 0.04))) * 1e16),
+        trader: SAMPLE_TRADERS[Math.floor(Math.random() * SAMPLE_TRADERS.length)],
+        timestamp: String(Date.now()),
+        saved: rand(1.2, 240)
+      };
+      setTrades((prev) => [t, ...prev].slice(0, 14));
+      setPrice(Number(t.priceAfter) / 1e16);
+      setSavedTotal((s) => s + t.saved);
+      setShielded((s) => Math.max(0.9, Math.min(0.998, s + rand(-0.002, 0.0025))));
+    }, 1800);
+    return () => clearInterval(tradeInterval);
+  }, [price]);
+
+  return { trades, price, savedTotal, shielded };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DemoPage() {
   // ── Live data hooks ──────────────────────────────────────────────────────
-  const presentMode = useContext(PresentModeContext);
   const { data: manifest } = useDemoManifest();
-  const { price: livePrice } = usePoolPrice(manifest?.poolWeth);
-  const { reserves } = usePoolReserves(manifest?.poolWeth);
-  const { trades, isLoading: tradesLoading, refetch: refetchTrades } = useDemoTrades(manifest?.conditionId, "WETH");
+  const { price: livePrice, source: priceSource } = usePoolPrice(manifest?.poolWeth);
+  const { reserves, source: reserveSource } = usePoolReserves(manifest?.poolWeth);
+  const { trades, isLoading: tradesLoading, source: tradesSource, refetch: refetchTrades } = useDemoTrades(manifest?.conditionId, "WETH");
 
   const dashboard = manifest
     ? assembleDashboardData(manifest, livePrice, reserves, trades)
     : null;
 
-  const liveYes = dashboard ? dashboard.priceFloat : 0.5;
+  // Fall back to simulated feed for panels that haven't been replaced yet
+  const { trades: simTrades, price: simPrice, savedTotal, shielded } = useSimulatedFeed();
+  const liveYes = dashboard ? dashboard.priceFloat : simPrice;
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-abyss text-foreground">
-      {/* very subtle blurred light source — single monochrome wash */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-x-0 top-0 h-[60vh] opacity-[0.35]"
-        style={{
-          background: "radial-gradient(60% 60% at 50% 0%, rgba(255,255,255,0.08), transparent 70%)",
-        }}
-      />
-      <div className="noise-overlay" />
+    <div className="min-h-screen w-screen flex flex-col overflow-hidden bg-[#0A0A0B] font-sans text-text-primary">
+      <div className="noise-overlay" style={{ opacity: 0.02, mixBlendMode: 'overlay', pointerEvents: 'none' }} />
 
-      <NavBar />
+      {/* Global nav — bordered, full width */}
+      <div className="shrink-0 border-b border-white/[0.05]">
+        <NavBar />
+      </div>
 
-      <main className="relative z-10 mx-auto w-full max-w-[1400px] px-8 pt-14 pb-32">
+      <main className="relative z-10 flex flex-col px-8 py-8 w-full max-w-[1600px] mx-auto">
         <PageHeader />
 
-        {/* ─── Live Proof Section (when demo manifest present) ─────────────── */}
-        {manifest && dashboard && (
-          <div className="mt-10 grid grid-cols-1 gap-3 md:grid-cols-12">
-            <Panel className="md:col-span-8 p-6" label="04 · dynamic market defenses · live">
-              <div className="mb-2 flex items-center justify-between">
-                {!presentMode && <DataSourceBadge source={dashboard.priceSource} />}
-              </div>
-              <WCurveLive
-                price={dashboard.priceFloat}
-                lambdaWad={dashboard.lambdaWad}
-                source={dashboard.priceSource}
-              />
-            </Panel>
-
-            <Panel className="md:col-span-4 p-6" label="02 · lp safety shield · live">
-              <div className="mb-2">
-                {!presentMode && <DataSourceBadge source={dashboard.reserveSource} />}
-              </div>
-              <LpShieldPanel reserves={reserves} source={dashboard.reserveSource} />
-            </Panel>
-
-            <Panel className="md:col-span-12 p-6" label="07 · attack transcript · indexed">
-              <AttackTranscript
-                trades={dashboard.attackTrades}
-                isLoading={tradesLoading}
-                source={dashboard.priceSource === "unavailable" ? "unavailable" : "indexed"}
-              />
-            </Panel>
+          <div className="mt-8">
+            <MacroDashboard 
+              savedTotal={savedTotal}
+              shielded={manifest && dashboard?.passivePct !== undefined ? dashboard.passivePct / 100 : shielded}
+              lambdaWad={manifest ? dashboard?.lambdaWad : undefined}
+              price={liveYes}
+            />
           </div>
-        )}
 
-        {/* ─── Row 1 — Core ──────────────────────────────────────────────── */}
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
-          <Panel className="md:col-span-5 p-6" label="01 · live activity">
-            <LiveActivityFeed trades={dashboard?.allTrades.slice(0, 8) ?? []} price={liveYes} />
-            {!presentMode && <DataSourceBadge source={dashboard ? "indexed" : "unavailable"} />}
-          </Panel>
+          <div className="mt-2 flex flex-1 min-h-[500px] gap-4">
+            {/* Depth Chart Column (65%) */}
+            <div className="flex w-[65%] flex-col gap-4">
+              <Panel className="flex-1 p-6" label="Depth Chart · live market probability">
+                <WCurveLive
+                  price={liveYes}
+                  lambdaWad={manifest ? dashboard?.lambdaWad : undefined}
+                  source={manifest ? priceSource : "unavailable"}
+                />
+              </Panel>
+            </div>
 
-          {!manifest && (
-            <Panel className="md:col-span-3 p-6" label="02 · lp safety shield">
-              <SafetyShield shielded={0.96} />
-            </Panel>
-          )}
-
-          <Panel className="md:col-span-4 p-6" label="03 · cumulative value saved">
-            <ValueSaved total={dashboard ? Number(dashboard.allTrades.reduce((sum, t) => sum + t.size, 0n)) / 1e18 : 0} />
-            {!presentMode && <DataSourceBadge source={dashboard ? "computed" : "unavailable"} />}
-          </Panel>
-        </div>
-
-        {/* ─── Row 2 — Deep Dive (fallback when no manifest) ────────────── */}
-        {!manifest && (
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
-            <Panel className="md:col-span-8 p-6" label="04 · dynamic market defenses">
-              <WCurve price={liveYes} />
-            </Panel>
-
-            <Panel className="md:col-span-4 p-6" label="05 · zero-liquidation lending">
-              <RiskFreeBorrow />
-            </Panel>
+            {/* Real-Time Ledger Column (35%) */}
+            <div className="flex w-[35%] flex-col gap-4">
+              <Panel className="flex-1 p-0" label="Recent Activity · live flow">
+                <AttackTranscript
+                  trades={manifest ? (dashboard?.attackTrades || []) : simTrades}
+                  isLoading={manifest ? tradesLoading : false}
+                  source={manifest ? tradesSource : "simulated"}
+                />
+              </Panel>
+            </div>
           </div>
-        )}
-
-        {/* ─── Verified Strip ───────────────────────────────────────────── */}
-        <VerifiedStrip />
-      </main>
-    </div>
+        </main>
+      </div>
   );
 }
 
@@ -138,24 +164,20 @@ function DemoPage() {
 
 function PageHeader() {
   return (
-    <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+    <header className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-2">
       <div>
-        <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
-          / live demo · arbitrum stylus
-        </span>
-        <h1 className="mt-4 max-w-2xl text-balance text-4xl font-extralight leading-[1.05] tracking-[-0.035em] md:text-[2.75rem]">
-          Stop losing money to bots.
+        <h1 className="text-3xl font-medium tracking-tight text-text-primary">
+          Market Overview
         </h1>
-        <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/50">
-          A single market, observed live. Watch dynamic liquidity bound risk to zero as toxic flow
-          arrives.
+        <p className="mt-1 text-[13px] text-text-secondary">
+          Live execution terminal and dynamic risk mitigation feeds.
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 rounded-full border border-white/[0.04] bg-white/[0.02] px-3 py-1.5">
         <SyncDot />
-        <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/45">
-          live · block #248,194,021
+        <span className="tabular text-[10px] font-medium uppercase tracking-widest text-text-secondary">
+          live • block #248,194,021
         </span>
       </div>
     </header>
@@ -164,12 +186,9 @@ function PageHeader() {
 
 function SyncDot() {
   return (
-    <span className="relative flex h-1.5 w-1.5">
-      <span className="absolute inset-0 animate-ping rounded-full bg-white/40" />
-      <span
-        className="relative h-1.5 w-1.5 rounded-full bg-white"
-        style={{ boxShadow: "0 0 10px rgba(255,255,255,0.6)" }}
-      />
+    <span className="relative flex h-[6px] w-[6px]">
+      <span className="absolute inset-0 animate-ping rounded-full bg-accent-green" />
+      <span className="relative h-full w-full rounded-full bg-accent-green" style={{ filter: "drop-shadow(0 0 4px var(--accent-green))" }} />
     </span>
   );
 }
@@ -189,26 +208,14 @@ function Panel({
 }) {
   return (
     <section
-      className={`group relative overflow-hidden rounded-2xl ease-precision ${className}`}
-      style={{
-        background: "rgba(255,255,255,0.022)",
-        backdropFilter: "blur(24px) saturate(140%)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 30px 80px -40px rgba(0,0,0,0.8)",
-        transition: "background 0.5s var(--ease-precision)",
-      }}
+      className={`group relative flex flex-col overflow-hidden rounded-[24px] border border-white/[0.03] bg-gradient-to-br from-white/[0.015] to-transparent shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] backdrop-blur-2xl ${className}`}
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-        style={{ background: "rgba(255,255,255,0.012)" }}
-      />
       {label && (
-        <div className="tabular mb-5 text-[9px] uppercase tracking-[0.3em] text-white/35">
-          / {label}
+        <div className="flex items-center justify-between border-b border-white/[0.04] px-6 py-4">
+          <h3 className="text-[13px] font-medium text-text-primary">{label}</h3>
         </div>
       )}
-      <div className="relative">{children}</div>
+      <div className="relative flex-1">{children}</div>
     </section>
   );
 }
@@ -256,18 +263,18 @@ function LiveActivityFeed({ trades, price }: { trades: any[]; price: number }) {
 
       {/* Feed */}
       <div className="flex flex-col">
-        <div className="tabular mb-2 grid grid-cols-12 text-[9px] uppercase tracking-[0.2em] text-white/30">
+        <div className="tabular mb-2 grid grid-cols-12 border-b border-white/[0.06] pb-2 text-[9px] uppercase tracking-[0.2em] text-white/30">
           <span className="col-span-2">side</span>
           <span className="col-span-3 text-right">size</span>
           <span className="col-span-2 text-right">px</span>
-          <span className="col-span-2 text-right">block</span>
+          <span className="col-span-2 text-right">saved</span>
           <span className="col-span-3 text-right">trader</span>
         </div>
         <div className="relative h-[260px] overflow-hidden">
           <AnimatePresence initial={false}>
             {trades.map((t, i) => (
               <motion.div
-                key={t.id || i}
+                key={t.id}
                 initial={{ opacity: 0, y: -12 }}
                 animate={{
                   opacity: Math.max(0.15, 1 - i * 0.08),
@@ -279,23 +286,16 @@ function LiveActivityFeed({ trades, price }: { trades: any[]; price: number }) {
               >
                 <span
                   className={`col-span-2 uppercase tracking-[0.18em] text-[9px] ${
-                    t.sideLabel === "BUY YES" || t.side === "YES" ? "text-white" : "text-white/50"
+                    t.side === "YES" ? "text-fluid-cyan" : "text-[#DC2626]"
                   }`}
+                  style={{ filter: t.side === "YES" ? "drop-shadow(0 0 4px rgba(0,229,255,0.5))" : "drop-shadow(0 0 4px rgba(220,38,38,0.5))" }}
                 >
-                  {t.sideLabel || t.side || "YES"}
+                  {t.side}
                 </span>
-                <span className="col-span-3 text-right text-white/85">
-                  {t.size ? (Number(t.size) / 1e18).toFixed(0) : t.size?.toFixed?.(0) || "0"}
-                </span>
-                <span className="col-span-2 text-right text-white/55">
-                  {t.priceAfter ? (Number(t.priceAfter) / 1e18).toFixed(3) : t.price?.toFixed?.(3) || "—"}
-                </span>
-                <span className="col-span-2 text-right text-white">
-                  {t.blockNumber || "—"}
-                </span>
-                <span className="col-span-3 text-right text-white/40">
-                  {t.trader ? `${t.trader.slice(0, 6)}...${t.trader.slice(-3)}` : t.trader || "—"}
-                </span>
+                <span className="col-span-3 text-right text-white/85">${t.size.toFixed(0)}</span>
+                <span className="col-span-2 text-right text-white/55">{t.price.toFixed(3)}</span>
+                <span className="col-span-2 text-right font-medium text-white">+{t.saved.toFixed(1)}</span>
+                <span className="col-span-3 text-right text-[#9CA3AF]">{t.trader}</span>
               </motion.div>
             ))}
           </AnimatePresence>
@@ -322,15 +322,15 @@ function SafetyShield({ shielded }: { shielded: number }) {
   const dash = shielded * C;
   return (
     <div className="flex h-full flex-col items-center justify-between">
-      <div className="relative grid place-items-center">
+      <div className="relative grid place-items-center mt-4">
         <svg width="170" height="170" viewBox="0 0 170 170">
           {/* track */}
           <circle
             cx="85"
             cy="85"
             r={R}
-            stroke="rgba(255,255,255,0.06)"
-            strokeWidth="6"
+            stroke="rgba(255,255,255,0.05)"
+            strokeWidth="1.5"
             fill="none"
           />
           {/* shielded arc */}
@@ -338,43 +338,38 @@ function SafetyShield({ shielded }: { shielded: number }) {
             cx="85"
             cy="85"
             r={R}
-            stroke="rgba(255,255,255,0.92)"
-            strokeWidth="6"
+            stroke="rgba(255,255,255,1)"
+            strokeWidth="1.5"
             fill="none"
             strokeLinecap="round"
             transform="rotate(-90 85 85)"
             strokeDasharray={C}
             animate={{ strokeDashoffset: C - dash }}
             transition={{ type: "spring", stiffness: 90, damping: 22 }}
-            style={{ filter: "drop-shadow(0 0 8px rgba(255,255,255,0.35))" }}
+            style={{ filter: "drop-shadow(0 0 4px rgba(255,255,255,0.8))" }}
           />
-          {/* inner shield icon */}
-          <g
-            transform="translate(85 85)"
-            stroke="rgba(255,255,255,0.85)"
-            strokeWidth="1"
-            fill="none"
-          >
-            <path
-              d="M 0 -22 L 18 -14 L 18 6 C 18 16 10 22 0 26 C -10 22 -18 16 -18 6 L -18 -14 Z"
-              strokeLinejoin="round"
-            />
-          </g>
         </svg>
-        <div className="absolute -bottom-1 text-center">
-          <div className="tabular text-[10px] uppercase tracking-[0.22em] text-white/40">
-            protected
+        <div className="absolute inset-0 grid place-items-center">
+          <div className="tabular text-4xl font-extralight tracking-tight text-white">
+            {(shielded * 100).toFixed(1)}
+            <span className="text-white/40 text-base">%</span>
           </div>
         </div>
       </div>
 
-      <div className="mt-4 w-full text-center">
-        <div className="tabular text-4xl font-extralight tracking-tight text-white">
-          {(shielded * 100).toFixed(1)}
-          <span className="text-white/40 text-base">%</span>
-        </div>
-        <div className="tabular mt-1 text-[10px] uppercase tracking-[0.2em] text-white/40">
+      <div className="mt-4 w-full">
+        <div className="tabular text-[10px] uppercase tracking-[0.2em] text-white/40 text-center mb-4">
           of lp value insulated
+        </div>
+        <div className="flex justify-between border-t border-white/[0.06] pt-3 text-xs tabular">
+          <div>
+            <div className="text-white/40">active</div>
+            <div className="text-white font-mono">{((1 - shielded) * 100).toFixed(1)}%</div>
+          </div>
+          <div className="text-right">
+            <div className="text-white/40">passive (shielded)</div>
+            <div className="text-white font-mono">{(shielded * 100).toFixed(1)}%</div>
+          </div>
         </div>
       </div>
     </div>
@@ -388,8 +383,8 @@ function SafetyShield({ shielded }: { shielded: number }) {
 function ValueSaved({ total }: { total: number }) {
   const display = useMemo(() => {
     return total.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
     });
   }, [total]);
 
@@ -399,24 +394,26 @@ function ValueSaved({ total }: { total: number }) {
         usdc saved from toxic flow
       </div>
       <div className="my-6">
-        <div className="flex items-baseline gap-1">
-          <span className="text-white/45 text-2xl font-light">$</span>
-          <span className="tabular text-[64px] font-extralight leading-none tracking-[-0.045em] text-white">
+        <div className="flex items-start gap-1">
+          <span className="text-white/45 text-2xl font-light scale-75 origin-top mt-2">$</span>
+          <span className="tabular text-[64px] font-extralight leading-none tracking-[-0.04em] text-white">
             {display}
           </span>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-4 border-t border-white/[0.06] pt-4">
+      <div className="grid grid-cols-3 border-t border-white/[0.06] pt-4 divide-x divide-white/[0.06]">
         {[
           { k: "24h", v: "+184k" },
           { k: "7d", v: "+912k" },
-          { k: "all", v: "$2.48m" },
-        ].map((s) => (
-          <div key={s.k}>
+          { k: "all", v: "$2.48m", noColor: true },
+        ].map((s, idx) => (
+          <div key={s.k} className={idx !== 0 ? "pl-4" : ""}>
             <div className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
               {s.k}
             </div>
-            <div className="tabular mt-1 text-[14px] font-light text-white/90">{s.v}</div>
+            <div className={`tabular mt-1 text-[14px] font-light ${s.noColor ? "text-white/90" : "text-[#00FFAA]/80"}`}>
+              {s.v}
+            </div>
           </div>
         ))}
       </div>
@@ -481,6 +478,27 @@ function WCurve({ price }: { price: number }) {
 
       <div className="relative w-full overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.01]">
         <svg viewBox={`0 0 ${W} ${H}`} className="block h-[240px] w-full">
+          <defs>
+            <linearGradient id="curveGradient" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.1)" />
+              <stop offset={`${price * 100}%`} stopColor="white" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0.1)" />
+            </linearGradient>
+            <linearGradient id="fillGradient" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.05)" />
+              <stop offset="100%" stopColor="transparent" />
+            </linearGradient>
+          </defs>
+
+          {/* Area fill beneath curve */}
+          <motion.path
+            d={path + ` L ${W - pad} ${H - pad} L ${pad} ${H - pad} Z`}
+            fill="url(#fillGradient)"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+          />
+
           {/* grid */}
           {[0.25, 0.5, 0.75].map((g) => (
             <line
@@ -525,8 +543,8 @@ function WCurve({ price }: { price: number }) {
           <motion.path
             d={path}
             fill="none"
-            stroke="rgba(255,255,255,0.92)"
-            strokeWidth="1.1"
+            stroke="url(#curveGradient)"
+            strokeWidth="1.5"
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
             transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
@@ -737,13 +755,13 @@ function VerifiedStrip() {
                       0x{Math.random().toString(16).slice(2, 14)}…
                     </span>
                     <span className="col-span-2 text-right text-white/85">
-                      ${(120 + Math.random() * (4800 - 120)).toFixed(0)}
+                      ${rand(120, 4800).toFixed(0)}
                     </span>
                     <span className="col-span-2 text-right text-white/85">
-                      {(0.2 + Math.random() * (0.9 - 0.2)).toFixed(3)}
+                      {rand(0.2, 0.9).toFixed(3)}
                     </span>
                     <span className="col-span-1 text-right text-white/85">
-                      {(0.4 + Math.random() * (1.1 - 0.4)).toFixed(2)}
+                      {rand(0.4, 1.1).toFixed(2)}
                     </span>
                   </div>
                 ))}

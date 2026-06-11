@@ -7,7 +7,6 @@ import { useAttackPresets } from "@/hooks/useAttackPresets";
 
 vi.mock("@/hooks/useAttackPresets");
 vi.mock("wagmi", () => ({
-  useAccount: () => ({ address: undefined }),
   useEstimateGas: () => ({ data: 123456n }),
 }));
 

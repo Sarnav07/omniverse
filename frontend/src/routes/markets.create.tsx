@@ -107,9 +107,11 @@ function CreateMarketPage() {
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-abyss text-foreground pb-32">
       <div className="noise-overlay" />
-      <NavBar />
+      <div className="border-b border-white/[0.05]">
+        <NavBar />
+      </div>
 
-      <section className="relative z-10 mx-auto mt-20 w-full max-w-[900px] px-8">
+      <section className="relative z-10 mx-auto mt-20 w-full max-w-[1600px] px-8">
         <div>
           <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
             / 02 · deploy event
@@ -124,7 +126,7 @@ function CreateMarketPage() {
         </div>
       </section>
 
-      <section className="relative z-10 mx-auto mt-12 w-full max-w-[900px] px-8">
+      <section className="relative z-10 mx-auto mt-12 w-full max-w-[1600px] px-8">
         {isSuccess ? (
           <SpotlightCard className="p-8 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#00FFAA]/30 bg-[#00FFAA]/5">
@@ -313,7 +315,7 @@ function CreateMarketPage() {
                       type="text"
                       required
                       value={resolver}
-                      onChange={(e) => setResolver(e.target.value as `0x${string}`)}
+                      onChange={(e) => setResolver(e.target.value)}
                       placeholder="0x..."
                       className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-[13px] text-white placeholder-white/20 outline-none transition-colors focus:border-white/30 font-mono"
                     />

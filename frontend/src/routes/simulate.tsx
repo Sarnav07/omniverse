@@ -1,8 +1,378 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
 import { NavBar } from "@/components/nav-bar";
-import { SimulationBanner } from "@/components/simulation-banner";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { AlertTriangle } from "lucide-react";
+
+const fmtUSD = (n: number) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.max(0, Math.round(n)));
+
+const TRAD_START = { collateral: 5000, debt: 4000, health: 1.25 };
+const OMV_START = { collateral: 5000, debt: 5000 };
+
+function WrappedSimulatePage() {
+  const [crashed, setCrashed] = useState(false);
+
+  // Traditional state
+  const [trad, setTrad] = useState(TRAD_START);
+  const liquidated = trad.health <= 0.95 && crashed;
+
+  // Omniverse state
+  const [omv, setOmv] = useState(OMV_START);
+  const settled = omv.collateral === 0 && omv.debt === 0 && crashed;
+
+  // Drain loops
+  useEffect(() => {
+    if (!crashed) return;
+    const id = setInterval(() => {
+      setTrad((s) => {
+        const collateral = Math.max(0, s.collateral - 80);
+        const debt = s.debt + 14;
+        const health = collateral / debt;
+        return { collateral, debt, health };
+      });
+      setOmv((s) => ({
+        collateral: Math.max(0, s.collateral - 420),
+        debt: Math.max(0, s.debt - 210),
+      }));
+    }, 60);
+    return () => clearInterval(id);
+  }, [crashed]);
+
+  const reset = () => {
+    setCrashed(false);
+    setTrad(TRAD_START);
+    setOmv(OMV_START);
+  };
+
+  const tradHealthPct = Math.min(100, Math.max(0, (trad.health / 2) * 100));
+  const tradHealthColor =
+    trad.health > 1.1
+      ? "bg-emerald-500"
+      : trad.health > 1.0
+      ? "bg-amber-500"
+      : "bg-red-500";
+
+  const omvNetPct = Math.min(
+    100,
+    Math.max(0, ((omv.collateral - omv.debt + 5000) / 10000) * 100)
+  );
+
+  return (
+    <div className="w-full min-h-screen bg-[#08080A] text-[#F3F4F6] relative">
+      <div
+        className="fixed inset-0 opacity-[0.03] mix-blend-overlay pointer-events-none"
+        style={{ backgroundImage: "url(/noise.svg)" }}
+      />
+
+      <div className="max-w-[1200px] mx-auto w-full flex flex-col gap-8 px-6 pt-12 pb-24 relative">
+        {/* Header */}
+        <header>
+          <div className="text-[10px] uppercase tracking-[0.3em] text-[#8B8D98] mb-4">
+            Omniverse · Crash Test
+          </div>
+          <h1 className="text-6xl tracking-[-0.04em] leading-[1.05]">
+            <span className="text-[#F3F4F6] font-medium">two systems. </span>
+            <span
+              className="italic text-[#8B8D98]"
+              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            >
+              one crash.
+            </span>
+          </h1>
+          <p className="text-[#8B8D98] text-sm leading-relaxed max-w-2xl mt-4">
+            Pressure-test a traditional lending position against a
+            probability-bounded Omniverse position. Same shock. Two
+            mathematically opposite outcomes.
+          </p>
+        </header>
+
+        {/* Warning banner */}
+        <div className="bg-amber-500/[0.04] border border-amber-500/20 rounded-xl p-4 flex items-start gap-4 backdrop-blur-md">
+          <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0" />
+          <div>
+            <div className="text-amber-500 text-xs font-bold tracking-widest uppercase">
+              Simulation Environment
+            </div>
+            <p className="text-amber-500/70 text-sm mt-1">
+              All values are illustrative. The crash trigger emulates a sharp
+              underlying decline to demonstrate liquidation physics versus
+              symmetric cancellation.
+            </p>
+          </div>
+        </div>
+
+        {/* Dual panel arena */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* TRADITIONAL */}
+          <div className="flex flex-col bg-[#0E0E11] border border-white/5 rounded-2xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)] relative overflow-hidden">
+            <div className="flex justify-between items-center p-5 border-b border-white/5">
+              <span className="text-[10px] text-[#8B8D98] uppercase tracking-widest">
+                Traditional Lending
+              </span>
+              <span className="text-[10px] text-[#8B8D98] uppercase tracking-widest">
+                Aave · V3
+              </span>
+            </div>
+
+            <div className="p-6 relative">
+              <h2 className="text-2xl text-[#F3F4F6] tracking-tight mb-8">
+                {liquidated
+                  ? "forced exit, capital impaired."
+                  : crashed
+                  ? "collateral bleeding, health degrading."
+                  : "position open, health nominal."}
+              </h2>
+
+              <Row
+                label="Collateral"
+                value={`${fmtUSD(trad.collateral)}`}
+                unit="eth"
+                danger={liquidated}
+              />
+              <Row
+                label="Debt"
+                value={`${fmtUSD(trad.debt)}`}
+                unit="usdc"
+                danger={liquidated}
+              />
+
+              <div className="py-4 border-b border-white/5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] text-[#8B8D98] uppercase tracking-widest">
+                    Health Factor
+                  </span>
+                  <span
+                    className={`text-lg font-mono ${
+                      liquidated
+                        ? "text-red-500"
+                        : trad.health < 1.1
+                        ? "text-amber-400"
+                        : "text-[#F3F4F6]"
+                    }`}
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {trad.health.toFixed(3)}
+                  </span>
+                </div>
+                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-150 ${tradHealthColor}`}
+                    style={{ width: `${tradHealthPct}%` }}
+                  />
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {liquidated && (
+                  <motion.div
+                    initial={{ scale: 2, opacity: 0, rotate: -12 }}
+                    animate={{ scale: 1, opacity: 1, rotate: -12 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  >
+                    <div className="border-4 border-red-500 text-red-500 font-bold text-4xl tracking-widest uppercase px-6 py-3 backdrop-blur-sm bg-red-500/5">
+                      Liquidated
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="grid grid-cols-3 bg-white/[0.01] border-t border-white/5">
+              <MicroCell label="Liq. Penalty" value="5.00%" />
+              <MicroCell label="Gas Spent" value="$142" border />
+              <MicroCell label="Slippage" value="3.40%" />
+            </div>
+          </div>
+
+          {/* OMNIVERSE */}
+          <motion.div
+            animate={
+              settled
+                ? { boxShadow: "inset 0 0 40px rgba(16,185,129,0.18)" }
+                : { boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.02)" }
+            }
+            transition={{ duration: 0.8 }}
+            className="flex flex-col bg-[#0E0E11] border border-white/5 rounded-2xl relative overflow-hidden"
+          >
+            <div className="flex justify-between items-center p-5 border-b border-white/5">
+              <span className="text-[10px] text-[#8B8D98] uppercase tracking-widest">
+                Omniverse
+              </span>
+              <span className="text-[10px] text-emerald-400 uppercase tracking-widest">
+                Probability-Bounded
+              </span>
+            </div>
+
+            <div className="p-6">
+              <h2 className="text-2xl text-[#F3F4F6] tracking-tight mb-8">
+                {settled
+                  ? "symmetric cancellation, position resolved."
+                  : crashed
+                  ? "legs unwinding, exposure decaying."
+                  : "position open, legs symmetric."}
+              </h2>
+
+              <Row
+                label="Collateral"
+                value={`${fmtUSD(omv.collateral)}`}
+                unit="yes-usdc"
+              />
+              <Row
+                label="Debt"
+                value={`${fmtUSD(omv.debt)}`}
+                unit="no-usdc"
+              />
+
+              <div className="py-4 border-b border-white/5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] text-[#8B8D98] uppercase tracking-widest">
+                    Net Exposure
+                  </span>
+                  <span
+                    className={`text-lg font-mono ${
+                      settled ? "text-emerald-400" : "text-[#F3F4F6]"
+                    }`}
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {settled
+                      ? "SYMMETRIC CANCELLATION"
+                      : fmtUSD(omv.collateral - omv.debt)}
+                  </span>
+                </div>
+                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-150"
+                    style={{ width: `${omvNetPct}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 bg-white/[0.01] border-t border-white/5">
+              <MicroCell label="Liq. Penalty" value="0.00%" emerald />
+              <MicroCell label="Gas Spent" value="$8" border />
+              <MicroCell label="Slippage" value="0.04%" emerald />
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Trigger console */}
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between p-4 pl-6 bg-[#0E0E11] border border-white/5 rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
+          <div className="text-sm font-mono text-[#8B8D98] flex flex-wrap items-center gap-2">
+            Trigger:
+            <span className="bg-white/5 border border-white/10 px-2 py-1 rounded text-white text-xs">
+              [ btc settles below 100k ]
+            </span>
+            <span className="text-white/40">→</span>
+            <span className="bg-white/5 border border-white/10 px-2 py-1 rounded text-white text-xs">
+              [ outcome resolves to no ]
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <AnimatePresence>
+              {(liquidated || settled) && (
+                <motion.button
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0 }}
+                  onClick={reset}
+                  className="text-[10px] text-[#8B8D98] hover:text-white uppercase tracking-widest underline underline-offset-4"
+                >
+                  Reset Simulation
+                </motion.button>
+              )}
+            </AnimatePresence>
+
+            <button
+              onClick={() => setCrashed(true)}
+              disabled={crashed}
+              className={
+                crashed
+                  ? "px-8 py-4 rounded-xl font-medium tracking-widest text-xs uppercase bg-white/5 border border-white/10 text-white/40 outline-none cursor-not-allowed"
+                  : "px-8 py-4 rounded-xl font-medium tracking-widest text-xs uppercase bg-red-500/10 border border-red-500/40 text-red-500 transition-all hover:bg-red-500/20 hover:border-red-500 hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] outline-none"
+              }
+            >
+              {crashed ? "Event Triggered" : "Trigger Crash"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  unit,
+  danger = false,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  danger?: boolean;
+}) {
+  return (
+    <div className="flex justify-between items-center py-4 border-b border-white/5">
+      <span className="text-[11px] text-[#8B8D98] uppercase tracking-widest">
+        {label}
+      </span>
+      <div className="flex items-baseline gap-2">
+        <span
+          className={`text-lg font-mono transition-colors ${
+            danger ? "text-red-500" : "text-[#F3F4F6]"
+          }`}
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {value}
+        </span>
+        <span className="text-[10px] text-[#8B8D98] uppercase tracking-wider">
+          {unit}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MicroCell({
+  label,
+  value,
+  border = false,
+  emerald = false,
+}: {
+  label: string;
+  value: string;
+  border?: boolean;
+  emerald?: boolean;
+}) {
+  return (
+    <div
+      className={`p-5 flex flex-col gap-1 ${
+        border ? "border-x border-white/5" : ""
+      }`}
+    >
+      <span className="text-[9px] text-[#8B8D98] uppercase tracking-widest">
+        {label}
+      </span>
+      <span
+        className={`text-sm font-mono ${emerald ? "text-emerald-400" : "text-white"}`}
+        style={{ fontVariantNumeric: "tabular-nums" }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
 
 export const Route = createFileRoute("/simulate")({
   head: () => ({
@@ -20,365 +390,5 @@ export const Route = createFileRoute("/simulate")({
       },
     ],
   }),
-  component: SimulatePage,
+  component: () => (<div className="relative min-h-screen w-full overflow-x-hidden bg-[#0A0A0B]"><div className="border-b border-white/[0.05]"><NavBar hideWallet /></div><WrappedSimulatePage /></div>),
 });
-
-const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
-
-function SimulatePage() {
-  const [crashed, setCrashed] = useState(false);
-
-  return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-abyss text-foreground">
-      <div className="noise-overlay" />
-
-      {/* NAV */}
-      <NavBar />
-
-      {/* HEADER */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ ...spring, delay: 0.05 }}
-        className="relative z-10 mx-auto mt-20 w-full max-w-[1400px] px-8"
-      >
-        <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
-          / 04 · zero-liquidation crash test
-        </span>
-        <h1 className="mt-4 font-display text-[56px] font-light leading-[0.95] tracking-[-0.04em]">
-          two systems. <span className="italic font-extralight text-white/55">one crash.</span>
-        </h1>
-        <p className="mt-4 max-w-xl text-[13px] leading-relaxed text-white/55">
-          identical positions on traditional lending and omniverse. trigger the resolution event and
-          watch what survives.
-        </p>
-      </motion.section>
-      {/* SIMULATION BANNER — always visible, including presentMode */}
-      <section className="relative z-10 mx-auto mt-6 w-full max-w-[1400px] px-8">
-        <SimulationBanner />
-      </section>
-
-      {/* SPLIT */}
-      <section className="relative z-10 mx-auto mt-12 grid w-full max-w-[1400px] grid-cols-1 gap-6 px-8 lg:grid-cols-2">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ ...spring, delay: 0.15 }}
-        >
-          <TraditionalPanel crashed={crashed} />
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ ...spring, delay: 0.25 }}
-        >
-          <OmniversePanel crashed={crashed} />
-        </motion.div>
-      </section>
-
-      {/* TRIGGER */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ ...spring, delay: 0.35 }}
-        className="relative z-10 mx-auto mt-10 w-full max-w-[1400px] px-8 pb-24"
-      >
-        <div className="omni-glass-heavy flex flex-col items-stretch gap-4 rounded-2xl p-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col">
-            <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
-              resolution trigger
-            </span>
-            <span className="tabular mt-1 text-[14px] text-white/85">
-              event · btc settles below 100k → outcome resolves to no
-            </span>
-          </div>
-          <div className="flex gap-3">
-            {crashed && (
-              <button
-                onClick={() => setCrashed(false)}
-                className="rounded-full border border-white/15 px-5 py-3 tabular text-[11px] uppercase tracking-[0.24em] text-white/70 ease-precision hover:border-white/30 hover:text-white"
-              >
-                reset
-              </button>
-            )}
-            <button
-              onClick={() => setCrashed(true)}
-              disabled={crashed}
-              className={`group relative overflow-hidden rounded-full border px-7 py-3 tabular text-[12px] uppercase tracking-[0.28em] ease-precision ${
-                crashed
-                  ? "cursor-not-allowed border-white/10 text-white/30"
-                  : "border-[#FF4D5E]/60 bg-[#FF4D5E]/10 text-[#FF4D5E] hover:bg-[#FF4D5E]/20"
-              }`}
-              style={
-                !crashed
-                  ? {
-                      boxShadow:
-                        "0 0 28px rgba(255,77,94,0.25), inset 0 0 18px rgba(255,77,94,0.1)",
-                    }
-                  : undefined
-              }
-            >
-              <span className="relative">
-                {crashed ? "event triggered" : "resolve market to no · trigger crash"}
-              </span>
-            </button>
-          </div>
-        </div>
-      </motion.section>
-    </div>
-  );
-}
-
-/* ──────────────────── traditional ──────────────────── */
-
-function TraditionalPanel({ crashed }: { crashed: boolean }) {
-  const [collateral, setCollateral] = useState(10000);
-  const [health, setHealth] = useState(1.4);
-
-  useEffect(() => {
-    if (!crashed) {
-      setCollateral(10000);
-      setHealth(1.4);
-      return;
-    }
-    let v = 10000;
-    let h = 1.4;
-    const i = setInterval(() => {
-      v = Math.max(3500, v - 220);
-      h = Math.max(0.49, h - 0.04);
-      setCollateral(v);
-      setHealth(h);
-      if (v <= 3500) clearInterval(i);
-    }, 60);
-    return () => clearInterval(i);
-  }, [crashed]);
-
-  const liquidated = crashed && health < 1.0;
-
-  return (
-    <div className="omni-glass-heavy relative overflow-hidden rounded-2xl p-7">
-      <div className="flex items-center justify-between">
-        <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
-          / traditional lending
-        </span>
-        <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
-          aave · v3
-        </span>
-      </div>
-      <h2 className="mt-3 font-display text-[28px] font-light tracking-[-0.02em] text-white/90">
-        forced exit, capital impaired.
-      </h2>
-
-      <div className="mt-7 space-y-4">
-        <Row label="collateral" value={`$${collateral.toLocaleString()} eth`} />
-        <Row label="debt" value="$5,000 usdc" muted />
-        <Row
-          label="health factor"
-          value={health.toFixed(2)}
-          accent={health >= 1.0 ? "#ff8c00" : "#FF4D5E"}
-        />
-        <div>
-          <div className="flex items-center justify-between tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
-            <span>liquidation threshold</span>
-            <span>1.00</span>
-          </div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.04]">
-            <div
-              className="h-full"
-              style={{
-                width: `${Math.max(8, (health / 2) * 100)}%`,
-                background: health >= 1.0 ? "linear-gradient(90deg,#ff8c00,#FF4D5E)" : "#FF4D5E",
-                transition: "width 0.4s var(--ease-precision)",
-                boxShadow: health < 1.0 ? "0 0 14px rgba(255,77,94,0.6)" : undefined,
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-7 grid grid-cols-3 gap-3 border-t border-white/5 pt-5">
-        <Mini label="liq. penalty" value="-10%" />
-        <Mini label="gas spent" value="$84" />
-        <Mini label="slippage" value="-20%" />
-      </div>
-
-      <AnimatePresence>
-        {liquidated && (
-          <motion.div
-            initial={{ opacity: 0, scale: 1.2, rotate: -8 }}
-            animate={{ opacity: 1, scale: 1, rotate: -10 }}
-            exit={{ opacity: 0 }}
-            transition={{ type: "spring", stiffness: 200, damping: 16 }}
-            className="pointer-events-none absolute inset-0 flex items-center justify-center"
-          >
-            <div
-              className="border-4 border-[#FF4D5E] px-8 py-4 backdrop-blur-sm"
-              style={{
-                boxShadow: "0 0 60px rgba(255,77,94,0.55), inset 0 0 24px rgba(255,77,94,0.25)",
-                background: "rgba(255,77,94,0.06)",
-              }}
-            >
-              <div
-                className="font-display text-[34px] font-light tracking-[0.04em] text-[#FF4D5E]"
-                style={{ textShadow: "0 0 18px rgba(255,77,94,0.65)" }}
-              >
-                LIQUIDATED
-              </div>
-              <div className="tabular mt-1 text-center text-[11px] uppercase tracking-[0.32em] text-[#FF4D5E]/80">
-                −30% penalty
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* ──────────────────── omniverse ──────────────────── */
-
-function OmniversePanel({ crashed }: { crashed: boolean }) {
-  const [collateral, setCollateral] = useState(10000);
-  const [debt, setDebt] = useState(5000);
-
-  useEffect(() => {
-    if (!crashed) {
-      setCollateral(10000);
-      setDebt(5000);
-      return;
-    }
-    let c = 10000;
-    let d = 5000;
-    const i = setInterval(() => {
-      c = Math.max(0, c - 420);
-      d = Math.max(0, d - 210);
-      setCollateral(c);
-      setDebt(d);
-      if (c === 0 && d === 0) clearInterval(i);
-    }, 60);
-    return () => clearInterval(i);
-  }, [crashed]);
-
-  const settled = crashed && collateral === 0 && debt === 0;
-
-  return (
-    <div className="omni-glass-heavy relative overflow-hidden rounded-2xl p-7">
-      <div className="flex items-center justify-between">
-        <span
-          className="tabular text-[10px] uppercase tracking-[0.32em] text-[#00FFAA]"
-          style={{ textShadow: "0 0 12px rgba(0,255,170,0.35)" }}
-        >
-          / omniverse
-        </span>
-        <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
-          probability-bounded
-        </span>
-      </div>
-      <h2 className="mt-3 font-display text-[28px] font-light tracking-[-0.02em] text-white/90">
-        symmetric cancellation. net zero.
-      </h2>
-
-      <div className="mt-7 space-y-4">
-        <Row label="collateral" value={`${collateral.toLocaleString()} yes-eth`} />
-        <Row label="debt" value={`${debt.toLocaleString()} yes-usdc`} muted />
-        <Row
-          label="health factor"
-          value={settled ? "—" : "1.40 · p(yes) canceled"}
-          accent="#00FFAA"
-        />
-        <div>
-          <div className="flex items-center justify-between tabular text-[9px] uppercase tracking-[0.22em] text-white/35">
-            <span>net exposure</span>
-            <span>${(collateral - debt).toLocaleString()}</span>
-          </div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.04]">
-            <div
-              className="h-full"
-              style={{
-                width: `${Math.max(4, ((collateral - debt) / 5000) * 100)}%`,
-                background: "linear-gradient(90deg,rgba(0,255,170,0.5),#00FFAA)",
-                transition: "width 0.4s var(--ease-precision)",
-                boxShadow: "0 0 14px rgba(0,255,170,0.5)",
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-7 grid grid-cols-3 gap-3 border-t border-white/5 pt-5">
-        <Mini label="liq. penalty" value="0%" accent="#00FFAA" />
-        <Mini label="gas spent" value="$0.12" />
-        <Mini label="slippage" value="0%" accent="#00FFAA" />
-      </div>
-
-      <AnimatePresence>
-        {settled && (
-          <motion.div
-            initial={{ opacity: 0, scale: 1.1 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "spring", stiffness: 280, damping: 28 }}
-            className="pointer-events-none absolute inset-0 flex items-center justify-center"
-          >
-            <div
-              className="flex items-center gap-3 rounded-full border border-[#00FFAA]/50 bg-abyss/40 px-6 py-3 backdrop-blur-md"
-              style={{
-                boxShadow: "0 0 40px rgba(0,255,170,0.25), inset 0 0 20px rgba(0,255,170,0.15)",
-              }}
-            >
-              <span
-                className="h-2 w-2 rounded-full bg-[#00FFAA]"
-                style={{ boxShadow: "0 0 12px rgba(0,255,170,0.8)" }}
-              />
-              <span
-                className="tabular text-[13px] uppercase tracking-[0.28em] text-[#00FFAA]"
-                style={{ textShadow: "0 0 14px rgba(0,255,170,0.5)" }}
-              >
-                settled safely · net p&l: $0
-              </span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* ──────────────────── primitives ──────────────────── */
-
-function Row({
-  label,
-  value,
-  accent,
-  muted,
-}: {
-  label: string;
-  value: string;
-  accent?: string;
-  muted?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-white/5 pb-3">
-      <span className="tabular text-[10px] uppercase tracking-[0.22em] text-white/40">{label}</span>
-      <span
-        className={`tabular text-[18px] font-light ${muted ? "text-white/55" : "text-white/95"}`}
-        style={accent ? { color: accent, textShadow: `0 0 12px ${accent}55` } : undefined}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function Mini({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  return (
-    <div className="flex flex-col">
-      <span className="tabular text-[9px] uppercase tracking-[0.22em] text-white/35">{label}</span>
-      <span
-        className="tabular mt-1 text-[13px] font-light text-white/90"
-        style={accent ? { color: accent, textShadow: `0 0 10px ${accent}55` } : undefined}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}

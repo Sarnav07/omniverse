@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion, AnimatePresence } from "motion/react";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { motion } from "motion/react";
+import { useMemo, useState, useEffect } from "react";
 import { SpotlightCard } from "@/components/spotlight-card";
 import { NavBar } from "@/components/nav-bar";
 import { useQuery } from "urql";
@@ -139,46 +139,57 @@ function MarketsPage() {
       <div className="noise-overlay" />
 
       {/* NAV */}
-      <NavBar />
+      <div className="border-b border-white/[0.05]">
+        <NavBar />
+      </div>
 
       {/* HEADER STRIP */}
-      <section className="relative z-20 mx-auto mt-20 w-full max-w-[1400px] px-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="font-display text-[28px] font-light tracking-[-0.03em] text-white/90">
-              Markets
+      <section className="relative z-10 mx-auto mt-20 w-full max-w-[1600px] px-8">
+        <div className="flex items-end justify-between">
+          <div>
+            <span className="tabular text-[10px] uppercase tracking-[0.32em] text-white/40">
+              / 02 · markets array
+            </span>
+            <h1 className="mt-4 font-display text-[64px] font-light leading-[0.92] tracking-[-0.04em]">
+              liquidity, <span className="italic font-extralight text-white/55">bounded.</span>
             </h1>
+            <p className="mt-5 max-w-md text-[13px] leading-relaxed text-white/55">
+              every market settles probabilistically. no forced exits, no cascading liquidations.
+              drop intent, route through the solver mesh.
+            </p>
             <Link
               to="/markets/create"
-              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/[0.04] px-5 py-2 tabular text-[11px] uppercase tracking-[0.22em] text-white transition-all duration-300 ease-precision hover:border-white/40 hover:bg-white/[0.08] hover:shadow-[0_0_12px_rgba(255,255,255,0.1)]"
+              className="mt-6 inline-flex items-center justify-center rounded-full border border-white/20 bg-white/[0.04] px-6 py-3 tabular text-[11px] uppercase tracking-[0.22em] text-white transition-all duration-300 ease-precision hover:border-white/40 hover:bg-white/[0.08] hover:shadow-[0_0_12px_rgba(255,255,255,0.1)]"
             >
               + Create Market
             </Link>
           </div>
 
-          <div className="hidden md:block">
-            <CategoryDropdown
-              value={activeCategory}
-              onChange={(v) => setActiveCategory(v)}
-            />
+          <div className="hidden items-center gap-3 md:flex">
+            {(["all", "macro", "yield", "rates", "vol", "stable", "rwa", "lst"] as const).map(
+              (cat) => (
+                <FilterPill
+                  key={cat}
+                  label={cat}
+                  active={activeCategory === cat}
+                  onClick={() => setActiveCategory(cat)}
+                />
+              ),
+            )}
           </div>
         </div>
       </section>
 
-      {/* GLOBAL DATA HEADER BAR (64px) */}
-      <section className="relative z-10 mx-auto mt-10 w-full max-w-[1400px] px-8">
-        <div className="omni-glass-heavy flex h-16 items-center justify-between rounded-xl px-6">
+      {/* GLOBAL DATA HEADER BAR */}
+      <section className="relative z-10 mx-auto mt-10 w-full max-w-[1600px] px-8">
+        <div className="flex items-stretch rounded-[10px] border border-white/[0.06] divide-x divide-white/[0.06] overflow-hidden bg-[#0A0A0B]">
           <HeaderMetric label="total value locked" value={headerTvl} />
-          <Divider />
           <HeaderMetric label="24h intent volume" value={headerVol} />
-          <Divider />
           <HeaderMetric
             label="active markets"
             value={fetching ? "..." : filteredMarkets.length.toString()}
           />
-          <Divider />
           <HeaderMetric label="settlement latency" value="218ms" accent />
-          <Divider />
           <HeaderMetric
             label="solver agents"
             value={fetching ? "..." : String(filteredMarkets.length * 42)}
@@ -187,7 +198,7 @@ function MarketsPage() {
       </section>
 
       {/* MASONRY GRID */}
-      <section className="relative z-10 mx-auto mt-10 w-full max-w-[1400px] px-8 pb-32">
+      <section className="relative z-10 mx-auto mt-10 w-full max-w-[1600px] px-8 pb-32">
         <div className="columns-1 gap-5 md:columns-2 lg:columns-3 [column-fill:_balance]">
           {filteredMarkets.map((m: any, i: number) => (
             <motion.div
@@ -204,7 +215,7 @@ function MarketsPage() {
       </section>
 
       {/* FOOTER */}
-      <footer className="relative z-10 mx-auto w-full max-w-[1400px] px-8 pb-14">
+      <footer className="relative z-10 mx-auto w-full max-w-[1600px] px-8 pb-14">
         <div className="flex items-center justify-between border-t border-white/5 pt-6 tabular text-[10px] uppercase tracking-[0.22em] text-white/35">
           <span>omniverse · v4.0 · arb sepolia</span>
           <span>{fetching ? "..." : filteredMarkets.length} markets · live mempool</span>
@@ -226,11 +237,13 @@ function HeaderMetric({
   accent?: boolean;
 }) {
   return (
-    <div className="flex flex-col">
-      <span className="tabular text-[9px] uppercase tracking-[0.24em] text-white/35">{label}</span>
+    <div className="flex flex-1 flex-col justify-center gap-0.5 px-6 py-3.5 hover:bg-white/[0.02] transition-colors">
+      <span className="text-[9px] uppercase tracking-[0.18em] text-[#8B8D98]" style={{ fontVariantNumeric: "tabular-nums" }}>
+        {label}
+      </span>
       <span
-        className={`tabular text-[16px] font-light ${accent ? "text-white" : "text-white/95"}`}
-        style={accent ? { textShadow: "0 0 18px rgba(255,255,255,0.35)" } : undefined}
+        className={`text-[14px] font-medium ${accent ? "text-[#F3F4F6]" : "text-[#F3F4F6]/80"}`}
+        style={{ fontVariantNumeric: "tabular-nums" }}
       >
         {value}
       </span>
@@ -238,106 +251,26 @@ function HeaderMetric({
   );
 }
 
-function Divider() {
-  return <div className="h-8 w-px bg-white/8" />;
-}
-
-const CATEGORIES = ["all", "macro", "yield", "rates", "vol", "stable", "rwa", "lst"] as const;
-type Category = (typeof CATEGORIES)[number];
-
-function CategoryDropdown({
-  value,
-  onChange,
+function FilterPill({
+  label,
+  active,
+  onClick,
 }: {
-  value: string;
-  onChange: (v: Category) => void;
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, []);
-
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="group flex items-center gap-3 rounded-full border border-white/15 bg-white/[0.025] pl-6 pr-4 py-2.5 tabular text-[11px] uppercase tracking-[0.28em] text-white ease-precision hover:border-white/35 hover:bg-white/[0.05]"
-        style={{
-          boxShadow: open
-            ? "0 0 0 1px rgba(255,255,255,0.12), 0 12px 36px -12px rgba(0,0,0,0.7)"
-            : "0 8px 24px -16px rgba(0,0,0,0.6)",
-          minWidth: 200,
-        }}
-      >
-        <span className="flex-1 text-left">{value}</span>
-        <span
-          className="transition-transform duration-300 ease-precision text-white/60"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
-        >
-          ▾
-        </span>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scaleY: 0.9 }}
-            animate={{ opacity: 1, y: 6, scaleY: 1 }}
-            exit={{ opacity: 0, y: -4, scaleY: 0.95 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            style={{
-              transformOrigin: "top",
-              background: "rgba(10,10,10,0.55)",
-              backdropFilter: "blur(28px) saturate(160%)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              boxShadow:
-                "inset 0 1px 0 rgba(255,255,255,0.06), 0 30px 60px -20px rgba(0,0,0,0.8)",
-            }}
-            className="absolute right-0 top-full z-50 mt-1 w-[260px] overflow-hidden rounded-2xl p-1.5"
-          >
-            {/* light particle trail */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-0 h-px"
-              style={{
-                background:
-                  "linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)",
-              }}
-            />
-            {CATEGORIES.map((cat, i) => (
-              <motion.button
-                key={cat}
-                initial={{ opacity: 0, y: -6, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                transition={{
-                  duration: 0.4,
-                  delay: i * 0.04,
-                  ease: [0.16, 1, 0.3, 1],
-                }}
-                onClick={() => {
-                  onChange(cat);
-                  setOpen(false);
-                }}
-                className={`tabular flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-[11px] uppercase tracking-[0.28em] ease-precision ${
-                  value === cat
-                    ? "bg-white/[0.06] text-white"
-                    : "text-white/55 hover:bg-white/[0.04] hover:text-white"
-                }`}
-              >
-                <span>{cat}</span>
-                {value === cat && <span className="text-white">✓</span>}
-              </motion.button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <button
+      onClick={onClick}
+      className={`rounded-full border px-5 py-2.5 tabular text-[11px] uppercase tracking-[0.22em] font-medium ease-precision ${
+        active
+          ? "border-white bg-white text-black shadow-[0_0_12px_rgba(255,255,255,0.15)]"
+          : "border-white/20 bg-white/[0.02] text-white/60 hover:border-white/40 hover:bg-white/[0.05] hover:text-white/90"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 

@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseUnits, parseGwei } from "viem";
+import { parseUnits } from "viem";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
 import ConditionalTokensAbi from "@/abis/ConditionalTokens.abi.json";
-import Erc20Abi from "@/abis/ERC20.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
 import { DemoManifest } from "@/hooks/useDemoManifest";
 import { TxPhase, TxState } from "@/hooks/useAttackPresets";
@@ -17,11 +16,7 @@ interface BorrowDemoTabProps {
 export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
   const { address: walletAddress } = useAccount();
 
-  // Use the router from the live manifest; fall back to the static config if absent.
-  const routerAddress = manifest.router ?? CONTRACT_ADDRESSES.OmniverseRouter;
-
-  // Pre-fill from manifest. Both the deployed WETH and USDC mocks are 18-decimal, and the
-  // lending book denominates YES-USDC debt 1:1 with USDC, so debt is WAD-scaled like collateral.
+  // Pre-fill from manifest (WAD / 1e18)
   const defaultCollateral = (Number(manifest.lendingCollateral) / 1e18).toString();
   const defaultBorrow = (Number(manifest.lendingDebt) / 1e18).toString();
 
@@ -31,19 +26,14 @@ export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
 
   const ltv = parseFloat(collateral) > 0 ? (parseFloat(borrow) / parseFloat(collateral)) * 100 : 0;
 
-  const wethCollateral = parseUnits(collateral || "0", 18);
-  const usdcBorrow = parseUnits(borrow || "0", 18); // deployed USDC mock is 18 decimals
-
-  // Check WETH approval
-  const { data: wethAllowance, refetch: refetchApproval } = useReadContract({
-    address: CONTRACT_ADDRESSES.WETH,
-    abi: Erc20Abi,
-    functionName: "allowance",
-    args: [walletAddress ?? "0x0000000000000000000000000000000000000000", routerAddress],
+  // Check ConditionalTokens approval
+  const { data: isApproved, refetch: refetchApproval } = useReadContract({
+    address: CONTRACT_ADDRESSES.ConditionalTokens,
+    abi: ConditionalTokensAbi,
+    functionName: "isApprovedForAll",
+    args: [walletAddress ?? "0x0000000000000000000000000000000000000000", CONTRACT_ADDRESSES.OmniverseRouter],
     query: { enabled: !!walletAddress },
   });
-
-  const isApproved = wethAllowance !== undefined && (wethAllowance as bigint) >= wethCollateral;
 
   // Approval write
   const { writeContract: writeApprove, data: approveTxHash } = useWriteContract();
@@ -79,27 +69,26 @@ export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
   const handleSubmit = () => {
     if (!walletAddress) return;
 
+    const wethCollateral = parseUnits(collateral || "0", 18);
+    const usdcBorrow = parseUnits(borrow || "0", 6); // USDC is 6 decimals
+
     // Step 1: Approve if needed
     if (!isApproved) {
       writeApprove({
-        address: CONTRACT_ADDRESSES.WETH,
-        abi: Erc20Abi,
-        functionName: "approve",
-        args: [routerAddress, wethCollateral],
-        maxPriorityFeePerGas: parseGwei("0.02"),
-        maxFeePerGas: parseGwei("0.2"),
+        address: CONTRACT_ADDRESSES.ConditionalTokens,
+        abi: ConditionalTokensAbi,
+        functionName: "setApprovalForAll",
+        args: [CONTRACT_ADDRESSES.OmniverseRouter, true],
       });
       return;
     }
 
     // Step 2: Execute borrow
     writeBorrow({
-      address: routerAddress,
+      address: CONTRACT_ADDRESSES.OmniverseRouter,
       abi: OmniverseRouterAbi,
       functionName: "executeBorrow",
       args: [manifest.lending, manifest.conditionId as `0x${string}`, wethCollateral, usdcBorrow],
-      maxPriorityFeePerGas: parseGwei("0.02"),
-      maxFeePerGas: parseGwei("0.2"),
     });
   };
 
@@ -157,53 +146,28 @@ export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
         </div>
       </div>
 
-      {/* Approval step — prominent action when WETH not yet approved */}
+      {/* Approval notice */}
       {!isApproved && walletAddress && (
-        <div className="rounded border border-yellow-500/20 bg-yellow-500/5 p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs font-medium text-yellow-400">
-                Step 1 of 2 — WETH Approval
-              </div>
-              <div className="mt-0.5 text-[10px] text-yellow-400/60">
-                The Router needs permission to move your WETH collateral
-              </div>
-            </div>
-            <button
-              onClick={handleSubmit}
-              disabled={isPending}
-              className="shrink-0 rounded border border-yellow-500/30 bg-yellow-500/10 px-4 py-1.5 text-xs font-medium text-yellow-300 transition-all hover:bg-yellow-500/20 disabled:opacity-50"
-            >
-              {isPending ? (
-                <span className="flex items-center gap-1.5">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  {txState.phase === "wallet" ? "Wallet..." : "Confirming..."}
-                </span>
-              ) : (
-                "Approve"
-              )}
-            </button>
-          </div>
+        <div className="rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-xs text-yellow-400">
+          ConditionalTokens approval needed first
         </div>
       )}
 
-      {/* Submit button — Execute Borrow (only active after approval) */}
+      {/* Submit button */}
       <button
         onClick={handleSubmit}
-        disabled={!walletAddress || isPending || (!isApproved && !!walletAddress)}
+        disabled={!walletAddress || isPending}
         className="w-full rounded border border-white/10 bg-white/5 py-3 text-sm text-white transition-all hover:bg-white/10 disabled:opacity-50"
       >
-        {isPending && isApproved ? (
+        {isPending ? (
           <span className="flex items-center justify-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             {txState.phase === "wallet" ? "Waiting for wallet..." : "Confirming..."}
           </span>
-        ) : isApproved ? (
-          "Execute Borrow"
-        ) : walletAddress ? (
-          <span className="text-white/30">Step 2 of 2 — Execute Borrow</span>
+        ) : !isApproved && walletAddress ? (
+          "Approve ConditionalTokens"
         ) : (
-          "Connect Wallet"
+          "Execute Borrow"
         )}
       </button>
 

@@ -1,10 +1,10 @@
 import { Loader2 } from "lucide-react";
 import { Preset, TxState, useAttackPresets } from "@/hooks/useAttackPresets";
-import { useAccount, useEstimateGas } from "wagmi";
-import { encodeFunctionData, parseUnits } from "viem";
+import { useEstimateGas } from "wagmi";
+import { parseUnits } from "viem";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 interface AttackPresetsProps {
   pool: `0x${string}`;
@@ -12,52 +12,35 @@ interface AttackPresetsProps {
   yesPrice: number;
   onConfirmed: () => void;
   disabled?: boolean;
-  router?: `0x${string}`;
 }
 
-function PresetButton({
-  preset,
-  execute,
-  disabled,
-  pool,
-  conditionId,
-  yesPrice,
-  router,
-}: {
-  preset: Preset;
-  execute: (p: Preset) => void;
+function PresetButton({ 
+  preset, 
+  execute, 
+  disabled, 
+  pool, 
+  conditionId, 
+  yesPrice 
+}: { 
+  preset: Preset; 
+  execute: (p: Preset) => void; 
   disabled: boolean;
   pool: `0x${string}`;
   conditionId: `0x${string}`;
   yesPrice: number;
-  router: `0x${string}`;
 }) {
-  const { address } = useAccount();
   const [hovered, setHovered] = useState(false);
   const amountWad = parseUnits(preset.amount, 18);
   const minOutFloat = (Number(preset.amount) / yesPrice) * 0.95;
   const minOut = parseUnits(minOutFloat.toFixed(18), 18);
 
-  // Estimate gas when hovered. useEstimateGas takes a raw {to, data} tx, not contract
-  // fields, so encode the call data and simulate from the connected account. Encoding
-  // validates the addresses, so guard against not-yet-loaded args instead of throwing.
-  const callData = useMemo(() => {
-    try {
-      return encodeFunctionData({
-        abi: OmniverseRouterAbi,
-        functionName: "buyYes",
-        args: [pool, conditionId, amountWad, minOut],
-      });
-    } catch {
-      return undefined;
-    }
-  }, [pool, conditionId, amountWad, minOut]);
-
+  // Attempt to estimate gas when hovered
   const { data: gasEstimate } = useEstimateGas({
-    to: router,
-    account: address,
-    data: callData,
-    query: { enabled: hovered && !disabled && !!address && !!callData },
+    address: CONTRACT_ADDRESSES.OmniverseRouter,
+    abi: OmniverseRouterAbi,
+    functionName: "buyYes",
+    args: [pool, conditionId, amountWad, minOut],
+    query: { enabled: hovered && !disabled },
   });
 
   return (
@@ -83,10 +66,8 @@ function PresetButton({
   );
 }
 
-export function AttackPresets({ pool, conditionId, yesPrice, onConfirmed, disabled, router }: AttackPresetsProps) {
-  // Prefer the live manifest router; fall back to the static config if not yet loaded.
-  const routerAddress = router ?? CONTRACT_ADDRESSES.OmniverseRouter;
-  const { presets, txState, execute } = useAttackPresets(pool, conditionId, yesPrice, onConfirmed, routerAddress);
+export function AttackPresets({ pool, conditionId, yesPrice, onConfirmed, disabled }: AttackPresetsProps) {
+  const { presets, txState, execute } = useAttackPresets(pool, conditionId, yesPrice, onConfirmed);
 
   const isFrozenError = txState.phase === "failed" && txState.error?.includes("frozen");
   const isPending = txState.phase === "wallet" || txState.phase === "pending";
@@ -103,7 +84,6 @@ export function AttackPresets({ pool, conditionId, yesPrice, onConfirmed, disabl
             pool={pool}
             conditionId={conditionId}
             yesPrice={yesPrice}
-            router={routerAddress}
           />
         ))}
       </div>
