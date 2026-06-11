@@ -174,7 +174,7 @@ The "Attack the Pool" demo wiring connects the existing Omniverse frontend, depl
 
 1. WHEN `BorrowDemoTab` mounts, THE component SHALL pre-fill the collateral input with `manifest.lendingCollateral / 1e18` and the borrow input with `manifest.lendingDebt / 1e18`.
 2. WHEN the user submits the borrow form, THE `BorrowDemoTab` component SHALL call `Router.executeBorrow(lending, conditionId, wethCollateral, usdcBorrow)` with the form values.
-3. WHEN `ConditionalTokens.isApprovedForAll(wallet, router)` returns `false`, THE `BorrowDemoTab` component SHALL execute `ConditionalTokens.setApprovalForAll(router, true)` before submitting the borrow.
+3. WHEN the WETH allowance on the OmniverseRouter is less than the collateral amount, THE `BorrowDemoTab` component SHALL execute `WETH.approve(router, wethCollateral)` before submitting the borrow (`executeBorrow` pulls WETH collateral and splits internally — the user approves WETH, not the CTF).
 4. THE `BorrowDemoTab` component SHALL display LTV = borrow/collateral and a health factor explanation before the user submits.
 
 ---

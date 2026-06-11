@@ -231,8 +231,7 @@ arbitrum/
 │   └── faucet.ts
 │
 ├── CONTEXT.md                 # This file
-├── IMPLEMENTATION_PLAN.md     # Detailed implementation plan
-└── claude.md                  # Coding guidelines
+└── IMPLEMENTATION_PLAN.md     # Detailed implementation plan
 ```
 
 ---
@@ -267,7 +266,7 @@ Hour 40+:   Stretch → Distribution Markets (μ/σ shares)
 
 ---
 
-## 8. Coding Guidelines (from claude.md)
+## 8. Coding Guidelines
 
 1. **Think before coding.** State assumptions. Ask when uncertain.
 2. **Simplicity first.** Minimum code that solves the problem. No speculative features.

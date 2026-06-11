@@ -349,7 +349,8 @@ interface BorrowDemoTabProps {
 - Pre-fill demo amounts from manifest: `lendingCollateral / 1e18` for collateral
 - Show LTV = borrow/collateral, health factor formula explanation
 - Execute `Router.executeBorrow(lending, conditionId, wethCollateral, usdcBorrow)`
-- Approval flow for ConditionalTokens ERC-1155 `setApprovalForAll`
+- Approval flow: `WETH.approve(router, wethCollateral)` (ERC-20) — `executeBorrow` pulls WETH
+  collateral and splits internally, so the user approves WETH, not the CTF
 
 ---
 

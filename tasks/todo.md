@@ -50,14 +50,18 @@ Verified live (gasless): buyYes(poolWeth)→0x, executeBorrow→0x. Demo acct WE
 new router. Wired into config/contracts.ts + demo-manifest.json (x2) + arb-sepolia.json.
 Fixed indexer/.env (removed stale FACTORY/LENDING/START_BLOCK overrides that reintroduced the
 100h scan). Aligned contracts-sol/.env FACTORY/RESOLVER/ORACLE to live set. Key never read into
-context (used sed). contracts.json (root) is a separate legacy registry, off the demo path, left as-is.
+context (used sed). contracts.json (root) was a dead legacy registry off the demo path — deleted in cleanup.
 
 ### Run the demo
 `cd indexer && bun run dev`  (syncs from 275880507; local PGlite by default)
 `cd frontend && bun run dev`  (reads /demo-manifest.json → new router; VITE_WALLETCONNECT_PROJECT_ID set)
 
-### Requires a deploy (the Router fix is bytecode — the live 0xab7A router is still the broken one)
-Run `./fresh-demo.sh`: redeploys the fixed router, writes `router` + fresh `createdBlock` into
-the manifest; the frontend reads `manifest.router` and the indexer reads the manifest. Needs
-contracts-sol/.env with DEPLOYER_PRIVATE_KEY, ARB_SEPOLIA_RPC, FACTORY_ADDRESS, RESOLVER_ADDRESS,
-ORACLE_ADDRESS (ORACLE_ADDRESS must be set or the lending market is skipped → borrow tab dead).
+### Deploy — DONE (router redeployed)
+The fixed router is live at `0xF0AF8C84655a3E25Cf26Cb88E70E765C157515B2`; the old `0xab7A`
+bytecode is no longer used. The demo runs against the existing live market — no redeploy needed.
+
+For a full from-scratch redeploy: `./fresh-demo.sh` redeploys the fixed router, writes `router`
++ fresh `createdBlock` into the manifest; the frontend reads `manifest.router` and the indexer
+reads the manifest. Needs contracts-sol/.env with DEPLOYER_PRIVATE_KEY, ARB_SEPOLIA_RPC,
+FACTORY_ADDRESS, RESOLVER_ADDRESS, ORACLE_ADDRESS (ORACLE_ADDRESS must be set or the lending
+market is skipped → borrow tab dead).

@@ -8,6 +8,23 @@ The five phases mirror the design's `Phase Implementation Order`: Data Foundatio
 
 ---
 
+## Status (current)
+
+**Implementation complete.** All build tasks (1–5, 7–12, 14–18) and their property/unit tests are
+done and wired; the frontend suite passes (20/20). The only items left are the three **manual
+rehearsal checkpoints** (6, 13, 19), which are live walk-throughs against Arbitrum Sepolia — see
+`context/DEMO_SETUP.md` for the run + act-by-act script.
+
+Changes since this plan was written (reflected in code, not yet in the task bodies below):
+- **Router redeployed** and is now **collateral-agnostic** (reads `pool.collateralToken()`), live at
+  `0xF0AF8C84655a3E25Cf26Cb88E70E765C157515B2`. The demo trades the **WETH pool**.
+- **USDC is 18-decimal** in this deployment, so `BorrowDemoTab` parses borrow with 18 decimals and
+  pre-fills `lendingDebt / 1e18`.
+- **Borrow approval is `WETH.approve(router)`** (ERC-20) — the user approves WETH collateral, not
+  `ConditionalTokens.setApprovalForAll`. Tasks 15 / Requirement 11.3 describe the old plan.
+
+---
+
 ## Tasks
 
 - [x] 1. Data foundation — manifest, formatters, and URL utilities
@@ -108,7 +125,7 @@ The five phases mirror the design's `Phase Implementation Order`: Data Foundatio
     - File: `frontend/src/lib/__tests__/dashboardData.test.ts`
     - **Validates: Requirements 9.1, 9.2, 9.4**
 
-- [ ] 9. Build `AttackTranscript` component
+- [x] 9. Build `AttackTranscript` component
   - Create `frontend/src/components/attack-transcript.tsx`
   - Render trade rows: block#, txHash (linked to Arbiscan via `arbiscanTxUrl`), size (WETH), P(YES) after, λ after
   - Sort rows ascending by size (guaranteed by `useDemoTrades` query, but assert in component)
@@ -117,13 +134,13 @@ The five phases mirror the design's `Phase Implementation Order`: Data Foundatio
   - When `source = "unavailable"`, show `DataSourceBadge source="unavailable"` and skeletons
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 13.2_
 
-  - [ ]* 9.1 Write unit tests for AttackTranscript
+  - [x]* 9.1 Write unit tests for AttackTranscript
     - Test: Arbiscan links correctly formatted; skeleton state; unavailable badge; sort order preserved
     - **Property 2: Tx Hash Authenticity** — each rendered link href matches the input `DemoTrade.txHash` exactly
     - File: `frontend/src/components/__tests__/attack-transcript.test.tsx`
     - **Validates: Requirements 7.2, 13.2**
 
-- [ ] 10. Build `WCurveLive` component
+- [x] 10. Build `WCurveLive` component
   - Create `frontend/src/components/w-curve-live.tsx`
   - Static SVG path for W-curve (`λ*(p)` function), computed once via `useMemo` keyed on `lambdaWad`
   - Animate dot position to `price` using Framer Motion `motion.circle`
@@ -131,20 +148,20 @@ The five phases mirror the design's `Phase Implementation Order`: Data Foundatio
   - Mark pre-attack and post-attack positions when both are available
   - _Requirements: 8.1, 8.2_
 
-- [ ] 11. Build `LpShieldPanel` component
+- [x] 11. Build `LpShieldPanel` component
   - Create `frontend/src/components/lp-shield-panel.tsx`
   - Compute `activePct` and `passivePct` from `PoolReserves`
   - Render stacked bar: bright segment for active, dim segment for passive; label passive as "shielded %"
   - If `reserves` is `undefined`, render `DataSourceBadge source="unavailable"`
   - _Requirements: 10.1, 10.2, 10.3, 13.5_
 
-  - [ ]* 11.1 Write property tests for LpShieldPanel reserve math
+  - [x]* 11.1 Write property tests for LpShieldPanel reserve math
     - **Property 8: Reserve Percentage Invariant** — for any `PoolReserves` with positive total, the rendered active% + passive% = 100
     - Use fast-check to generate arbitrary non-negative `bigint` quadruples
     - File: `frontend/src/components/__tests__/lp-shield-panel.test.tsx`
     - **Validates: Requirements 10.1, 9.2**
 
-- [ ] 12. Wire `/demo` route — replace simulated feed with live data
+- [x] 12. Wire `/demo` route — replace simulated feed with live data
   - Edit `frontend/src/routes/demo.tsx`
   - Remove `useSimulatedFeed()` call
   - Add `useDemoManifest`, `usePoolPrice(manifest?.poolWeth)`, `usePoolReserves(manifest?.poolWeth)`, `useDemoTrades(manifest?.conditionId, "WETH")`
@@ -161,7 +178,7 @@ The five phases mirror the design's `Phase Implementation Order`: Data Foundatio
   - Ensure all tests pass, ask the user if questions arise.
   - Manual check: after executing 3 demo trades, `/demo` shows 3 real tx hashes and W-curve dot at correct position
 
-- [ ] 14. Wire `/markets/:id` route — add AttackPresets and PreDemoReadinessPanel
+- [x] 14. Wire `/markets/:id` route — add AttackPresets and PreDemoReadinessPanel
   - Edit `frontend/src/routes/markets.$id.tsx`
   - Determine `isDemoMarket` by comparing route `conditionId` param with `manifest?.conditionId`
   - When `isDemoMarket = true`, mount `AttackPresets` inside `SwapTab` (replace or augment existing swap UI)
@@ -170,12 +187,12 @@ The five phases mirror the design's `Phase Implementation Order`: Data Foundatio
   - Ensure `AttackModeStrip` receives all required props: `conditionId`, `pool`, `price`, `reserves`, `liquidity`, `mathLabel`, `mathMatches`, `indexed`, `indexerLoading`, `latestTx`
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 4.1, 4.2, 15.1, 15.2_
 
-  - [ ]* 14.1 Write unit tests for demo mode isolation
+  - [x]* 14.1 Write unit tests for demo mode isolation
     - **Property 4: Demo Mode Isolation** — verify that when `conditionId ≠ manifest.conditionId`, `AttackPresets`, `PreDemoReadinessPanel`, and `BorrowDemoTab` are absent from the rendered tree
     - File: `frontend/src/routes/__tests__/markets-id.test.tsx`
     - **Validates: Requirements 4.1, 4.2, 4.3, 4.4**
 
-- [ ] 15. Build `BorrowDemoTab` component and wire into `/markets/:id`
+- [x] 15. Build `BorrowDemoTab` component and wire into `/markets/:id`
   - Create `frontend/src/components/borrow-demo-tab.tsx`
   - Pre-fill collateral input with `manifest.lendingCollateral / 1e18` and borrow input with `manifest.lendingDebt / 1e18`
   - Display LTV = borrow/collateral and health factor explanation
@@ -186,13 +203,13 @@ The five phases mirror the design's `Phase Implementation Order`: Data Foundatio
   - Add `BorrowDemoTab` to the borrow tab slot in `markets.$id.tsx`
   - _Requirements: 4.3, 11.1, 11.2, 11.3, 11.4_
 
-  - [ ]* 15.1 Write unit tests for BorrowDemoTab pre-fill
+  - [x]* 15.1 Write unit tests for BorrowDemoTab pre-fill
     - **Property 12: Borrow Tab Pre-fill Accuracy** — for a given manifest, verify pre-filled values equal WAD-divided manifest fields
     - Test approval flow: `isApprovedForAll = false` triggers `setApprovalForAll` before borrow
     - File: `frontend/src/components/__tests__/borrow-demo-tab.test.tsx`
     - **Validates: Requirements 11.1, 11.3**
 
-- [ ] 16. Build `SimulationBanner` component and wire into `/simulate`
+- [x] 16. Build `SimulationBanner` component and wire into `/simulate`
   - Create `frontend/src/components/simulation-banner.tsx`
   - Render a static amber banner containing all three required strings: "SIMULATION", "Client-side only", "No on-chain transactions"
   - Add explanation paragraph about why live resolution is not executed
@@ -200,19 +217,19 @@ The five phases mirror the design's `Phase Implementation Order`: Data Foundatio
   - Ensure banner is NOT conditionally hidden by `presentMode`
   - _Requirements: 12.1, 12.2, 12.3_
 
-  - [ ]* 16.1 Write unit test for SimulationBanner
+  - [x]* 16.1 Write unit test for SimulationBanner
     - **Property 5: Simulation Transparency** — verify all three required strings are present in rendered output; verify banner renders regardless of `presentMode` prop
     - File: `frontend/src/components/__tests__/simulation-banner.test.tsx`
     - **Validates: Requirements 12.1, 12.2, 12.3**
 
-- [ ] 17. Implement `?present=true` presentation mode
+- [x] 17. Implement `?present=true` presentation mode
   - Read `present` search param in the root layout or a shared context using TanStack Router's `useSearch`
   - Pass `presentMode: boolean` down via context or prop to `PreDemoReadinessPanel` and any `DataSourceBadge` debug labels
   - Add `.present-mode` CSS class to root container when active; use it to hide panels not needed for VC screen share
   - `SimulationBanner` must remain visible in present mode — verify no CSS rule hides it
   - _Requirements: 5.4, 16.1, 16.2, 16.3_
 
-- [ ] 18. Add `DataSourceBadge` to all metrics in `/demo` and `/markets/:id`
+- [x] 18. Add `DataSourceBadge` to all metrics in `/demo` and `/markets/:id`
   - Audit every numeric display in `demo.tsx` and `markets.$id.tsx`
   - Attach `DataSourceBadge source="live"` to wagmi read results (price, reserves, liquidity, math kernel)
   - Attach `DataSourceBadge source="indexed"` to Ponder/urql results (trades, txHash, blockNumber)
