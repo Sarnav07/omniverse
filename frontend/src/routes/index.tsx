@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion, useInView, useMotionValue, useSpring } from "motion/react";
-import { useEffect, useRef } from "react";
+import { motion, useInView, useMotionValue, useSpring, AnimatePresence } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 import {
   ShieldCheck,
   Cpu,
@@ -104,6 +104,17 @@ function Landing() {
 /* ─────────────────────────── hero ─────────────────────────── */
 
 function Hero() {
+  const phrases = [
+    "Safe Bet.",
+    "DeFi in Prediction Markets — unlocked.",
+    "Omniverse.",
+  ];
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i: number) => (i + 1) % phrases.length), 2600);
+    return () => clearInterval(t);
+  }, []);
+
   return (
     <section className="relative z-10 mx-auto w-full max-w-[1300px] px-8 pt-28 pb-32 md:pt-36 md:pb-44">
       <WCurveBackdrop />
@@ -112,54 +123,81 @@ function Hero() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: EASE }}
-        className="relative mx-auto flex max-w-3xl flex-col items-center text-center"
+        className="relative z-10 mx-auto flex max-w-3xl flex-col items-center text-center"
       >
-        <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 backdrop-blur-md">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60 opacity-60" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
-          </span>
-          <span className="text-[11px] uppercase tracking-[0.2em] text-white/70">
-            Live on Arbitrum Stylus
-          </span>
-        </div>
-
-        <h1
-          className="text-balance font-display text-[12vw] font-light leading-[0.95] tracking-[-0.04em] md:text-[5.6rem]"
+        {/* cycling headline */}
+        <div
+          className="relative w-full"
           style={{ fontFamily: "'Outfit', 'Space Grotesk', system-ui, sans-serif" }}
         >
-          <motion.span
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: EASE, delay: 0.05 }}
-            className="block"
-          >
-            Stop bleeding liquidity
-          </motion.span>
-          <motion.span
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: EASE, delay: 0.18 }}
-            className="block"
-          >
-            to <span className="italic text-white/55">bots</span>.
-          </motion.span>
-        </h1>
+          <AnimatePresence mode="wait">
+            <motion.h1
+              key={idx}
+              initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: -18, filter: "blur(8px)" }}
+              transition={{ duration: 0.75, ease: EASE }}
+              className="text-balance font-display text-[10vw] font-light leading-[1.08] tracking-[-0.04em] md:text-[4.5rem]"
+            >
+              {idx === 1 ? (
+                <span>
+                  DeFi for PM{" "}
+                  <span className="italic text-white/55">unlocked.</span>
+                </span>
+              ) : (
+                phrases[idx]
+              )}
+            </motion.h1>
+          </AnimatePresence>
+        </div>
 
         <motion.p
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: EASE, delay: 0.35 }}
-          className="mt-8 max-w-xl text-balance text-[15px] leading-relaxed text-white/60"
+          className="mt-10 max-w-2xl text-balance text-[15px] leading-relaxed text-white/65"
         >
-          The first prediction market protocol with dynamic LP defense — powered by Arbitrum Stylus
-          and on-chain Gaussian math.
+          A platform that unlocks DeFi for prediction markets while shielding LPs from
+          arbitrageurs at the most critical moment — resolution.
         </motion.p>
+
+        {/* technical lineage / story */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: EASE, delay: 0.55 }}
+          className="mt-10 grid w-full max-w-2xl grid-cols-1 gap-3 text-left md:grid-cols-3"
+        >
+          {[
+            {
+              k: "research",
+              v: "Extended PA-AMM to Gaussian invariants — derived the optimal liquidity-protection ratio from scratch.",
+            },
+            {
+              k: "shield",
+              v: "Automatically contracts active liquidity as the market resolves, neutralizing toxic flow.",
+            },
+            {
+              k: "kernel",
+              v: "Float-free Rust on Arbitrum Stylus — ~500k gas Gaussian math becomes ~5k. 100× cheaper.",
+            },
+          ].map((b) => (
+            <div
+              key={b.k}
+              className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 backdrop-blur-md"
+            >
+              <div className="tabular text-[9px] uppercase tracking-[0.28em] text-white/35">
+                / {b.k}
+              </div>
+              <p className="mt-2 text-[12px] leading-relaxed text-white/70">{b.v}</p>
+            </div>
+          ))}
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: EASE, delay: 0.5 }}
+          transition={{ duration: 0.6, ease: EASE, delay: 0.7 }}
           className="mt-12 flex flex-col items-center gap-3 sm:flex-row"
         >
           <Link
@@ -203,6 +241,20 @@ function WCurveBackdrop() {
     return () => window.removeEventListener("pointermove", onMove);
   }, []);
 
+  // Generate a family of varied W-shaped paths
+  const lines = Array.from({ length: 16 }).map((_, i) => {
+    const off = (i - 8) * 6;
+    const amp = 80 - Math.abs(i - 8) * 4;
+    const a = 160 + off;
+    return {
+      from: `M 0 ${a} C 120 ${a - amp * 0.05}, 180 ${a - amp * 0.9}, 320 ${a + amp * 0.6} S 520 ${a + amp * 0.95}, 640 ${a - amp * 0.85} S 760 ${a + amp * 0.05}, 800 ${a}`,
+      to: `M 0 ${a} C 120 ${a + amp * 0.18}, 180 ${a - amp * 0.65}, 320 ${a + amp * 0.45} S 520 ${a + amp * 0.7}, 640 ${a - amp * 0.6} S 760 ${a - amp * 0.05}, 800 ${a}`,
+      opacity: 0.06 + (1 - Math.abs(i - 8) / 8) * 0.18,
+      dur: 7 + (i % 5),
+      width: 0.6 + (1 - Math.abs(i - 8) / 8) * 0.8,
+    };
+  });
+
   return (
     <div
       ref={ref}
@@ -211,39 +263,36 @@ function WCurveBackdrop() {
     >
       <svg
         viewBox="0 0 800 320"
-        className="w-[min(110%,1100px)] opacity-[0.45]"
+        className="w-[min(115%,1180px)] opacity-[0.7]"
         style={{
-          maskImage: "radial-gradient(ellipse at center, #000 30%, transparent 75%)",
+          maskImage: "radial-gradient(ellipse at center, #000 35%, transparent 80%)",
         }}
       >
         <defs>
           <linearGradient id="w-grad" x1="0" x2="1" y1="0" y2="0">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
-            <stop offset="50%" stopColor="#ffffff" stopOpacity="0.55" />
+            <stop offset="50%" stopColor="#ffffff" stopOpacity="0.7" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
           </linearGradient>
           <filter id="w-blur">
-            <feGaussianBlur stdDeviation="0.4" />
+            <feGaussianBlur stdDeviation="0.3" />
           </filter>
         </defs>
-        {Array.from({ length: 5 }).map((_, i) => (
+        {lines.map((l, i) => (
           <path
             key={i}
-            d="M 0 160 C 120 160, 180 40, 320 200 S 520 280, 640 80 S 760 160, 800 160"
+            d={l.from}
             stroke="url(#w-grad)"
-            strokeWidth={1 + i * 0.4}
+            strokeWidth={l.width}
             fill="none"
-            opacity={0.12 + i * 0.08}
+            opacity={l.opacity}
             filter="url(#w-blur)"
           >
             <animate
               attributeName="d"
-              dur={`${8 + i}s`}
+              dur={`${l.dur}s`}
               repeatCount="indefinite"
-              values="
-                M 0 160 C 120 160, 180 40, 320 200 S 520 280, 640 80 S 760 160, 800 160;
-                M 0 160 C 120 180, 180 60, 320 180 S 520 260, 640 100 S 760 140, 800 160;
-                M 0 160 C 120 160, 180 40, 320 200 S 520 280, 640 80 S 760 160, 800 160"
+              values={`${l.from};${l.to};${l.from}`}
             />
           </path>
         ))}

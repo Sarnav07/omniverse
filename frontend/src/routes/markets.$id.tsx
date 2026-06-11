@@ -320,8 +320,7 @@ function TerminalPage() {
                     yesPrice={liveYes}
                     router={manifest?.router}
                     onConfirmed={() => {
-                      // Trigger refetch of live data after trade confirms
-                      refetchTrades();
+                      // no-op refetch hook
                     }}
                   />
                 </div>
@@ -330,15 +329,6 @@ function TerminalPage() {
                   poolWeth={MARKET.poolWeth}
                   poolUsdc={MARKET.poolUsdc}
                   yesPrice={liveYes}
-                  isDemoMarket={isDemoMarket}
-                  manifestConditionId={manifest?.conditionId}
-                  manifestPoolUsdc={manifest?.poolUsdc}
-                  poolFrozen={
-                    typeof expiryWad === "bigint"
-                      ? Number(expiryWad) - Math.floor(Date.now() / 1000) <= 3600
-                      : false
-                  }
-                  indexerReady={!!indexedDemoMarket}
                 />
               )}
             </div>

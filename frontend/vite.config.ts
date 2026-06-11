@@ -13,6 +13,7 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    // @ts-expect-error vitest test config
     test: {
       environment: "happy-dom",
       setupFiles: ["./vitest.setup.ts"],

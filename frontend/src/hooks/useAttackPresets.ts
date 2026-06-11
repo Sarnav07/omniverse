@@ -119,7 +119,7 @@ export function useAttackPresets(
     const amountWad = parseUnits(preset.amount, 18);
 
     // Check allowance
-    if (wethAllowance < amountWad) {
+    if ((wethAllowance as bigint) < amountWad) {
       writeApprove({
         address: CONTRACT_ADDRESSES.WETH,
         abi: Erc20Abi,

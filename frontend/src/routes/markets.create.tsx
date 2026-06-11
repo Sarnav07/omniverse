@@ -313,7 +313,7 @@ function CreateMarketPage() {
                       type="text"
                       required
                       value={resolver}
-                      onChange={(e) => setResolver(e.target.value)}
+                      onChange={(e) => setResolver(e.target.value as `0x${string}`)}
                       placeholder="0x..."
                       className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-[13px] text-white placeholder-white/20 outline-none transition-colors focus:border-white/30 font-mono"
                     />
