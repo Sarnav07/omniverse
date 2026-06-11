@@ -54,12 +54,20 @@ contract RouterTest is Test {
         usdcPool = new PmAmmPool(
             math, ctf, address(usdc), conditionId, 1, 0, 0, 10_000e18, block.timestamp + 30 days, 2e18, false
         );
+        // The live demo trades on the WETH-collateral pool; cover both universes.
+        wethPool = new PmAmmPool(
+            math, ctf, address(weth), conditionId, 2, 0, 0, 10_000e18, block.timestamp + 30 days, 2e18, false
+        );
 
-        // Add liquidity to pool directly
+        // Add liquidity to both pools directly
         vm.startPrank(alice);
         ctf.splitPosition(address(usdc), bytes32(0), conditionId, CtfPositionLib.binaryPartition(), 50_000e18);
         ctf.setApprovalForAll(address(usdcPool), true);
         usdcPool.addLiquidity(10_000e18, 10_000e18, 0);
+
+        ctf.splitPosition(address(weth), bytes32(0), conditionId, CtfPositionLib.binaryPartition(), 50_000e18);
+        ctf.setApprovalForAll(address(wethPool), true);
+        wethPool.addLiquidity(10_000e18, 10_000e18, 0);
         vm.stopPrank();
     }
 
@@ -72,6 +80,20 @@ contract RouterTest is Test {
         uint256 balanceAfter = ctf.balanceOf(alice, usdcPool.yesPositionId());
         
         assertGt(balanceAfter - balanceBefore, usdcAmount); // Should get split YES + swap YES
+        vm.stopPrank();
+    }
+
+    function testRouterBuyYesOnWethPool() public {
+        // Regression: the WETH pool's collateral is WETH, so the router must pull WETH.
+        // The old hardcoded-usdc router reverted here with "ERC20: allowance".
+        vm.startPrank(alice);
+        uint256 amount = 1000e18;
+
+        uint256 balanceBefore = ctf.balanceOf(alice, wethPool.yesPositionId());
+        router.buyYes(wethPool, conditionId, amount, 0);
+        uint256 balanceAfter = ctf.balanceOf(alice, wethPool.yesPositionId());
+
+        assertGt(balanceAfter - balanceBefore, amount); // split YES-WETH + swap YES-WETH
         vm.stopPrank();
     }
 

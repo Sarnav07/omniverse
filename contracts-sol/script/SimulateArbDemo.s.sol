@@ -5,6 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {MarketFactory} from "../src/MarketFactory.sol";
 import {PmAmmPool} from "../src/PmAmmPool.sol";
 import {MultiverseLending} from "../src/MultiverseLending.sol";
+import {OmniverseRouter} from "../src/Router.sol";
 import {IConditionalTokens} from "../src/interfaces/IConditionalTokens.sol";
 import {IERC20Minimal} from "../src/interfaces/IERC20Minimal.sol";
 import {IPriceOracle} from "../src/interfaces/IPriceOracle.sol";
@@ -85,6 +86,13 @@ contract SimulateArbDemo is Script {
             console.log("Seeded demo lending market:", lendingAddress);
         }
 
+        // 6. Fresh router for this run. It is stateless (orchestrates split/deposit/borrow
+        // per call) and reads each pool's own collateral, so one router serves both
+        // universes. Deploying it here keeps the manifest the single source of truth and
+        // guarantees the frontend always calls the current bytecode.
+        OmniverseRouter router = new OmniverseRouter(ctf, address(weth), address(usdc));
+        console.log("Router:", address(router));
+
         uint256 createdBlock = block.number;
         console.log("Dynamic market created.");
         console.log("WETH Pool:", address(wethPool));
@@ -108,6 +116,7 @@ contract SimulateArbDemo is Script {
             '  "noWethId": "', vm.toString(wethPool.noPositionId()), '",\n',
             '  "factory": "', vm.toString(factoryAddr), '",\n',
             '  "resolver": "', vm.toString(resolverAddr), '",\n',
+            '  "router": "', vm.toString(address(router)), '",\n',
             '  "math": "', vm.toString(mathAddr), '",\n',
             '  "demoAccount": "', vm.toString(deployer), '",\n',
             '  "weth": "', vm.toString(address(weth)), '",\n',

@@ -17,9 +17,13 @@ interface BorrowDemoTabProps {
 export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
   const { address: walletAddress } = useAccount();
 
-  // Pre-fill from manifest: WETH collateral uses 18 decimals, USDC debt uses 6 decimals
+  // Use the router from the live manifest; fall back to the static config if absent.
+  const routerAddress = manifest.router ?? CONTRACT_ADDRESSES.OmniverseRouter;
+
+  // Pre-fill from manifest. Both the deployed WETH and USDC mocks are 18-decimal, and the
+  // lending book denominates YES-USDC debt 1:1 with USDC, so debt is WAD-scaled like collateral.
   const defaultCollateral = (Number(manifest.lendingCollateral) / 1e18).toString();
-  const defaultBorrow = (Number(manifest.lendingDebt) / 1e6).toString();
+  const defaultBorrow = (Number(manifest.lendingDebt) / 1e18).toString();
 
   const [collateral, setCollateral] = useState(defaultCollateral);
   const [borrow, setBorrow] = useState(defaultBorrow);
@@ -28,14 +32,14 @@ export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
   const ltv = parseFloat(collateral) > 0 ? (parseFloat(borrow) / parseFloat(collateral)) * 100 : 0;
 
   const wethCollateral = parseUnits(collateral || "0", 18);
-  const usdcBorrow = parseUnits(borrow || "0", 6); // USDC is 6 decimals
+  const usdcBorrow = parseUnits(borrow || "0", 18); // deployed USDC mock is 18 decimals
 
   // Check WETH approval
   const { data: wethAllowance, refetch: refetchApproval } = useReadContract({
     address: CONTRACT_ADDRESSES.WETH,
     abi: Erc20Abi,
     functionName: "allowance",
-    args: [walletAddress ?? "0x0000000000000000000000000000000000000000", CONTRACT_ADDRESSES.OmniverseRouter],
+    args: [walletAddress ?? "0x0000000000000000000000000000000000000000", routerAddress],
     query: { enabled: !!walletAddress },
   });
 
@@ -81,21 +85,21 @@ export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
         address: CONTRACT_ADDRESSES.WETH,
         abi: Erc20Abi,
         functionName: "approve",
-        args: [CONTRACT_ADDRESSES.OmniverseRouter, wethCollateral],
-        maxPriorityFeePerGas: parseGwei("0.01"),
-        maxFeePerGas: parseGwei("0.05"),
+        args: [routerAddress, wethCollateral],
+        maxPriorityFeePerGas: parseGwei("0.02"),
+        maxFeePerGas: parseGwei("0.2"),
       });
       return;
     }
 
     // Step 2: Execute borrow
     writeBorrow({
-      address: CONTRACT_ADDRESSES.OmniverseRouter,
+      address: routerAddress,
       abi: OmniverseRouterAbi,
       functionName: "executeBorrow",
       args: [manifest.lending, manifest.conditionId as `0x${string}`, wethCollateral, usdcBorrow],
-      maxPriorityFeePerGas: parseGwei("0.01"),
-      maxFeePerGas: parseGwei("0.05"),
+      maxPriorityFeePerGas: parseGwei("0.02"),
+      maxFeePerGas: parseGwei("0.2"),
     });
   };
 

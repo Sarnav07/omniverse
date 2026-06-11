@@ -1,21 +1,39 @@
 import { createConfig, factory } from "ponder";
 import { http } from "viem";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { PmAmmPoolAbi } from "./abis/PmAmmPool";
 import { MarketFactoryAbi } from "./abis/MarketFactory";
 import { ResolverAbi } from "./abis/Resolver";
 import { MultiverseLendingAbi } from "./abis/MultiverseLending";
 
-const FACTORY_ADDRESS = (process.env.FACTORY_ADDRESS ?? "0xc164Ded0De455DC2B325c0E7250731E08e2F8633") as `0x${string}`;
-const RESOLVER_ADDRESS = (process.env.RESOLVER_ADDRESS ?? "0x7AE56E5D45CB841be4F546691f29ad6bA6E57F1B") as `0x${string}`;
-const LENDING_ADDRESS = (process.env.LENDING_ADDRESS ?? "0x4E24a6Cfd8DA8Fd033E3e864d3CefD075bA20B4f") as `0x${string}`;
-const START_BLOCK = Number(process.env.START_BLOCK ?? 274270902);
+// Single source of truth: the live demo manifest that the deploy script writes and the
+// frontend reads. Sourcing addresses + start block from here keeps the indexer pinned to
+// the *current* deployment. Hardcoding a stale factory or a start block far below the
+// deploy is what made the indexer scan ~1.8M empty blocks (~100h) on the public RPC.
+const manifest = JSON.parse(
+  readFileSync(join(process.cwd(), "../contracts-sol/deployments/demo-manifest.json"), "utf8"),
+);
+
+const ZERO = "0x0000000000000000000000000000000000000000";
+// An env override only wins when it is actually set to something real. A copied
+// .env.example (zero addresses, START_BLOCK=0) must NOT drag us back to genesis.
+const addr = (envVal: string | undefined, fallback: string) =>
+  envVal && envVal !== ZERO ? envVal : fallback;
+
+const FACTORY_ADDRESS = addr(process.env.FACTORY_ADDRESS, manifest.factory) as `0x${string}`;
+const RESOLVER_ADDRESS = addr(process.env.RESOLVER_ADDRESS, manifest.resolver) as `0x${string}`;
+const LENDING_ADDRESS = addr(process.env.LENDING_ADDRESS, manifest.lending) as `0x${string}`;
+
+const envStart = Number(process.env.START_BLOCK ?? 0);
+const START_BLOCK = envStart > 0 ? envStart : Number(manifest.createdBlock);
 
 export default createConfig({
   networks: {
     arbitrumSepolia: {
       chainId: 421614,
-      transport: http(process.env.PONDER_RPC_URL_421614),
+      transport: http(process.env.PONDER_RPC_URL_421614 ?? "https://sepolia-rollup.arbitrum.io/rpc"),
     },
   },
 

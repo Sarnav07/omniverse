@@ -6,6 +6,6 @@ export const CONTRACT_ADDRESSES = {
   PriceOracle: "0x9F0d878F5cFB6490B3DaA83e8b716D45E3484acE" as `0x${string}`,
   Resolver: "0xb99d93a881f633F7426529A76CEAA5Ee0Fab7509" as `0x${string}`,
   MarketFactory: "0xc3DFbA9E807d3AF9d52Ded98277083B7211297d7" as `0x${string}`,
-  MultiverseLending: "0x4E24a6Cfd8DA8Fd033E3e864d3CefD075bA20B4f" as `0x${string}`,
-  OmniverseRouter: "0xab7A119b2a2Ca89E7fFbe69c4175c8d79f34AA7E" as `0x${string}`,
+  MultiverseLending: "0x63878d16bAe4DBb7712Af8387FaC206Aa7C3145E" as `0x${string}`,
+  OmniverseRouter: "0xF0AF8C84655a3E25Cf26Cb88E70E765C157515B2" as `0x${string}`,
 } as const;

@@ -22,45 +22,51 @@ contract OmniverseRouter is IERC1155Receiver {
     }
 
     // ============ SWAP (BUY YES) ============
-    function buyYes(PmAmmPool pool, bytes32 conditionId, uint256 usdcAmount, uint256 minYesOut) external {
-        // 1. Pull USDC
-        IERC20Minimal(usdc).transferFrom(msg.sender, address(this), usdcAmount);
-        
-        // 2. Split into YES-USDC and NO-USDC
-        ctf.splitPosition(usdc, bytes32(0), conditionId, CtfPositionLib.binaryPartition(), usdcAmount);
-        
-        uint256 yesUsdcId = ctf.getPositionId(usdc, ctf.getCollectionId(bytes32(0), conditionId, CtfPositionLib.YES_INDEX_SET));
+    // The collateral is the pool's own token (WETH pool trades on WETH, USDC pool on USDC).
+    // Reading it off the pool keeps the router universe-agnostic instead of pinned to usdc.
+    function buyYes(PmAmmPool pool, bytes32 conditionId, uint256 amount, uint256 minYesOut) external {
+        address collateral = pool.collateralToken();
 
+        // 1. Pull collateral
+        IERC20Minimal(collateral).transferFrom(msg.sender, address(this), amount);
 
-        // 3. Sell NO-USDC to the pool to get MORE YES-USDC
+        // 2. Split into YES and NO legs
+        ctf.splitPosition(collateral, bytes32(0), conditionId, CtfPositionLib.binaryPartition(), amount);
+
+        uint256 yesId = ctf.getPositionId(collateral, ctf.getCollectionId(bytes32(0), conditionId, CtfPositionLib.YES_INDEX_SET));
+
+        // 3. Sell the NO leg to the pool to get MORE YES
         ctf.setApprovalForAll(address(pool), true);
-        pool.buyYesFor(usdcAmount, minYesOut, msg.sender);
-        
-        // 4. Transfer the YES-USDC from the split directly to the user
-        ctf.safeTransferFrom(address(this), msg.sender, yesUsdcId, usdcAmount, "");
+        pool.buyYesFor(amount, minYesOut, msg.sender);
+
+        // 4. Transfer the YES leg from the split directly to the user
+        ctf.safeTransferFrom(address(this), msg.sender, yesId, amount, "");
     }
 
     // ============ SWAP (BUY NO) ============
-    function buyNo(PmAmmPool pool, bytes32 conditionId, uint256 usdcAmount, uint256 minNoOut) external {
-        IERC20Minimal(usdc).transferFrom(msg.sender, address(this), usdcAmount);
-        ctf.splitPosition(usdc, bytes32(0), conditionId, CtfPositionLib.binaryPartition(), usdcAmount);
-        
+    function buyNo(PmAmmPool pool, bytes32 conditionId, uint256 amount, uint256 minNoOut) external {
+        address collateral = pool.collateralToken();
 
-        uint256 noUsdcId = ctf.getPositionId(usdc, ctf.getCollectionId(bytes32(0), conditionId, CtfPositionLib.NO_INDEX_SET));
+        IERC20Minimal(collateral).transferFrom(msg.sender, address(this), amount);
+        ctf.splitPosition(collateral, bytes32(0), conditionId, CtfPositionLib.binaryPartition(), amount);
+
+        uint256 noId = ctf.getPositionId(collateral, ctf.getCollectionId(bytes32(0), conditionId, CtfPositionLib.NO_INDEX_SET));
 
         ctf.setApprovalForAll(address(pool), true);
-        pool.buyNoFor(usdcAmount, minNoOut, msg.sender);
-        
-        ctf.safeTransferFrom(address(this), msg.sender, noUsdcId, usdcAmount, "");
+        pool.buyNoFor(amount, minNoOut, msg.sender);
+
+        ctf.safeTransferFrom(address(this), msg.sender, noId, amount, "");
     }
 
     // ============ PROVIDE (ADD LIQUIDITY) ============
-    function addLiquidity(PmAmmPool pool, bytes32 conditionId, uint256 usdcAmount, uint256 minShares) external {
-        IERC20Minimal(usdc).transferFrom(msg.sender, address(this), usdcAmount);
-        ctf.splitPosition(usdc, bytes32(0), conditionId, CtfPositionLib.binaryPartition(), usdcAmount);
+    function addLiquidity(PmAmmPool pool, bytes32 conditionId, uint256 amount, uint256 minShares) external {
+        address collateral = pool.collateralToken();
+
+        IERC20Minimal(collateral).transferFrom(msg.sender, address(this), amount);
+        ctf.splitPosition(collateral, bytes32(0), conditionId, CtfPositionLib.binaryPartition(), amount);
 
         ctf.setApprovalForAll(address(pool), true);
-        pool.addLiquidityFor(usdcAmount, usdcAmount, minShares, msg.sender);
+        pool.addLiquidityFor(amount, amount, minShares, msg.sender);
     }
 
     // ============ INTENT ENGINE (EXECUTE/BORROW) ============

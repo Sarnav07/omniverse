@@ -14,6 +14,7 @@ export type DemoManifest = {
   noWethId: string;
   factory: `0x${string}`;
   resolver: `0x${string}`;
+  router?: `0x${string}`; // written by SimulateArbDemo; absent in pre-router manifests
   math: `0x${string}`;
   demoAccount: `0x${string}`;
   weth: `0x${string}`;

@@ -318,6 +318,7 @@ function TerminalPage() {
                     pool={livePool!}
                     conditionId={manifest?.conditionId!}
                     yesPrice={liveYes}
+                    router={manifest?.router}
                     onConfirmed={() => {
                       // Trigger refetch of live data after trade confirms
                       refetchTrades();

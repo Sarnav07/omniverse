@@ -49,7 +49,7 @@ describe("BorrowDemoTab", () => {
       lending: "0xlendinglendinglendinglendinglendinglend0001" as `0x${string}`,
       lendingSeed: "1000000000000000000000",
       lendingCollateral: "500000000000000000000", // 500 WETH (18 decimals)
-      lendingDebt: "250000000", // 250 USDC (6 decimals, but stored as string)
+      lendingDebt: "250000000000000000000", // 250 USDC (18 decimals)
     };
 
     const { container } = render(<BorrowDemoTab manifest={mockManifest} />);
@@ -63,7 +63,7 @@ describe("BorrowDemoTab", () => {
     expect(collateralInput.value).toBe("500");
   });
 
-  it("property: borrow input pre-fill equals manifest.lendingDebt / 1e6 (USDC decimals)", () => {
+  it("property: borrow input pre-fill equals manifest.lendingDebt / 1e18 (USDC decimals)", () => {
     const mockManifest: DemoManifest = {
       runId: "test-run",
       createdBlock: 12345678,
@@ -89,7 +89,7 @@ describe("BorrowDemoTab", () => {
       lending: "0xlendinglendinglendinglendinglendinglend0001" as `0x${string}`,
       lendingSeed: "1000000000000000000000",
       lendingCollateral: "500000000000000000000",
-      lendingDebt: "250000000", // 250 USDC (6 decimals)
+      lendingDebt: "250000000000000000000", // 250 USDC (18 decimals)
     };
 
     const { container } = render(<BorrowDemoTab manifest={mockManifest} />);
@@ -99,16 +99,16 @@ describe("BorrowDemoTab", () => {
     expect(inputs.length).toBeGreaterThanOrEqual(2);
 
     const borrowInput = inputs[1];
-    const expectedBorrow = (Number(mockManifest.lendingDebt) / 1e6).toString();
+    const expectedBorrow = (Number(mockManifest.lendingDebt) / 1e18).toString();
     expect(borrowInput.value).toBe(expectedBorrow);
     expect(borrowInput.value).toBe("250");
   });
 
   it("property: pre-fill accuracy for arbitrary manifest values", () => {
     const testCases = [
-      { collateral: "1000000000000000000000", debt: "500000000", expectedCol: "1000", expectedDebt: "500" },
-      { collateral: "250000000000000000000", debt: "125000000", expectedCol: "250", expectedDebt: "125" },
-      { collateral: "750000000000000000000", debt: "375000000", expectedCol: "750", expectedDebt: "375" },
+      { collateral: "1000000000000000000000", debt: "500000000000000000000", expectedCol: "1000", expectedDebt: "500" },
+      { collateral: "250000000000000000000", debt: "125000000000000000000", expectedCol: "250", expectedDebt: "125" },
+      { collateral: "750000000000000000000", debt: "375000000000000000000", expectedCol: "750", expectedDebt: "375" },
     ];
 
     testCases.forEach(({ collateral, debt, expectedCol, expectedDebt }) => {
