@@ -36,7 +36,7 @@ ponder.on("MarketFactory:EventCreated", async ({ event, context }) => {
     });
   } catch (error: any) {
     // RPC state unavailable (pruned node, missing trie, etc.) — log and continue
-    context.logger.warn(
+    console.warn(
       `Failed to read useDynamicLambda for pool ${poolWeth} at block ${event.block.number}: ${error?.shortMessage ?? error?.message ?? "unknown error"}. Defaulting to true.`
     );
   }
