@@ -143,8 +143,10 @@ export function useAttackPresets(
     const amountFloat = Number(preset.amount);
     const expectedOutFloat = amountFloat / yesPrice;
 
-    // 5% slippage -> 95% minimum
-    const minOutFloat = expectedOutFloat * 0.95;
+    // Whale and Kill Shot need 15% slippage (0.85), Probe uses 5% (0.95)
+    const slippageMultiplier = 
+      preset.label === "Whale" || preset.label === "Kill Shot" ? 0.85 : 0.95;
+    const minOutFloat = expectedOutFloat * slippageMultiplier;
     // We safely parse back to BigInt avoiding fractional decimals
     const minOut = parseUnits(minOutFloat.toFixed(18), 18);
 
