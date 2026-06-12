@@ -19,7 +19,6 @@ export function Sidebar() {
         {[
           { label: "Overview", to: "/demo" as const },
           { label: "Portfolio", to: "/markets" as const },
-          { label: "Simulate", to: "/simulate" as const },
           { label: "Explorer", to: "/explorer" as const },
         ].map((l) => (
           <Link

@@ -75,20 +75,12 @@ function MarketsPage() {
       const volWeth = Number(item.totalVolumeWeth) / 1e18;
       const volUsdc = Number(item.totalVolumeUsdc) / 1e18;
       const vol = volWeth + volUsdc;
-      const tvl = vol * 0.85; // Roughly 85% of volume is TVL
+      
+      // TVL calculation from pool reserves would go here - placeholder for now
+      const tvl = 0;
 
-      // Deterministic random walk for curve based on ID
-      const seed = item.id.charCodeAt(item.id.length - 1) || 0;
-      const curve = [0.5];
-      let curr = 0.5;
-      for (let i = 0; i < 3; i++) {
-        curr = curr + Math.sin(seed + i) * 0.15;
-        curr = Math.max(0.1, Math.min(0.9, curr));
-        curve.push(curr);
-      }
-      curve.push(yesPrice > 0 ? yesPrice : 0.5);
-
-      const aprNum = 12 + Math.abs(Math.sin(seed) * 22);
+      // Simple flat curve fallback until Ponder swap history is available
+      const curve = [yesPrice > 0 ? yesPrice : 0.5, yesPrice > 0 ? yesPrice : 0.5];
 
       return {
         id: item.id,
@@ -99,8 +91,8 @@ function MarketsPage() {
         volumeNum: vol,
         volume: vol > 0 ? `$${(vol / 1000).toFixed(1)}k` : "$0.00",
         tvlNum: tvl,
-        tvl: tvl > 0 ? `$${(tvl / 1000).toFixed(1)}k` : "$0.00",
-        apr: aprNum.toFixed(1) + "%",
+        tvl: "—",
+        apr: "—",
         curve,
         trend: "up",
       };

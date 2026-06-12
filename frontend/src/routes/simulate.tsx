@@ -1,9 +1,14 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { Nav } from "@/components/marketing/Nav";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertTriangle } from "lucide-react";
 
+export const Route = createFileRoute("/simulate")({
+  component: () => <Navigate to="/demo" />,
+});
+
+/* Commented out - use /demo instead
 const fmtUSD = (n: number) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -373,7 +378,7 @@ function MicroCell({
   );
 }
 
-
+/* Old route export - replaced with redirect above
 export const Route = createFileRoute("/simulate")({
   head: () => ({
     meta: [
@@ -392,3 +397,4 @@ export const Route = createFileRoute("/simulate")({
   }),
   component: () => (<div className="relative min-h-screen w-full overflow-x-hidden bg-[#0A0A0B]"><div className="border-b border-white/[0.05]"><Nav appMode /></div><WrappedSimulatePage /></div>),
 });
+*/

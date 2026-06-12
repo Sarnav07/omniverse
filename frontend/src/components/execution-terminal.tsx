@@ -604,15 +604,14 @@ function BorrowTab({
 
 /* ---------------- MANAGE ---------------- */
 function ManageTab() {
+  const { address } = useAccount();
   const [mode, setMode] = useState<"repay" | "withdraw">("repay");
   const [amount, setAmount] = useState<string>("");
-  const health = 1.84;
-  const healthColor =
-    health > 1.5
-      ? "text-emerald-400"
-      : health > 1.1
-      ? "text-orange-400"
-      : "text-red-400";
+
+  // Show placeholder until wallet connected
+  const collateral = address ? "—" : "—";
+  const debt = address ? "—" : "—";
+  const health = address ? "—" : "—";
 
   return (
     <div className="flex flex-col gap-3">
@@ -645,12 +644,9 @@ function ManageTab() {
       {/* Portfolio dashboard */}
       <div className="grid grid-cols-3 gap-px bg-white/5 border border-white/5 rounded-xl overflow-hidden">
         {[
-          { label: "Collateral", value: "1.5 WETH" },
-          { label: "Debt", value: "2,000 USDC" },
-          {
-            label: "Health",
-            value: <span className={healthColor}>{health.toFixed(2)}</span>,
-          },
+          { label: "Collateral", value: collateral },
+          { label: "Debt", value: debt },
+          { label: "Health", value: health },
         ].map((c, i) => (
           <div key={i} className="bg-[#0E0E11] p-4 flex flex-col gap-1.5">
             <span className="text-[10px] text-[#8B8D98] uppercase tracking-widest">
@@ -674,7 +670,7 @@ function ManageTab() {
             ? "bg-sky-500/10 text-sky-300"
             : "bg-indigo-500/10 text-indigo-300"
         }
-        balance={mode === "repay" ? "1,820.50" : "1.5"}
+        balance="—"
         value={amount}
         onChange={setAmount}
       />
@@ -693,16 +689,16 @@ function ProvideTab() {
         label="Deposit"
         asset="USDC"
         assetClass="bg-sky-500/10 text-sky-300"
-        balance="1,820.50"
+        balance="—"
         value={deposit}
         onChange={setDeposit}
       />
       <Readout label="Estimated LP Shares" asset="LP" value={lp} />
       <MetaRow
         items={[
-          { label: "Pool Liquidity", value: "$1.24M" },
-          { label: "Est. APY", value: "12.4%" },
-          { label: "Your Share", value: "0.08%" },
+          { label: "Pool Liquidity", value: "—" },
+          { label: "Est. APY", value: "—" },
+          { label: "Your Share", value: "—" },
         ]}
       />
     </div>

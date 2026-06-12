@@ -176,8 +176,10 @@ export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
         {isPending ? (
           <span className="flex items-center justify-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {txState.phase === "wallet" ? "Waiting for wallet..." : "Confirming..."}
+            {isApprovePending ? "Approving..." : "Borrowing..."}
           </span>
+        ) : txState.phase === "confirmed" ? (
+          "Done ✓"
         ) : !isApproved && walletAddress ? (
           "Approve WETH"
         ) : (

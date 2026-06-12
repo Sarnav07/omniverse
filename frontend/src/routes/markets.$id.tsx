@@ -739,17 +739,15 @@ function IntentEngine({
     }
 
     if (isProvide) {
+      const amount = parseUnits(c.toString(), 18);
+      // 10% slippage: accept 90% of a 1:1 estimate as minimum shares
+      const minShares = (amount * 9n) / 10n;
       writeContract(
         {
           address: CONTRACT_ADDRESSES.OmniverseRouter,
           abi: OmniverseRouterAbi,
           functionName: "addLiquidity",
-          args: [
-            poolUsdc,
-            id,
-            parseUnits(c.toString(), 18),
-            0n, // Set minShares to 0 to allow adding liquidity to imbalanced pools without reverting
-          ],
+          args: [poolUsdc, id, amount, minShares],
         },
         { onError: (err) => toast.error(err.message, { id: "tx-intent" }) },
       );

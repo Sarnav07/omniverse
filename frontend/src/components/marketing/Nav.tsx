@@ -6,7 +6,6 @@ import { WalletButton } from "../wallet-button";
 const navLinks = [
   { label: "protocol", to: "/" as const },
   { label: "markets", to: "/markets" as const },
-  { label: "simulate", to: "/simulate" as const },
   { label: "explorer", to: "/explorer" as const },
 ] as const;
 
