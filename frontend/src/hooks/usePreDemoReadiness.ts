@@ -176,8 +176,7 @@ export function usePreDemoReadiness(
 
   // 8. Block Start
   if (blockNumber) {
-    // START_BLOCK in config is 11015972 based on latest ponder.config.ts check.
-    const configStartBlock = 11015972;
+    const configStartBlock = manifest?.createdBlock ?? 0;
     if (configStartBlock > manifest.createdBlock) {
       checks.push({
         label: "Ponder START_BLOCK",

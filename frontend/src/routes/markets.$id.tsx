@@ -22,7 +22,8 @@ import Erc20Abi from "@/abis/ERC20.abi.json";
 import PmAmmPoolAbi from "@/abis/PmAmmPool.abi.json";
 import { DataSourceBadge } from "@/components/data-source-badge";
 import { useDemoManifest } from "@/hooks/useDemoManifest";
-import { useDemoMarket, useDemoTrades } from "@/hooks/useDemoIndexer";
+import { useDemoMarket } from "@/hooks/useDemoIndexer";
+import { useDemoTrades } from "@/hooks/useDemoTrades";
 import { PreDemoReadinessPanel } from "@/components/pre-demo-readiness-panel";
 import {
   useLiveBlockNumber,
@@ -104,7 +105,6 @@ function TerminalPage() {
         tvl: "$0.00",
         volume24: "$0.00",
         expiry: "...",
-        latency: "...",
       };
     const yesPrice = Number(item.lastPriceWeth) / 1e18;
     const volWeth = Number(item.totalVolumeWeth) / 1e18;
@@ -122,7 +122,6 @@ function TerminalPage() {
       tvl: "---",
       volume24: vol > 0 ? `$${vol.toFixed(1)}` : "$0.00",
       expiry: "2026·12·31",
-      latency: "218ms",
     };
   }, [data]);
 
@@ -663,11 +662,13 @@ function IntentEngine({
   poolWeth,
   poolUsdc,
   lending,
+  yesPrice,
 }: {
   mode: "provide" | "execute";
   poolWeth: `0x${string}`;
   poolUsdc: `0x${string}`;
   lending: `0x${string}`;
+  yesPrice: number;
 }) {
   const { id } = Route.useParams();
   const { address: user } = useAccount();
@@ -782,7 +783,7 @@ function IntentEngine({
             className={`tabular text-[14px] ${sideYes ? "text-white" : "text-white/40"}`}
             style={sideYes ? { textShadow: "0 0 12px rgba(255,255,255,0.35)" } : undefined}
           >
-            yes · 0.84
+            yes · {yesPrice.toFixed(2)}
           </span>
           {sideYes && <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />}
         </button>
@@ -796,7 +797,7 @@ function IntentEngine({
             side
           </span>
           <span className={`tabular text-[14px] ${!sideYes ? "text-white" : "text-white/40"}`}>
-            no · 0.16
+            no · {(1 - yesPrice).toFixed(2)}
           </span>
           {!sideYes && <span className="absolute inset-x-0 bottom-0 h-px bg-white/60" />}
         </button>
@@ -840,13 +841,6 @@ function IntentEngine({
             ltv · {ratio.toFixed(2)}
           </span>
         </div>
-
-        {/* fee preview */}
-        <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/[0.04] pt-4">
-          <PreviewCell label="solver fee" value="0.04%" />
-          <PreviewCell label="protocol" value="0.02%" />
-          <PreviewCell label="route" value="3 hops" />
-        </div>
       </div>
 
       {/* CTA */}
@@ -883,10 +877,6 @@ function IntentEngine({
             </span>
           )}
         </button>
-        <div className="mt-4 flex items-center justify-between tabular text-[9px] uppercase tracking-[0.22em] text-[#8B8D98]">
-          <span>est. settlement · 218ms</span>
-          <span>42 solvers competing</span>
-        </div>
       </div>
     </div>
   );
@@ -903,8 +893,28 @@ function BigInput({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { address } = useAccount();
   const isWeth = symbol.toLowerCase() === "weth";
   const isUsdc = symbol.toLowerCase() === "usdc";
+
+  const tokenAddress = isWeth 
+    ? CONTRACT_ADDRESSES.WETH 
+    : isUsdc 
+    ? CONTRACT_ADDRESSES.USDC 
+    : undefined;
+
+  const { data: balanceRaw } = useReadContract({
+    address: tokenAddress,
+    abi: Erc20Abi,
+    functionName: "balanceOf",
+    args: [address ?? "0x0000000000000000000000000000000000000000"],
+    query: { enabled: !!address && !!tokenAddress },
+  });
+
+  const balance = balanceRaw ? Number(balanceRaw as bigint) / 1e18 : 0;
+  const balanceDisplay = balance > 1000 
+    ? `${(balance / 1000).toFixed(1)}k` 
+    : balance.toFixed(2);
 
   return (
     <div
@@ -949,7 +959,7 @@ function BigInput({
           className="mt-2 text-[9px] uppercase tracking-[0.22em] text-[#8B8D98]"
           style={{ fontVariantNumeric: "tabular-nums" }}
         >
-          balance · 482.4k
+          balance · {address ? balanceDisplay : "---"}
         </span>
       </div>
     </div>

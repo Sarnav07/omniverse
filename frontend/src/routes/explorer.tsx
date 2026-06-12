@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Nav } from "@/components/marketing/Nav";
 import { useMemo, useState, type CSSProperties } from "react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Check } from "lucide-react";
 // react-katex is pure CommonJS. Under Vite SSR the named export isn't hoisted onto the
 // namespace (only the synthesized `default` = module.exports), while the client build

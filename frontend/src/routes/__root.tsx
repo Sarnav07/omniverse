@@ -11,9 +11,8 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { Provider as UrqlProvider } from "urql";
 import { Toaster } from "sonner";
-import "@rainbow-me/rainbowkit/styles.css";
-import { RainbowKitProvider, getDefaultConfig } from "@rainbow-me/rainbowkit";
-import { WagmiProvider } from "wagmi";
+import { WagmiProvider, createConfig, http } from "wagmi";
+import { injected } from "wagmi/connectors";
 import { arbitrumSepolia } from "wagmi/chains";
 
 import appCss from "../styles.css?url";
@@ -124,11 +123,12 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-const wagmiConfig = getDefaultConfig({
-  appName: "Omniverse Terminal",
-  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "demo",
+const wagmiConfig = createConfig({
   chains: [arbitrumSepolia],
-  ssr: false,
+  connectors: [injected()],
+  transports: {
+    [arbitrumSepolia.id]: http(import.meta.env.VITE_RPC_URL),
+  },
 });
 
 function RootComponent() {
@@ -148,25 +148,23 @@ function RootComponent() {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <UrqlProvider value={urqlClient}>
-          <RainbowKitProvider>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-            <Toaster
-              theme="dark"
-              position="bottom-right"
-              toastOptions={{
-                unstyled: false,
-                classNames: {
-                  toast:
-                    "omni-glass-heavy !bg-white/[0.02] !border-white/10 !text-white/90 !rounded-xl !shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
-                  title: "tabular !text-[11px] uppercase tracking-[0.22em] !text-white",
-                  description: "tabular !text-[10px] uppercase tracking-[0.18em] !text-white/45",
-                  success: "!text-[#00FFAA]",
-                  loader: "!text-white/70",
-                },
-              }}
-            />
-          </RainbowKitProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+          <Toaster
+            theme="dark"
+            position="bottom-right"
+            toastOptions={{
+              unstyled: false,
+              classNames: {
+                toast:
+                  "omni-glass-heavy !bg-white/[0.02] !border-white/10 !text-white/90 !rounded-xl !shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)]",
+                title: "tabular !text-[11px] uppercase tracking-[0.22em] !text-white",
+                description: "tabular !text-[10px] uppercase tracking-[0.18em] !text-white/45",
+                success: "!text-[#00FFAA]",
+                loader: "!text-white/70",
+              },
+            }}
+          />
         </UrqlProvider>
       </QueryClientProvider>
     </WagmiProvider>
