@@ -81,6 +81,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  validateSearch: (search: Record<string, unknown>): { present?: string } => ({
+    present: typeof search.present === "string" ? search.present : undefined,
+  }),
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -131,7 +134,7 @@ const wagmiConfig = getDefaultConfig({
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const search = useSearch({ strict: false });
-  const presentMode = search?.present === "true" || search?.present === true;
+  const presentMode = search?.present === "true";
 
   useEffect(() => {
     if (presentMode) {

@@ -6,8 +6,8 @@ const TRADES_QUERY = `
   query GetTrades($conditionId: String!, $poolType: String!) {
     trades(
       where: { conditionId: $conditionId, poolType: $poolType }
-      orderBy: "size"
-      orderDirection: "asc"
+      orderBy: "timestamp"
+      orderDirection: "desc"
       limit: 8
     ) {
       items {

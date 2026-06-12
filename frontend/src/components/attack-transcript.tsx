@@ -1,18 +1,10 @@
 import React, { useRef } from "react";
 import { motion } from "motion/react";
+import type { DemoTrade } from "@/lib/dashboardData";
+import { arbiscanTxUrl } from "@/lib/formatters";
+import { DataSourceBadge } from "./data-source-badge";
 
-export type DemoTrade = {
-  id: string;
-  txHash: string;
-  blockNumber: string;
-  side: number;
-  sideLabel?: "YES" | "NO";
-  size: string;
-  priceAfter?: string;
-  trader?: string;
-  timestamp?: string;
-  saved?: number;
-};
+export type { DemoTrade };
 
 export type AttackTranscriptProps = {
   trades: DemoTrade[];
@@ -22,6 +14,7 @@ export type AttackTranscriptProps = {
 
 export function AttackTranscript({ trades, isLoading, source }: AttackTranscriptProps) {
   if (isLoading) return <ActivityLoadingState />;
+  if (source === "unavailable" && trades.length === 0) return <UnavailableActivityState />;
   if (trades.length === 0) return <EmptyActivityState />;
   return (
     <div className="flex flex-col w-full h-full min-h-0">
@@ -58,9 +51,8 @@ export type ActivityRowProps = {
 
 export function ActivityRow({ trade }: ActivityRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
-  const sizeNum = Number(trade.size) / 1e18; // assuming it might be wei. If not, it will be tiny or huge.
-  const displaySize = isNaN(sizeNum) ? parseFloat(trade.size) : (sizeNum > 1e-6 && sizeNum < 1e12 ? sizeNum : parseFloat(trade.size));
-  const validSize = isNaN(displaySize) ? 0 : displaySize;
+  const sizeNum = Number(trade.size) / 1e18; // size is a WAD bigint
+  const validSize = isNaN(sizeNum) ? 0 : sizeNum;
 
   return (
     <motion.div
@@ -70,7 +62,7 @@ export function ActivityRow({ trade }: ActivityRowProps) {
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       className="grid grid-cols-[50px_1fr_1fr_60px_60px] gap-4 px-6 py-3 items-center border-b border-white/[0.02] hover:bg-white/[0.02] transition-colors cursor-pointer"
     >
-      <SideBadge side={trade.sideLabel || "YES"} />
+      <SideBadge side={trade.side === 0 ? "YES" : "NO"} />
       <AssetCell symbol="WETH" />
       <StatusCell status="resolved" />
       <span
@@ -79,13 +71,30 @@ export function ActivityRow({ trade }: ActivityRowProps) {
       >
         {validSize.toFixed(2)}
       </span>
-      <span
-        className="text-[10px] font-mono text-[#8B8D98] text-right"
+      <a
+        href={arbiscanTxUrl(trade.txHash)}
+        target="_blank"
+        rel="noreferrer"
+        title={`View tx ${trade.txHash} on Arbiscan`}
+        className="text-[10px] font-mono text-[#8B8D98] text-right hover:text-white transition-colors"
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
-        #{trade.blockNumber.slice(-5)}
-      </span>
+        #{String(trade.blockNumber).slice(-5)}
+      </a>
     </motion.div>
+  );
+}
+
+export function UnavailableActivityState() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6">
+      <div className="w-full h-full border border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center gap-3 bg-white/[0.01]">
+        <span className="text-xs font-mono text-[#8B8D98] tracking-widest uppercase">
+          indexer offline
+        </span>
+        <DataSourceBadge source="unavailable" />
+      </div>
+    </div>
   );
 }
 

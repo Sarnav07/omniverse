@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Nav } from "@/components/marketing/Nav";
@@ -81,7 +81,9 @@ export const Route = createFileRoute("/markets/$id")({
 
 function TerminalPage() {
   const { id } = Route.useParams();
-      const { data: manifest } = useDemoManifest();
+  const search = useSearch({ strict: false }) as { present?: string };
+  const presentMode = search?.present === "true";
+  const { data: manifest } = useDemoManifest();
   const { data: blockNumber } = useLiveBlockNumber();
 
   const [result] = useQuery({
@@ -248,6 +250,13 @@ function TerminalPage() {
           </div>
         </header>
 
+        {/* ── Pre-Demo Readiness (demo market only, hidden in present mode) ── */}
+        {isDemoMarket && !presentMode && (
+          <div className="shrink-0">
+            <PreDemoReadinessPanel manifest={manifest} pool={livePool} presentMode={presentMode} />
+          </div>
+        )}
+
         {/* ── Dual Panel ── */}
         <div className="flex flex-1 min-h-0 gap-4">
           {/* Chart — 65% */}
@@ -257,7 +266,14 @@ function TerminalPage() {
 
           {/* Execution Terminal — 35% */}
           <div className="flex w-[35%] flex-col overflow-hidden rounded-[16px] [&>div]:h-full">
-            <ExecutionTerminal poolWeth={livePool} poolUsdc={MARKET.poolUsdc} lending={MARKET.lending} yesPrice={liveYes} conditionId={id} />
+            <ExecutionTerminal
+              poolWeth={livePool}
+              poolUsdc={MARKET.poolUsdc}
+              lending={MARKET.lending}
+              yesPrice={liveYes}
+              conditionId={demoConditionId ?? id}
+              manifest={manifest}
+            />
           </div>
         </div>
       </main>

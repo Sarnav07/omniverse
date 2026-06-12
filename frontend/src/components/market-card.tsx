@@ -58,7 +58,7 @@ export function MarketCard({ market }: MarketCardProps) {
         <Probability side="yes" value={market.yes} favored={market.yes >= 0.5} />
       </div>
 
-      {market.routes ? <SolverMeshStatus routes={market.routes} /> : null}
+      {market.routes ? <SolverMeshStatus routesActive={market.routes} /> : null}
       <MarketCardCTA />
     </motion.div>
   );

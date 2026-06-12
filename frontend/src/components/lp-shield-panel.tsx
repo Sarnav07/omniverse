@@ -1,5 +1,5 @@
 import { PoolReserves } from "@/hooks/useLiveDemoReads";
-import { DataSource } from "./w-curve-live";
+import { DataSource } from "./data-source-badge";
 import { motion } from "motion/react";
 
 interface LpShieldPanelProps {

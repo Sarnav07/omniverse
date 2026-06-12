@@ -1,7 +1,7 @@
 import React from "react";
 import { Panel } from "./dashboard-grid";
 import { AttackTranscript } from "./attack-transcript";
-import { DemoTrade } from "@/hooks/useDemoTrades";
+import { DemoTrade } from "@/lib/dashboardData";
 
 export type ActivityPanelProps = {
   trades: DemoTrade[];

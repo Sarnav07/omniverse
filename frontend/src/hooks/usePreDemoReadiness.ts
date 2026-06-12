@@ -31,15 +31,16 @@ export function usePreDemoReadiness(
   const { address: walletAddress } = useAccount();
   const { data: blockNumber } = useBlockNumber({ watch: true });
 
-  const { data: wethBalance = 0n } = useReadContract({
+  const { data: wethBalanceRaw } = useReadContract({
     address: CONTRACT_ADDRESSES.WETH,
     abi: Erc20Abi,
     functionName: "balanceOf",
     args: [walletAddress ?? "0x0000000000000000000000000000000000000000"],
     query: { enabled: !!walletAddress },
   });
+  const wethBalance = (wethBalanceRaw as bigint | undefined) ?? 0n;
 
-  const { data: wethAllowance = 0n, refetch: refetchAllowance } = useReadContract({
+  const { data: wethAllowanceRaw, refetch: refetchAllowance } = useReadContract({
     address: CONTRACT_ADDRESSES.WETH,
     abi: Erc20Abi,
     functionName: "allowance",
@@ -49,6 +50,7 @@ export function usePreDemoReadiness(
     ],
     query: { enabled: !!walletAddress },
   });
+  const wethAllowance = (wethAllowanceRaw as bigint | undefined) ?? 0n;
 
   const { price: poolPrice } = usePoolPrice(pool);
 

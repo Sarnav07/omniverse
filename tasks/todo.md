@@ -1,67 +1,58 @@
-# Demo Unblock — Two Critical Bugs
+# New Frontend Integration — Plan
 
-## Bug 1 — Indexer ~100h sync
-Root cause: `indexer/ponder.config.ts` hardcodes `START_BLOCK=274270902` (~1.88M blocks
-below the live deploy block 275880507) and a stale factory/lending address (0xc164 / 0x4E24)
-that don't match the live demo (factory 0xc3DF, lending 0x63878d). With no `.env.local`, Ponder
-scans ~1.88M mostly-empty blocks on the rate-limited public RPC → ~100h, against the wrong factory.
+Branch `stylus-math`. New (Lovable) frontend fetched from `origin/stylus-math` (commits 7a3626c→ea4edec).
+Beautiful redesign, but execution paths are mocked/disconnected + two critical regressions.
+Approved approach: **wire real hooks into the new ExecutionTerminal shell**.
 
-- [x] Source factory/resolver/lending + startBlock from `demo-manifest.json` (single source of truth)
-- [x] Treat `0` / zero-address env overrides as "unset" so a copied `.env.example` can't reintroduce genesis scan
-- [x] Update `.env.example` so the zero placeholders can't override the manifest
+## Phase 0 — Correctness foundation (CRITICAL, demo-breaking)
+- [ ] `config/contracts.ts` — restore verified-live addresses (broken router `0xab7A…` → `0xF0AF…`, stale factory/lending/resolver/oracle/math)
+- [ ] `useAttackPresets.ts` — restore gas config (0.02/0.2 gwei) on writeApprove + writeContract; cast `wethAllowance` to bigint
+- [ ] `borrow-demo-tab.tsx` — approval `WETH.approve(router)` not ConditionalTokens.setApprovalForAll; gas config; manifest.router; 18 decimals
 
-## Bug 2 — Gas error on demo shots (buyYes) — silent revert, not OOG
-Root cause: `Router.buyYes/buyNo/addLiquidity` are hardcoded to pull+split `usdc`, but the demo's
-tradeable pool is the WETH pool (collateral = WETH) and the frontend approves WETH. The router pulls
-USDC the user never approved → `usdc.transferFrom` reverts ("ERC20: allowance") → gas estimation
-fails → MetaMask shows the absurd gas fee. Confirmed via live `cast call` (reverts `ERC20: allowance`).
+## Phase 1 — TypeScript errors (12)
+- [ ] Unify `DemoTrade` on `@/lib/dashboardData` (attack-transcript, activity-panel, ActivityRow render, test)
+- [ ] `lp-shield-panel.tsx` — import `DataSource` from `./data-source-badge`
+- [ ] `attack-presets.tsx` — `useEstimateGas` → `{ to, data: encodeFunctionData(...) }`
+- [ ] `usePreDemoReadiness.ts` — cast wethBalance/wethAllowance to bigint
+- [ ] `market-card.tsx` — `routes` → `routesActive`
+- [ ] `markets.create.tsx` — cast resolver setState arg
+- [ ] `__root.tsx` — type `search.present`
+- [ ] `execution-terminal.tsx` — add props interface
 
-- [x] Make Router swap fns collateral-agnostic via `pool.collateralToken()`
-- [x] Deploy a fresh fixed Router in `SimulateArbDemo.s.sol` and write `router` into the manifest
-- [x] Frontend reads `manifest.router` (fallback to config) for swap + borrow
-- [ ] Verify: forge build + tests, frontend tsc
+## Phase 2 — Wire real execution into ExecutionTerminal
+- [ ] Swap tab → real `<AttackPresets>` (Probe/Whale/Kill Shot buyYes, gas, manifest router)
+- [ ] Borrow tab → real `<BorrowDemoTab manifest>` (executeBorrow)
+- [ ] Thread manifest/addresses from markets.$id; live price
+- [ ] Mount `<PreDemoReadinessPanel>` on terminal page (hidden in present mode)
+- [ ] Manage/Provide/Redeem stay visual-only (not in 6-act demo)
 
-Note: borrow (`executeBorrow`) itself is NOT broken — live `cast call` succeeded (gas 334,825).
-The borrow "gas error" in HANDOFF was the 0-WETH wallet case. executeBorrow correctly uses weth.
+## Phase 3 — Spec alignment
+- [ ] `useDemoTrades.ts` — orderBy `timestamp` desc (was `size` asc)
 
-## Review (done)
-Both root causes confirmed against the LIVE chain (head 276151638), not just by reading:
-- Bug 1: indexer would scan ~1.88M blocks vs wrong factory (0xc164). Now manifest-sourced →
-  factory 0xc3DF, lending 0x63878d, start 275880507 (271k-block scan). `.env.example` zero/0
-  footgun closed. Verified by replaying the resolver in node.
-- Bug 2: `cast call buyYes(poolWeth,…)` reverted `ERC20: allowance` (router pulled USDC, user
-  approved WETH). Router now reads `pool.collateralToken()`. New `testRouterBuyYesOnWethPool`
-  passes; it is the exact demo path that reverted.
+## Phase 4 — Verify
+- [ ] `tsc --noEmit` clean
+- [ ] `vitest run` green
+- [ ] `bun run build` succeeds
+- [ ] dev smoke: /, /markets, /markets/$id, /demo, /simulate, present mode
+- [ ] Commit as Sarnav07 (single, no co-author), remove git identity after
 
-Verification: forge 71/71 (+ new WETH-pool test), frontend vitest 20/20, tsc adds 0 new errors
-(24 pre-existing both before/after), indexer config resolution replayed in node.
+## Review — DONE
 
-### Flagged items — NOW FIXED (user requested)
-- borrow-demo-tab USDC 6→18 decimals (on-chain USDC.decimals()==18). Display sane + edits
-  correct; 3 test mocks updated to 18-dec values. Default on-chain value unchanged (1e21).
-- attack-presets useEstimateGas rewritten to correct `{to, data, account}` shape via
-  encodeFunctionData (memoized + try/catch guard so invalid/loading args don't throw). Tooltip
-  now actually estimates. tsc dropped 24→23.
+New frontend fetched (fast-forward to `origin/stylus-math` ea4edec) and wired to the live backend.
 
-### DEPLOY — DONE (router-only)
-New OmniverseRouter @ 0xF0AF8C84655a3E25Cf26Cb88E70E765C157515B2 (Arb Sepolia, tx 0xb689…).
-Chosen over fresh-demo because user's contracts-sol/.env had STALE infra (0xc164/0x7ae5/0x1b34).
-Verified live (gasless): buyYes(poolWeth)→0x, executeBorrow→0x. Demo acct WETH pre-approved to
-new router. Wired into config/contracts.ts + demo-manifest.json (x2) + arb-sepolia.json.
-Fixed indexer/.env (removed stale FACTORY/LENDING/START_BLOCK overrides that reintroduced the
-100h scan). Aligned contracts-sol/.env FACTORY/RESOLVER/ORACLE to live set. Key never read into
-context (used sed). contracts.json (root) was a dead legacy registry off the demo path — deleted in cleanup.
+**Critical regressions fixed (demo-breaking):**
+- `config/contracts.ts` reverted to the broken old router `0xab7A…` + stale factory/lending/resolver/oracle/math → restored all 9 verified-live addresses.
+- `useAttackPresets.ts` lost its gas config → restored 0.02/0.2 gwei on approve + buyYes; WETH→router approval; manifest router; typed allowance.
+- `borrow-demo-tab.tsx` approved ConditionalTokens + USDC@6dec → now `WETH.approve(router)`, USDC@18dec, gas config, manifest router.
 
-### Run the demo
-`cd indexer && bun run dev`  (syncs from 275880507; local PGlite by default)
-`cd frontend && bun run dev`  (reads /demo-manifest.json → new router; VITE_WALLETCONNECT_PROJECT_ID set)
+**Execution wired into the new shell (approved approach):**
+- `ExecutionTerminal` given a props interface; Swap tab → real `<AttackPresets>` (live buyYes), Borrow tab → real `<BorrowDemoTab>` (executeBorrow). Bottom no-op button hidden on wired tabs. Manage/Provide/Redeem stay visual.
+- `markets.$id` passes manifest + mounts `<PreDemoReadinessPanel>` (hidden in present mode).
+- `useDemoManifest` type gained `router` + validation (null on bad manifest → graceful degradation).
+- `AttackTranscript` restored clickable Arbiscan tx links (Act 4/5) + unavailable state.
 
-### Deploy — DONE (router redeployed)
-The fixed router is live at `0xF0AF8C84655a3E25Cf26Cb88E70E765C157515B2`; the old `0xab7A`
-bytecode is no longer used. The demo runs against the existing live market — no redeploy needed.
+**Other fixes:** 12 TS errors (DemoTrade unified on dashboardData, DataSource import, useEstimateGas shape, readiness casts, SolverMeshStatus prop, root search typing, markets.create cast); `useDemoTrades` orderBy timestamp/desc; `react-katex` CJS interop on `/explorer`.
 
-For a full from-scratch redeploy: `./fresh-demo.sh` redeploys the fixed router, writes `router`
-+ fresh `createdBlock` into the manifest; the frontend reads `manifest.router` and the indexer
-reads the manifest. Needs contracts-sol/.env with DEPLOYER_PRIVATE_KEY, ARB_SEPOLIA_RPC,
-FACTORY_ADDRESS, RESOLVER_ADDRESS, ORACLE_ADDRESS (ORACLE_ADDRESS must be set or the lending
-market is skipped → borrow tab dead).
+**Verification:** `tsc --noEmit` 0 errors · `vitest` 14/14 · `vite build` OK (client 4089 mods + SSR) · dev smoke: /, /markets, /markets/$id, /demo, /simulate, /explorer all 200, no error boundary, present mode OK, manifest served with router.
+
+No files touched outside `frontend/` (backend dirs frozen). Did NOT add npm packages (katex deps were already declared; `bun install` synced the lock).

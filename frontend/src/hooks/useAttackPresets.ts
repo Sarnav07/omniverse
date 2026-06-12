@@ -3,7 +3,16 @@ import { useState, useEffect } from "react";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
 import Erc20Abi from "@/abis/ERC20.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
-import { parseUnits } from "viem";
+import { parseUnits, parseGwei } from "viem";
+
+// Every writeContract needs explicit gas or MetaMask estimation fails / shows absurd fees.
+const GAS_CONFIG = {
+  maxPriorityFeePerGas: parseGwei("0.02"),
+  maxFeePerGas: parseGwei("0.2"),
+} as const;
+
+const MAX_UINT256 =
+  115792089237316195423570985008687907853269984665640564039457584007913129639935n;
 
 export type TxPhase = "idle" | "wallet" | "pending" | "confirmed" | "failed";
 
@@ -26,20 +35,22 @@ export function useAttackPresets(
   conditionId: `0x${string}` | undefined,
   yesPrice: number,
   onConfirmed?: () => void,
+  router?: `0x${string}`,
 ) {
   const { address: walletAddress } = useAccount();
   const [txState, setTxState] = useState<TxState>({ phase: "idle" });
 
-  const { data: wethAllowance = 0n, refetch: refetchAllowance } = useReadContract({
+  // Prefer the manifest router (passed in); fall back to the verified-live config address.
+  const routerAddress = router ?? CONTRACT_ADDRESSES.OmniverseRouter;
+
+  const { data: wethAllowanceRaw, refetch: refetchAllowance } = useReadContract({
     address: CONTRACT_ADDRESSES.WETH,
     abi: Erc20Abi,
     functionName: "allowance",
-    args: [
-      walletAddress ?? "0x0000000000000000000000000000000000000000",
-      CONTRACT_ADDRESSES.OmniverseRouter,
-    ],
+    args: [walletAddress ?? "0x0000000000000000000000000000000000000000", routerAddress],
     query: { enabled: !!walletAddress },
   });
+  const wethAllowance = (wethAllowanceRaw as bigint | undefined) ?? 0n;
 
   const { writeContract, data: txHash, isPending, isError, error } = useWriteContract();
 
@@ -114,16 +125,14 @@ export function useAttackPresets(
 
     const amountWad = parseUnits(preset.amount, 18);
 
-    // Check allowance
+    // Check allowance — approve WETH (collateral) to the router, never ConditionalTokens.
     if (wethAllowance < amountWad) {
       writeApprove({
         address: CONTRACT_ADDRESSES.WETH,
         abi: Erc20Abi,
         functionName: "approve",
-        args: [
-          CONTRACT_ADDRESSES.OmniverseRouter,
-          115792089237316195423570985008687907853269984665640564039457584007913129639935n,
-        ],
+        args: [routerAddress, MAX_UINT256],
+        ...GAS_CONFIG,
       });
       return;
     }
@@ -140,10 +149,11 @@ export function useAttackPresets(
     const minOut = parseUnits(minOutFloat.toFixed(18), 18);
 
     writeContract({
-      address: CONTRACT_ADDRESSES.OmniverseRouter,
+      address: routerAddress,
       abi: OmniverseRouterAbi,
       functionName: "buyYes",
       args: [pool, conditionId, amountWad, minOut],
+      ...GAS_CONFIG,
     });
   };
 

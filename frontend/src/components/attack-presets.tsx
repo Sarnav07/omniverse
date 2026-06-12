@@ -1,7 +1,7 @@
 import { Loader2 } from "lucide-react";
 import { Preset, TxState, useAttackPresets } from "@/hooks/useAttackPresets";
 import { useEstimateGas } from "wagmi";
-import { parseUnits } from "viem";
+import { parseUnits, encodeFunctionData } from "viem";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
 import { useState } from "react";
@@ -12,35 +12,48 @@ interface AttackPresetsProps {
   yesPrice: number;
   onConfirmed: () => void;
   disabled?: boolean;
+  router?: `0x${string}`;
 }
 
-function PresetButton({ 
-  preset, 
-  execute, 
-  disabled, 
-  pool, 
-  conditionId, 
-  yesPrice 
-}: { 
-  preset: Preset; 
-  execute: (p: Preset) => void; 
+function PresetButton({
+  preset,
+  execute,
+  disabled,
+  pool,
+  conditionId,
+  yesPrice,
+  router,
+}: {
+  preset: Preset;
+  execute: (p: Preset) => void;
   disabled: boolean;
   pool: `0x${string}`;
   conditionId: `0x${string}`;
   yesPrice: number;
+  router: `0x${string}`;
 }) {
   const [hovered, setHovered] = useState(false);
   const amountWad = parseUnits(preset.amount, 18);
   const minOutFloat = (Number(preset.amount) / yesPrice) * 0.95;
   const minOut = parseUnits(minOutFloat.toFixed(18), 18);
 
-  // Attempt to estimate gas when hovered
+  // Attempt to estimate gas when hovered. useEstimateGas takes a raw {to, data} tx,
+  // so encode the buyYes call rather than passing abi/functionName. Guard the encode so
+  // invalid/loading addresses don't throw during render.
+  let callData: `0x${string}` | undefined;
+  try {
+    callData = encodeFunctionData({
+      abi: OmniverseRouterAbi,
+      functionName: "buyYes",
+      args: [pool, conditionId, amountWad, minOut],
+    });
+  } catch {
+    callData = undefined;
+  }
   const { data: gasEstimate } = useEstimateGas({
-    address: CONTRACT_ADDRESSES.OmniverseRouter,
-    abi: OmniverseRouterAbi,
-    functionName: "buyYes",
-    args: [pool, conditionId, amountWad, minOut],
-    query: { enabled: hovered && !disabled },
+    to: router,
+    data: callData,
+    query: { enabled: hovered && !disabled && !!callData },
   });
 
   return (
@@ -66,8 +79,15 @@ function PresetButton({
   );
 }
 
-export function AttackPresets({ pool, conditionId, yesPrice, onConfirmed, disabled }: AttackPresetsProps) {
-  const { presets, txState, execute } = useAttackPresets(pool, conditionId, yesPrice, onConfirmed);
+export function AttackPresets({ pool, conditionId, yesPrice, onConfirmed, disabled, router }: AttackPresetsProps) {
+  const routerAddress = router ?? CONTRACT_ADDRESSES.OmniverseRouter;
+  const { presets, txState, execute } = useAttackPresets(
+    pool,
+    conditionId,
+    yesPrice,
+    onConfirmed,
+    routerAddress,
+  );
 
   const isFrozenError = txState.phase === "failed" && txState.error?.includes("frozen");
   const isPending = txState.phase === "wallet" || txState.phase === "pending";
@@ -84,6 +104,7 @@ export function AttackPresets({ pool, conditionId, yesPrice, onConfirmed, disabl
             pool={pool}
             conditionId={conditionId}
             yesPrice={yesPrice}
+            router={routerAddress}
           />
         ))}
       </div>

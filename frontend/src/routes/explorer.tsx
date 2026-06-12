@@ -3,8 +3,13 @@ import { Nav } from "@/components/marketing/Nav";
 import { useMemo, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
-import { InlineMath } from "react-katex";
+// react-katex is CommonJS; a named ESM import fails under Vite SSR. Use a namespace
+// import and pull InlineMath off the module object (works in dev SSR and build).
+import * as ReactKatex from "react-katex";
 import "katex/dist/katex.min.css";
+
+const InlineMath = (ReactKatex as { InlineMath: typeof import("react-katex").InlineMath })
+  .InlineMath;
 
 /* ============================================================
  * Math kernel — bounded optimal-activeness surface λ*(P)

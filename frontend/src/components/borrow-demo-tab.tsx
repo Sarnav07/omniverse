@@ -1,12 +1,18 @@
 import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseUnits } from "viem";
+import { parseUnits, parseGwei } from "viem";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
-import ConditionalTokensAbi from "@/abis/ConditionalTokens.abi.json";
+import Erc20Abi from "@/abis/ERC20.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
 import { DemoManifest } from "@/hooks/useDemoManifest";
-import { TxPhase, TxState } from "@/hooks/useAttackPresets";
+import { TxState } from "@/hooks/useAttackPresets";
 import { Loader2 } from "lucide-react";
+
+// Every writeContract needs explicit gas or MetaMask estimation fails / shows absurd fees.
+const GAS_CONFIG = {
+  maxPriorityFeePerGas: parseGwei("0.02"),
+  maxFeePerGas: parseGwei("0.2"),
+} as const;
 
 interface BorrowDemoTabProps {
   manifest: DemoManifest;
@@ -16,7 +22,10 @@ interface BorrowDemoTabProps {
 export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
   const { address: walletAddress } = useAccount();
 
-  // Pre-fill from manifest (WAD / 1e18)
+  // Prefer the manifest router; fall back to the verified-live config address.
+  const routerAddress = (manifest.router ?? CONTRACT_ADDRESSES.OmniverseRouter) as `0x${string}`;
+
+  // Pre-fill from manifest (WAD / 1e18). Both WETH and USDC are 18-decimal here.
   const defaultCollateral = (Number(manifest.lendingCollateral) / 1e18).toString();
   const defaultBorrow = (Number(manifest.lendingDebt) / 1e18).toString();
 
@@ -25,15 +34,19 @@ export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
   const [txState, setTxState] = useState<TxState>({ phase: "idle" });
 
   const ltv = parseFloat(collateral) > 0 ? (parseFloat(borrow) / parseFloat(collateral)) * 100 : 0;
+  const wethCollateral = parseUnits(collateral || "0", 18);
 
-  // Check ConditionalTokens approval
-  const { data: isApproved, refetch: refetchApproval } = useReadContract({
-    address: CONTRACT_ADDRESSES.ConditionalTokens,
-    abi: ConditionalTokensAbi,
-    functionName: "isApprovedForAll",
-    args: [walletAddress ?? "0x0000000000000000000000000000000000000000", CONTRACT_ADDRESSES.OmniverseRouter],
+  // executeBorrow pulls WETH collateral and splits internally — approve WETH to the router
+  // (ERC-20 allowance), NOT ConditionalTokens.setApprovalForAll.
+  const { data: wethAllowanceRaw, refetch: refetchApproval } = useReadContract({
+    address: CONTRACT_ADDRESSES.WETH,
+    abi: Erc20Abi,
+    functionName: "allowance",
+    args: [walletAddress ?? "0x0000000000000000000000000000000000000000", routerAddress],
     query: { enabled: !!walletAddress },
   });
+  const wethAllowance = (wethAllowanceRaw as bigint | undefined) ?? 0n;
+  const isApproved = wethAllowance >= wethCollateral && wethCollateral > 0n;
 
   // Approval write
   const { writeContract: writeApprove, data: approveTxHash } = useWriteContract();
@@ -69,26 +82,27 @@ export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
   const handleSubmit = () => {
     if (!walletAddress) return;
 
-    const wethCollateral = parseUnits(collateral || "0", 18);
-    const usdcBorrow = parseUnits(borrow || "0", 6); // USDC is 6 decimals
+    const usdcBorrow = parseUnits(borrow || "0", 18); // deployed USDC mock is 18 decimals
 
-    // Step 1: Approve if needed
+    // Step 1: Approve WETH to the router if the allowance can't cover the collateral.
     if (!isApproved) {
       writeApprove({
-        address: CONTRACT_ADDRESSES.ConditionalTokens,
-        abi: ConditionalTokensAbi,
-        functionName: "setApprovalForAll",
-        args: [CONTRACT_ADDRESSES.OmniverseRouter, true],
+        address: CONTRACT_ADDRESSES.WETH,
+        abi: Erc20Abi,
+        functionName: "approve",
+        args: [routerAddress, wethCollateral],
+        ...GAS_CONFIG,
       });
       return;
     }
 
-    // Step 2: Execute borrow
+    // Step 2: Execute borrow — router.executeBorrow(lending, conditionId, weth, usdc)
     writeBorrow({
-      address: CONTRACT_ADDRESSES.OmniverseRouter,
+      address: routerAddress,
       abi: OmniverseRouterAbi,
       functionName: "executeBorrow",
       args: [manifest.lending, manifest.conditionId as `0x${string}`, wethCollateral, usdcBorrow],
+      ...GAS_CONFIG,
     });
   };
 
@@ -149,7 +163,7 @@ export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
       {/* Approval notice */}
       {!isApproved && walletAddress && (
         <div className="rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 text-xs text-yellow-400">
-          ConditionalTokens approval needed first
+          WETH approval needed first
         </div>
       )}
 
@@ -165,7 +179,7 @@ export function BorrowDemoTab({ manifest, onConfirmed }: BorrowDemoTabProps) {
             {txState.phase === "wallet" ? "Waiting for wallet..." : "Confirming..."}
           </span>
         ) : !isApproved && walletAddress ? (
-          "Approve ConditionalTokens"
+          "Approve WETH"
         ) : (
           "Execute Borrow"
         )}

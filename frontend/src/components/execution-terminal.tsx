@@ -6,8 +6,21 @@ import {
   ArrowDown,
   ArrowUp,
 } from "lucide-react";
+import { AttackPresets } from "./attack-presets";
+import { BorrowDemoTab } from "./borrow-demo-tab";
+import type { DemoManifest } from "@/hooks/useDemoManifest";
 
 type TabKey = "swap" | "borrow" | "manage" | "provide" | "redeem";
+
+export interface ExecutionTerminalProps {
+  poolWeth?: `0x${string}`;
+  poolUsdc?: `0x${string}`;
+  lending?: `0x${string}`;
+  yesPrice?: number;
+  conditionId?: string;
+  manifest?: DemoManifest | null;
+  onConfirmed?: () => void;
+}
 type ButtonState = "approve" | "executing" | "ready";
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -165,124 +178,69 @@ function MetaRow({ items }: { items: { label: string; value: ReactNode }[] }) {
   );
 }
 
-/* ---------------- SWAP ---------------- */
-function SwapTab() {
-  const [side, setSide] = useState<"yes" | "no">("yes");
-  const [pay, setPay] = useState<string>("");
-  const yesPrice = 0.62;
-  const noPrice = 0.38;
-  const price = side === "yes" ? yesPrice : noPrice;
-  const shares = pay ? (Number(pay) / price).toFixed(2) : "";
-
+/* ---------------- SWAP (real attack presets) ---------------- */
+function SwapTab({
+  poolWeth,
+  conditionId,
+  yesPrice,
+  router,
+  onConfirmed,
+}: {
+  poolWeth?: `0x${string}`;
+  conditionId?: string;
+  yesPrice: number;
+  router?: `0x${string}`;
+  onConfirmed?: () => void;
+}) {
+  if (!poolWeth || !conditionId) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-10 px-4 text-center">
+        <span className="text-xs text-[#8B8D98] uppercase tracking-widest">
+          Market not loaded
+        </span>
+        <span className="text-[10px] text-white/30">
+          Connect to the live demo market to execute trades.
+        </span>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex p-1 bg-[#08080A] border border-white/5 rounded-lg">
-        <button
-          onClick={() => setSide("yes")}
-          className={`flex-1 py-2 text-xs uppercase tracking-widest rounded-md transition-colors ${
-            side === "yes"
-              ? "bg-emerald-500/20 text-emerald-300 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]"
-              : "text-[#8B8D98] hover:text-white"
-          }`}
-        >
-          Yes · ${yesPrice.toFixed(2)}
-        </button>
-        <button
-          onClick={() => setSide("no")}
-          className={`flex-1 py-2 text-xs uppercase tracking-widest rounded-md transition-colors ${
-            side === "no"
-              ? "bg-red-500/20 text-red-300 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]"
-              : "text-[#8B8D98] hover:text-white"
-          }`}
-        >
-          No · ${noPrice.toFixed(2)}
-        </button>
-      </div>
-
-      <AmountInput
-        label="Pay"
-        asset="USDC"
-        assetClass="bg-sky-500/10 text-sky-300"
-        balance="1,820.50"
-        value={pay}
-        onChange={setPay}
-      />
-      <Readout
-        label="Receive · Est. Shares"
-        asset={side === "yes" ? "YES" : "NO"}
-        value={shares}
-      />
-      <MetaRow
-        items={[
-          { label: "Slippage", value: "1.0%" },
-          { label: "Solver Fee", value: "0.04%" },
-          { label: "Route", value: "3 hops" },
-        ]}
+      <span className="text-[10px] text-[#8B8D98] uppercase tracking-widest">
+        Buy YES · live on-chain
+      </span>
+      <AttackPresets
+        pool={poolWeth}
+        conditionId={conditionId as `0x${string}`}
+        yesPrice={yesPrice}
+        onConfirmed={onConfirmed ?? (() => {})}
+        router={router}
       />
     </div>
   );
 }
 
-/* ---------------- BORROW ---------------- */
-function BorrowTab() {
-  const [collateral, setCollateral] = useState<string>("1000");
-  const [borrow, setBorrow] = useState<string>("500");
-  const ltv =
-    collateral && Number(collateral) > 0
-      ? Math.min(100, (Number(borrow) / Number(collateral)) * 100)
-      : 0;
-
-  return (
-    <div>
-      <div className="flex flex-col gap-3">
-        <AmountInput
-          label="Collateral"
-          asset="WETH"
-          assetClass="bg-indigo-500/10 text-indigo-300"
-          balance="482.4K"
-          value={collateral}
-          onChange={setCollateral}
-        />
-        <AmountInput
-          label="Borrow Against"
-          asset="USDC"
-          assetClass="bg-sky-500/10 text-sky-300"
-          balance="482.4K"
-          value={borrow}
-          onChange={setBorrow}
-        />
+/* ---------------- BORROW (real executeBorrow) ---------------- */
+function BorrowTab({
+  manifest,
+  onConfirmed,
+}: {
+  manifest?: DemoManifest | null;
+  onConfirmed?: () => void;
+}) {
+  if (!manifest) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-10 px-4 text-center">
+        <span className="text-xs text-[#8B8D98] uppercase tracking-widest">
+          Borrow unavailable
+        </span>
+        <span className="text-[10px] text-white/30">
+          The demo manifest could not be loaded.
+        </span>
       </div>
-
-      {/* LTV Bar */}
-      <div className="mt-5 flex flex-col gap-2 px-1">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] text-[#8B8D98] uppercase tracking-widest">
-            Loan to Value
-          </span>
-          <span
-            className="text-[10px] text-emerald-300 font-mono"
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          >
-            {ltv.toFixed(1)}%
-          </span>
-        </div>
-        <div className="h-[2px] w-full bg-white/10 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-emerald-500 transition-all"
-            style={{ width: `${ltv}%` }}
-          />
-        </div>
-      </div>
-
-      <MetaRow
-        items={[
-          { label: "Solver Fee", value: "0.04%" },
-          { label: "Protocol", value: "0.02%" },
-          { label: "Route", value: "3 hops" },
-        ]}
-      />
-    </div>
-  );
+    );
+  }
+  return <BorrowDemoTab manifest={manifest} onConfirmed={onConfirmed} />;
 }
 
 /* ---------------- MANAGE ---------------- */
@@ -434,9 +392,20 @@ function RedeemTab() {
 }
 
 /* ---------------- Main ---------------- */
-export function ExecutionTerminal() {
-  const [tab, setTab] = useState<TabKey>("borrow");
+export function ExecutionTerminal({
+  poolWeth,
+  yesPrice = 0.5,
+  conditionId,
+  manifest,
+  onConfirmed,
+}: ExecutionTerminalProps) {
+  const [tab, setTab] = useState<TabKey>("swap");
   const [btnState, setBtnState] = useState<ButtonState>("approve");
+
+  // Swap and Borrow tabs render their own real execution buttons (AttackPresets /
+  // BorrowDemoTab); the shared bottom button is only for the visual-only tabs.
+  const wiredTabs: TabKey[] = ["swap", "borrow"];
+  const showBottomButton = !wiredTabs.includes(tab);
 
   const labels: Record<TabKey, { approve: string; ready: string }> = {
     swap: { approve: "Approve USDC", ready: "Swap Shares" },
@@ -476,22 +445,32 @@ export function ExecutionTerminal() {
 
       {/* Tab Body */}
       <div className="flex flex-col px-6 pt-6 flex-1 overflow-y-auto">
-        {tab === "swap" && <SwapTab />}
-        {tab === "borrow" && <BorrowTab />}
+        {tab === "swap" && (
+          <SwapTab
+            poolWeth={poolWeth}
+            conditionId={conditionId}
+            yesPrice={yesPrice}
+            router={manifest?.router}
+            onConfirmed={onConfirmed}
+          />
+        )}
+        {tab === "borrow" && <BorrowTab manifest={manifest} onConfirmed={onConfirmed} />}
         {tab === "manage" && <ManageTab />}
         {tab === "provide" && <ProvideTab />}
         {tab === "redeem" && <RedeemTab />}
       </div>
 
-      {/* Execute Button */}
-      <div className="px-6 pb-6 mt-auto shrink-0">
-        <ExecuteButton
-          state={btnState}
-          approveLabel={labels[tab].approve}
-          readyLabel={labels[tab].ready}
-          onClick={cycle}
-        />
-      </div>
+      {/* Execute Button — only for the visual-only tabs */}
+      {showBottomButton && (
+        <div className="px-6 pb-6 mt-auto shrink-0">
+          <ExecuteButton
+            state={btnState}
+            approveLabel={labels[tab].approve}
+            readyLabel={labels[tab].ready}
+            onClick={cycle}
+          />
+        </div>
+      )}
     </div>
   );
 }
