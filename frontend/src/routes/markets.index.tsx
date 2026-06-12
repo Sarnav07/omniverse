@@ -9,6 +9,9 @@ import { MarketGrid } from "@/components/market-grid";
 import { PageFooter } from "@/components/page-footer";
 import { Market } from "@/components/market-card";
 import { useQuery } from "urql";
+import { useReadContracts } from "wagmi";
+import PmAmmPoolAbi from "@/abis/PmAmmPool.abi.json";
+import { useDemoTrades } from "@/hooks/useDemoTrades";
 
 const MARKETS_QUERY = `
   query {
@@ -26,6 +29,23 @@ const MARKETS_QUERY = `
         totalVolumeUsdc
         resolved
         createdAt
+        conditionId
+      }
+    }
+  }
+`;
+
+const DEMO_TRADES_QUERY = `
+  query GetMarketTrades($conditionId: String!) {
+    trades(
+      where: { conditionId: $conditionId, poolType: "WETH" }
+      orderBy: "timestamp"
+      orderDirection: "asc"
+      limit: 20
+    ) {
+      items {
+        priceAfter
+        blockNumber
       }
     }
   }
@@ -66,21 +86,112 @@ function MarketsPage() {
   });
 
   const { data, fetching, error } = result;
+  const items = data?.markets?.items || [];
+
+  // Batch read reserves for all pools
+  const reservesContracts = useMemo(() => {
+    return items.flatMap((item: any) => {
+      const contracts = [];
+      if (item.poolWeth) {
+        contracts.push({
+          address: item.poolWeth as `0x${string}`,
+          abi: PmAmmPoolAbi,
+          functionName: "getReserves" as const,
+        });
+      }
+      if (item.poolUsdc) {
+        contracts.push({
+          address: item.poolUsdc as `0x${string}`,
+          abi: PmAmmPoolAbi,
+          functionName: "getReserves" as const,
+        });
+      }
+      return contracts;
+    });
+  }, [items]);
+
+  const { data: reservesData, isLoading: reservesLoading } = useReadContracts({
+    contracts: reservesContracts,
+    query: { enabled: reservesContracts.length > 0, refetchInterval: 5_000 },
+  });
+
+  // Query trades for all markets
+  const [tradesResults] = useQuery({
+    query: `
+      query GetAllTrades {
+        ${items.map((item: any, idx: number) => `
+          trades${idx}: trades(
+            where: { conditionId: "${item.conditionId}", poolType: "WETH" }
+            orderBy: "timestamp"
+            orderDirection: "asc"
+            limit: 20
+          ) {
+            items {
+              priceAfter
+            }
+          }
+        `).join('\n')}
+      }
+    `,
+    pause: items.length === 0,
+    requestPolicy: "cache-and-network",
+  });
 
   const filteredMarkets = useMemo(() => {
-    const items = data?.markets?.items || [];
+    const wethPrice = 3000; // Fixed $3000 WETH price
 
-    const combined = items.map((item: any) => {
+    const combined = items.map((item: any, idx: number) => {
       const yesPrice = Number(item.lastPriceWeth) / 1e18;
       const volWeth = Number(item.totalVolumeWeth) / 1e18;
       const volUsdc = Number(item.totalVolumeUsdc) / 1e18;
       const vol = volWeth + volUsdc;
       
-      // TVL calculation from pool reserves would go here - placeholder for now
-      const tvl = 0;
+      // Calculate TVL from pool reserves
+      let tvl = 0;
+      let reserveIdx = 0;
+      
+      // Count how many pools came before this item
+      for (let i = 0; i < idx; i++) {
+        if (items[i].poolWeth) reserveIdx++;
+        if (items[i].poolUsdc) reserveIdx++;
+      }
 
-      // Simple flat curve fallback until Ponder swap history is available
-      const curve = [yesPrice > 0 ? yesPrice : 0.5, yesPrice > 0 ? yesPrice : 0.5];
+      // Read WETH pool reserves
+      if (item.poolWeth && reservesData && reservesData[reserveIdx]) {
+        const result = reservesData[reserveIdx];
+        if (result.status === "success") {
+          const reserves = result.result as [bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+          const xActive = Number(reserves[0]) / 1e18;
+          const yActive = Number(reserves[2]) / 1e18;
+          tvl += (xActive * wethPrice) + yActive;
+        }
+        reserveIdx++;
+      }
+
+      // Read USDC pool reserves
+      if (item.poolUsdc && reservesData && reservesData[reserveIdx]) {
+        const result = reservesData[reserveIdx];
+        if (result.status === "success") {
+          const reserves = result.result as [bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+          const xActive = Number(reserves[0]) / 1e18;
+          const yActive = Number(reserves[2]) / 1e18;
+          tvl += xActive + yActive; // USDC pool is already in USD
+        }
+      }
+
+      // Build sparkline from trade history
+      let curve: number[] = [];
+      const tradesKey = `trades${idx}`;
+      if (tradesResults.data && tradesResults.data[tradesKey]) {
+        const trades = tradesResults.data[tradesKey].items || [];
+        if (trades.length > 0) {
+          curve = trades.map((t: any) => Number(t.priceAfter) / 1e18);
+        }
+      }
+      // Flat line at current price if no trades
+      if (curve.length === 0) {
+        curve = [yesPrice > 0 ? yesPrice : 0.5, yesPrice > 0 ? yesPrice : 0.5];
+      }
 
       return {
         id: item.id,
@@ -91,10 +202,12 @@ function MarketsPage() {
         volumeNum: vol,
         volume: vol > 0 ? `$${(vol / 1000).toFixed(1)}k` : "$0.00",
         tvlNum: tvl,
-        tvl: "—",
+        tvl: reservesLoading ? "⋯" : tvl > 0 ? `$${(tvl / 1000).toFixed(1)}k` : "$0.00",
         apr: "—",
         curve,
-        trend: "up",
+        trend: curve.length > 1 && curve[curve.length - 1] >= curve[0] ? "up" as const : "down" as const,
+        conditionId: item.conditionId,
+        poolWeth: item.poolWeth,
       };
     });
 
@@ -102,7 +215,7 @@ function MarketsPage() {
 
     if (activeCategory === "all") return displayList;
     return displayList.filter((m: any) => m.category.toLowerCase() === activeCategory);
-  }, [activeCategory, data]);
+  }, [activeCategory, data, items, reservesData, reservesLoading, tradesResults]);
 
   const { headerTvl, headerVol } = useMemo(() => {
     let t = 0;
@@ -112,10 +225,10 @@ function MarketsPage() {
       v += m.volumeNum || 0;
     }
     return {
-      headerTvl: t > 0 ? `$${(t / 1000).toFixed(1)}k` : "$0.00",
+      headerTvl: reservesLoading ? "⋯" : t > 0 ? `$${(t / 1000).toFixed(1)}k` : "$0.00",
       headerVol: v > 0 ? `$${(v / 1000).toFixed(1)}k` : "$0.00",
     };
-  }, [filteredMarkets]);
+  }, [filteredMarkets, reservesLoading]);
 
   return (
     <div className="w-full min-h-screen flex flex-col bg-[#08080A] text-[#F3F4F6] relative font-sans antialiased">

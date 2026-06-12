@@ -15,6 +15,8 @@ import {
 import { parseUnits, parseGwei, formatUnits } from "viem";
 import Erc20Abi from "@/abis/ERC20.abi.json";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
+import MultiverseLendingAbi from "@/abis/MultiverseLending.abi.json";
+import PmAmmPoolAbi from "@/abis/PmAmmPool.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
 import type { DemoManifest } from "@/hooks/useDemoManifest";
 import type { TxState } from "@/hooks/useAttackPresets";
@@ -603,15 +605,49 @@ function BorrowTab({
 }
 
 /* ---------------- MANAGE ---------------- */
-function ManageTab() {
+function ManageTab({ lending }: { lending?: `0x${string}` }) {
   const { address } = useAccount();
   const [mode, setMode] = useState<"repay" | "withdraw">("repay");
   const [amount, setAmount] = useState<string>("");
 
-  // Show placeholder until wallet connected
-  const collateral = address ? "—" : "—";
-  const debt = address ? "—" : "—";
-  const health = address ? "—" : "—";
+  const lendingAddress = lending ?? CONTRACT_ADDRESSES.MultiverseLending;
+
+  const { data: collateralRaw, isLoading: collateralLoading, isError: collateralError } = useReadContract({
+    address: lendingAddress,
+    abi: MultiverseLendingAbi,
+    functionName: "collateralOf",
+    args: [address ?? ZERO],
+    query: { enabled: !!address, refetchInterval: 5_000 },
+  });
+
+  const { data: debtRaw, isLoading: debtLoading, isError: debtError } = useReadContract({
+    address: lendingAddress,
+    abi: MultiverseLendingAbi,
+    functionName: "debtOf",
+    args: [address ?? ZERO],
+    query: { enabled: !!address, refetchInterval: 5_000 },
+  });
+
+  const { data: healthRaw, isLoading: healthLoading, isError: healthError } = useReadContract({
+    address: lendingAddress,
+    abi: MultiverseLendingAbi,
+    functionName: "healthFactor",
+    args: [address ?? ZERO],
+    query: { enabled: !!address, refetchInterval: 5_000 },
+  });
+
+  const collateralWad = (collateralRaw as bigint | undefined) ?? 0n;
+  const debtWad = (debtRaw as bigint | undefined) ?? 0n;
+  const healthWad = (healthRaw as bigint | undefined) ?? 0n;
+
+  const isLoading = collateralLoading || debtLoading || healthLoading;
+  const hasError = collateralError || debtError || healthError;
+
+  const collateral = isLoading ? "⋯" : hasError ? "error" : `${(Number(collateralWad) / 1e18).toFixed(2)} WETH`;
+  const debt = isLoading ? "⋯" : hasError ? "error" : `${(Number(debtWad) / 1e18).toFixed(0)} USDC`;
+  const healthNum = Number(healthWad) / 1e18;
+  const health = isLoading ? "⋯" : hasError ? "error" : healthNum > 0 ? healthNum.toFixed(2) : "∞";
+  const healthColor = hasError ? "text-red-400" : healthNum === 0 || !isFinite(healthNum) ? "text-emerald-400" : healthNum < 1.2 ? "text-red-400" : healthNum < 1.5 ? "text-amber-400" : "text-emerald-400";
 
   return (
     <div className="flex flex-col gap-3">
@@ -646,14 +682,14 @@ function ManageTab() {
         {[
           { label: "Collateral", value: collateral },
           { label: "Debt", value: debt },
-          { label: "Health", value: health },
+          { label: "Health", value: health, className: healthColor },
         ].map((c, i) => (
           <div key={i} className="bg-[#0E0E11] p-4 flex flex-col gap-1.5">
             <span className="text-[10px] text-[#8B8D98] uppercase tracking-widest">
               {c.label}
             </span>
             <span
-              className="text-sm text-white font-mono"
+              className={`text-sm font-mono ${c.className || "text-white"}`}
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
               {c.value}
@@ -679,9 +715,56 @@ function ManageTab() {
 }
 
 /* ---------------- PROVIDE ---------------- */
-function ProvideTab() {
+function ProvideTab({ poolWeth, poolUsdc, manifest }: { poolWeth?: `0x${string}`; poolUsdc?: `0x${string}`; manifest?: DemoManifest | null }) {
+  const { address } = useAccount();
   const [deposit, setDeposit] = useState<string>("");
   const lp = deposit ? (Number(deposit) * 0.97).toFixed(2) : "";
+
+  const pool = poolUsdc ?? poolWeth ?? ZERO;
+
+  const { data: reservesRaw, isLoading: reservesLoading, isError: reservesError } = useReadContract({
+    address: pool,
+    abi: PmAmmPoolAbi,
+    functionName: "getReserves",
+    query: { enabled: !!pool && pool !== ZERO, refetchInterval: 5_000 },
+  });
+
+  const { data: totalSharesRaw, isLoading: totalSharesLoading, isError: totalSharesError } = useReadContract({
+    address: pool,
+    abi: PmAmmPoolAbi,
+    functionName: "totalShares",
+    query: { enabled: !!pool && pool !== ZERO, refetchInterval: 5_000 },
+  });
+
+  const { data: userSharesRaw, isLoading: userSharesLoading, isError: userSharesError } = useReadContract({
+    address: pool,
+    abi: PmAmmPoolAbi,
+    functionName: "sharesOf",
+    args: [address ?? ZERO],
+    query: { enabled: !!address && !!pool && pool !== ZERO, refetchInterval: 5_000 },
+  });
+
+  const reserves = reservesRaw as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined;
+  const xActive = reserves?.[0] ?? 0n;
+  const yActive = reserves?.[2] ?? 0n;
+
+  // For USDC pool, liquidity is already in USD
+  // For WETH pool, convert using fixed $3000 WETH price
+  const isWethPool = pool === poolWeth;
+  const wethPrice = 3000n * 10n ** 18n;
+  const liquidityWad = isWethPool 
+    ? (xActive * wethPrice / 10n ** 18n) + yActive 
+    : xActive + yActive;
+
+  const totalShares = (totalSharesRaw as bigint | undefined) ?? 0n;
+  const userShares = (userSharesRaw as bigint | undefined) ?? 0n;
+  const userSharePct = totalShares > 0n ? (Number(userShares) / Number(totalShares)) * 100 : 0;
+
+  const isLoading = reservesLoading || totalSharesLoading || userSharesLoading;
+  const hasError = reservesError || totalSharesError || userSharesError;
+
+  const liquidity = isLoading ? "⋯" : hasError ? "error" : liquidityWad > 0n ? `$${(Number(liquidityWad) / 1e18 / 1000).toFixed(1)}k` : "$0";
+  const share = isLoading ? "⋯" : hasError ? "error" : userSharePct > 0 ? `${userSharePct.toFixed(2)}%` : "0%";
 
   return (
     <div className="flex flex-col gap-3">
@@ -696,9 +779,9 @@ function ProvideTab() {
       <Readout label="Estimated LP Shares" asset="LP" value={lp} />
       <MetaRow
         items={[
-          { label: "Pool Liquidity", value: "—" },
+          { label: "Pool Liquidity", value: liquidity },
           { label: "Est. APY", value: "—" },
-          { label: "Your Share", value: "—" },
+          { label: "Your Share", value: share },
         ]}
       />
     </div>
@@ -810,8 +893,8 @@ export function ExecutionTerminal({
           />
         )}
         {tab === "borrow" && <BorrowTab manifest={manifest} onConfirmed={onConfirmed} />}
-        {tab === "manage" && <ManageTab />}
-        {tab === "provide" && <ProvideTab />}
+        {tab === "manage" && <ManageTab lending={manifest?.lending} />}
+        {tab === "provide" && <ProvideTab poolWeth={poolWeth} poolUsdc={manifest?.poolUsdc} manifest={manifest} />}
         {tab === "redeem" && <RedeemTab />}
       </div>
 
