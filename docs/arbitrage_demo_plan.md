@@ -375,7 +375,7 @@ bun run dev
 7. Open:
 
 ```text
-http://localhost:5173/demo
+http://localhost:3000/demo
 ```
 
 8. Verify dashboard state before the presentation:

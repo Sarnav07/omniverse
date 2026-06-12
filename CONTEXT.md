@@ -209,18 +209,18 @@ arbitrum/
 │   │   └── OmniverseMathSolidity.sol  # solstat+PRBMath fallback
 │   └── test/
 │
-├── web/                       # Next.js 15 frontend
-│   ├── app/
-│   │   ├── markets/
-│   │   │   ├── page.tsx       # Market grid
-│   │   │   └── [id]/
-│   │   │       └── page.tsx   # Market detail + trade/LP/lending
-│   │   ├── demo1/             # Zero-Liquidation demo
-│   │   └── demo2/             # λ Explorer demo
-│   ├── components/
-│   ├── hooks/
-│   └── lib/
-│       └── math.ts            # TS port of Gaussian math for Demo 2
+├── frontend/                  # React 19 / TanStack Start / Vite app
+│   └── src/
+│       ├── routes/            # File-based routes (TanStack Router)
+│       │   ├── index.tsx      # Landing (/)
+│       │   ├── markets.$id.tsx# Attack terminal + ExecutionTerminal (swap/borrow)
+│       │   ├── demo.tsx       # Proof dashboard (/demo)
+│       │   ├── simulate.tsx   # Resolution sim (/simulate)
+│       │   └── explorer.tsx   # Block/trade + λ*(P) explorer (/explorer)
+│       ├── components/
+│       ├── hooks/             # wagmi reads + urql GraphQL hooks
+│       └── lib/
+│           └── formatters.ts  # WAD formatters + Arbiscan helpers
 │
 ├── indexer/                   # Ponder indexer
 │   └── ponder.config.ts
@@ -242,7 +242,7 @@ arbitrum/
 |-------|-----------|
 | Smart Contracts (math) | Rust, `stylus-sdk` ^0.10, `no_std`, `wasm32-unknown-unknown` |
 | Smart Contracts (logic) | Solidity, Foundry |
-| Frontend | Next.js 15, React 19, TypeScript, wagmi v2, viem, RainbowKit |
+| Frontend | React 19, TanStack Start/Router, Vite, TypeScript, wagmi v3, viem, RainbowKit, urql |
 | Charts | Recharts |
 | Animations | Framer Motion |
 | Styling | Tailwind CSS + shadcn/ui |

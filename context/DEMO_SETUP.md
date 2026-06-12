@@ -31,9 +31,12 @@ You do **not** need to redeploy — just start the two services.
 # ~271k blocks → a few minutes on the public RPC. GraphQL at http://localhost:42069/graphql
 cd indexer && bun install && bun run dev
 
-# Terminal 2 — frontend (Vite + wagmi + urql)
+# Terminal 2 — frontend (React 19 / TanStack Start / wagmi v3 + RainbowKit / urql)
 cd frontend && bun install && bun run dev
-# Open http://localhost:5173
+# Vite prints the dev URL on startup — open http://localhost:3000
+# (it falls forward to 3001/3002… if 3000 is taken). Set
+# VITE_WALLETCONNECT_PROJECT_ID in frontend/.env for WalletConnect (optional; injected
+# MetaMask works without it).
 ```
 
 The frontend reads `frontend/public/demo-manifest.json` → router
@@ -52,10 +55,12 @@ Import the demo account so trades and the borrow are pre-funded and pre-approved
 1. MetaMask → Import Account → paste `DEPLOYER_PRIVATE_KEY` from `contracts-sol/.env`
    (account `0x3a57622F51356fB925081A6D048BAA3eC35D9bAe`).
 2. Add / switch to the **Arbitrum Sepolia** network (chainId 421614).
+3. In the app, click **Connect Wallet** (RainbowKit, top-right of the terminal nav) and pick
+   the injected MetaMask account.
 
 This account holds WETH and has already approved the new router, so the attack presets and borrow
-execute without an extra approval step. A fresh wallet works too — the UI surfaces an "Approve WETH"
-step and the readiness panel flags missing balance.
+execute without an extra approval step. A fresh wallet works too — the terminal surfaces an
+"Approve WETH" step and the readiness panel flags missing balance.
 
 ---
 
@@ -66,21 +71,27 @@ step and the readiness panel flags missing balance.
    active/passive %, ℓ, L\_t, and the math-kernel badge. Expand the **Pre-Demo Readiness Panel** —
    all checks should be green (network, wallet, WETH balance ≥ 12,000, allowance, pool readable,
    indexer synced, START_BLOCK ≤ createdBlock).
-3. **Execute attacks** — fire the three presets in order against the **WETH pool**:
-   **Probe (2,000 WETH) → Whale (4,000) → Kill Shot (6,000)**. Each confirms in MetaMask; price
-   ticks up and λ\* drops within ~2s. Passive % climbs past ~80% on the Kill Shot.
+3. **Execute attacks** — in the terminal's **Swap tab** (the execution panel on the right), use the
+   quick-fill buttons in order against the **WETH pool**: **Probe (2,000 WETH) → Whale (4,000) →
+   Kill Shot (6,000)**. Each fills the Pay amount; click **Buy YES** to fire it (first trade prompts
+   an "Approve WETH" step). Each confirms in MetaMask; price ticks up and λ\* drops within ~2s.
+   Passive % climbs past ~80% on the Kill Shot.
 4. **Proof dashboard (`/demo`)** — the W-curve dot sits at the post-attack P(YES); the
    **Attack Transcript** lists the 3 trades with real tx hashes (indexed from Ponder); the
    **LP Shield** bar shows the active/passive split.
 5. **Arbiscan verification** — click any tx hash → opens `sepolia.arbiscan.io/tx/...`. Real chain,
    real trades.
-6. **Borrow flow (`/markets/:id` → Borrow tab)** — pre-filled **500 WETH collateral → 250 USDC
-   borrow**. Step 1 approves WETH to the router (if needed); Step 2 calls
-   `Router.executeBorrow(...)`. Show the health-factor explanation. Then **`/simulate`** —
-   the amber `SimulationBanner` makes clear the resolution is client-side only (resolving live would
-   destroy the demo pool); trigger it to show the net-settlement math.
+6. **Borrow flow (`/markets/:id` → Borrow tab)** — pre-filled from the manifest:
+   **100 WETH collateral → 1,000 USDC borrow**. Step 1 approves WETH to the router (if needed);
+   Step 2 calls `Router.executeBorrow(lending, conditionId, weth, usdc)`. Show the health-factor
+   (∞ — no forced liquidation). Then **`/simulate`** — the amber `SimulationBanner` makes clear the
+   resolution is client-side only (resolving live would destroy the demo pool); trigger it to show
+   the net-settlement math.
 
-**Present mode:** append `?present=true` to any route (e.g. `http://localhost:5173/markets/<id>?present=true`)
+> Bonus: **`/explorer`** is a standalone block/trade explorer with the live λ\*(P) math surface
+> (KaTeX) — useful as a B-roll/“how it works” aside, not part of the 6-act flow.
+
+**Present mode:** append `?present=true` to any route (e.g. `http://localhost:3000/markets/<id>?present=true`)
 to hide the readiness panel and dev `DataSourceBadge`s for a clean screen share. The
 `SimulationBanner` stays visible.
 
@@ -122,4 +133,4 @@ WETH:            0x6a8273EA01a9f9BCC4cE8D1d681575ce21eF8204  (18 decimals)
 USDC:            0xBCB53c282F9106f3CBD063824c657Cb5928AEB71  (18 decimals — deployed mock)
 ```
 Full set lives in `frontend/src/config/contracts.ts` and the live `demo-manifest.json`.
-Indexer GraphQL: `http://localhost:42069/graphql` · Frontend: `http://localhost:5173`.
+Indexer GraphQL: `http://localhost:42069/graphql` · Frontend: `http://localhost:3000`.

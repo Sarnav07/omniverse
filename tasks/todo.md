@@ -56,3 +56,28 @@ New frontend fetched (fast-forward to `origin/stylus-math` ea4edec) and wired to
 **Verification:** `tsc --noEmit` 0 errors · `vitest` 14/14 · `vite build` OK (client 4089 mods + SSR) · dev smoke: /, /markets, /markets/$id, /demo, /simulate, /explorer all 200, no error boundary, present mode OK, manifest served with router.
 
 No files touched outside `frontend/` (backend dirs frozen). Did NOT add npm packages (katex deps were already declared; `bun install` synced the lock).
+
+## Round 2 — swap/borrow restore + full audit
+
+**Swap/Borrow buttons restored, wired real (user request):** rewrote `ExecutionTerminal` so the Swap
+tab has the YES/NO toggle + Pay(WETH) input + Probe/Whale/Kill quick-fills + a real **Buy YES/NO**
+button (router.buyYes/buyNo), and the Borrow tab has collateral/borrow inputs + LTV + a real
+**Execute Borrow** button (router.executeBorrow). Shared two-step (approve→action) hook with gas
+config, WETH approval, Slippage/Frozen decoding, live WETH balance, and Arbiscan tx links.
+
+**Deep audit (2 parallel agents) — findings fixed:**
+- **CRITICAL:** `frontend/public/demo-manifest.json` was a STALE old deployment (runId 1780929193,
+  createdBlock 11015972, broken factory 0xc164 / lending 0x405F, no router, wrong conditionId/pools).
+  The frontend fetches this at runtime → whole demo pointed at dead contracts. Synced it to the live
+  `contracts-sol/deployments/demo-manifest.json` (router 0xF0AF…, conditionId 0x5d05…, block 275880507).
+- Removed unused `AttackPresets`/`BorrowDemoTab` imports from `markets.$id.tsx`.
+- `explorer.tsx` react-katex CJS interop: namespace `.InlineMath` is undefined under SSR — resolved
+  via `?? .default.InlineMath` (verified deterministically in Node).
+- Noted but left: dead `IntentEngine`/`RedeemTab` in markets.$id (unrendered, ~480 lines — removing
+  is risky for zero demo benefit).
+- Docs re-synced to the new stack: CONTEXT.md (Next.js15/wagmi v2/`web/` → TanStack Start/wagmi v3/
+  `frontend/src/routes`), DEMO_SETUP.md (port 5173→3000, RainbowKit connect, /explorer, manifest
+  borrow amounts 100 WETH/1000 USDC), docs/architecture_summary.md (React 18→19), arbitrage_demo_plan.md (port).
+
+**Re-verified:** tsc 0 errors · vitest 14/14 · vite build OK (client+SSR). Live dev smoke blocked by
+sandbox (SIGTERMs servers); earlier smoke had all routes 200 with no error boundary.

@@ -23,9 +23,7 @@ import PmAmmPoolAbi from "@/abis/PmAmmPool.abi.json";
 import { DataSourceBadge } from "@/components/data-source-badge";
 import { useDemoManifest } from "@/hooks/useDemoManifest";
 import { useDemoMarket, useDemoTrades } from "@/hooks/useDemoIndexer";
-import { AttackPresets } from "@/components/attack-presets";
 import { PreDemoReadinessPanel } from "@/components/pre-demo-readiness-panel";
-import { BorrowDemoTab } from "@/components/borrow-demo-tab";
 import {
   useLiveBlockNumber,
   useMathKernelStatus,

@@ -3,13 +3,18 @@ import { Nav } from "@/components/marketing/Nav";
 import { useMemo, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
-// react-katex is CommonJS; a named ESM import fails under Vite SSR. Use a namespace
-// import and pull InlineMath off the module object (works in dev SSR and build).
-import * as ReactKatex from "react-katex";
+// react-katex is pure CommonJS. Under Vite SSR the named export isn't hoisted onto the
+// namespace (only the synthesized `default` = module.exports), while the client build
+// hoists it. Resolve from whichever shape is present so it works in dev SSR and build.
+import * as ReactKatexNS from "react-katex";
 import "katex/dist/katex.min.css";
 
-const InlineMath = (ReactKatex as { InlineMath: typeof import("react-katex").InlineMath })
-  .InlineMath;
+type InlineMathT = typeof import("react-katex").InlineMath;
+const _reactKatex = ReactKatexNS as unknown as {
+  InlineMath?: InlineMathT;
+  default?: { InlineMath: InlineMathT };
+};
+const InlineMath: InlineMathT = _reactKatex.InlineMath ?? _reactKatex.default!.InlineMath;
 
 /* ============================================================
  * Math kernel — bounded optimal-activeness surface λ*(P)

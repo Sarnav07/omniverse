@@ -163,7 +163,7 @@ The TypeScript handlers listen to the raw EVM logs and upsert data into the sche
 
 ## 7. Frontend Architecture (React + Vite + Wagmi)
 
-The frontend is a dark-themed, highly stylized, hyper-responsive execution terminal. It uses React 18, Vite, and TailwindCSS for the build system and UI styling, heavily utilizing glassmorphism, micro-animations, and strict typography (Geist Mono/Inter).
+The frontend is a dark-themed, highly stylized, hyper-responsive execution terminal. It is a React 19 app on TanStack Start (file-based TanStack Router) built with Vite, using TailwindCSS/shadcn-ui for styling, wagmi v3 + RainbowKit for wallet/chain access, and urql for the Ponder GraphQL — heavily utilizing glassmorphism, micro-animations, and strict typography (Geist Mono/Inter).
 
 ### 7.1 Routing & Tanstack Router
 Instead of standard React Router, Omniverse uses `@tanstack/react-router` for fully type-safe, file-based routing.
