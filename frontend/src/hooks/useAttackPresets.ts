@@ -3,13 +3,7 @@ import { useState, useEffect } from "react";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
 import Erc20Abi from "@/abis/ERC20.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
-import { parseUnits, parseGwei } from "viem";
-
-// Every writeContract needs explicit gas or MetaMask estimation fails / shows absurd fees.
-const GAS_CONFIG = {
-  maxPriorityFeePerGas: parseGwei("0.02"),
-  maxFeePerGas: parseGwei("0.2"),
-} as const;
+import { parseUnits } from "viem";
 
 const MAX_UINT256 =
   115792089237316195423570985008687907853269984665640564039457584007913129639935n;
@@ -43,12 +37,21 @@ export function useAttackPresets(
   // Prefer the manifest router (passed in); fall back to the verified-live config address.
   const routerAddress = router ?? CONTRACT_ADDRESSES.OmniverseRouter;
 
+  const { data: wethBalanceRaw } = useReadContract({
+    address: CONTRACT_ADDRESSES.WETH,
+    abi: Erc20Abi,
+    functionName: "balanceOf",
+    args: [walletAddress ?? "0x0000000000000000000000000000000000000000"],
+    query: { enabled: !!walletAddress, refetchInterval: 2_000 },
+  });
+  const wethBalance = (wethBalanceRaw as bigint | undefined) ?? 0n;
+
   const { data: wethAllowanceRaw, refetch: refetchAllowance } = useReadContract({
     address: CONTRACT_ADDRESSES.WETH,
     abi: Erc20Abi,
     functionName: "allowance",
     args: [walletAddress ?? "0x0000000000000000000000000000000000000000", routerAddress],
-    query: { enabled: !!walletAddress },
+    query: { enabled: !!walletAddress, refetchInterval: 2_000 },
   });
   const wethAllowance = (wethAllowanceRaw as bigint | undefined) ?? 0n;
 
@@ -120,10 +123,40 @@ export function useAttackPresets(
     onConfirmed,
   ]);
 
+  const mintWeth = () => {
+    const mintAmount = parseUnits("10000", 18);
+    writeContract({
+      address: CONTRACT_ADDRESSES.WETH,
+      abi: [
+        {
+          name: "mint",
+          type: "function",
+          stateMutability: "nonpayable",
+          inputs: [
+            { name: "to", type: "address" },
+            { name: "amount", type: "uint256" }
+          ],
+          outputs: []
+        }
+      ],
+      functionName: "mint",
+      args: [walletAddress, mintAmount],
+    });
+  };
+
   const execute = (preset: Preset) => {
     if (!pool || !conditionId) return;
 
     const amountWad = parseUnits(preset.amount, 18);
+
+    // Check balance first
+    if (wethBalance < amountWad) {
+      setTxState({ 
+        phase: "failed", 
+        error: `Insufficient WETH. You need ${preset.amount} WETH but have ${(Number(wethBalance) / 1e18).toFixed(2)} WETH. Use "Mint Test WETH" button.`
+      });
+      return;
+    }
 
     // Check allowance — approve WETH (collateral) to the router, never ConditionalTokens.
     if (wethAllowance < amountWad) {
@@ -132,7 +165,6 @@ export function useAttackPresets(
         abi: Erc20Abi,
         functionName: "approve",
         args: [routerAddress, MAX_UINT256],
-        ...GAS_CONFIG,
       });
       return;
     }
@@ -143,9 +175,10 @@ export function useAttackPresets(
     const amountFloat = Number(preset.amount);
     const expectedOutFloat = amountFloat / yesPrice;
 
-    // Whale and Kill Shot need 15% slippage (0.85), Probe uses 5% (0.95)
+    // Wider slippage for rapid sequential trades (price shifts between presets)
+    // Whale and Kill Shot: 25% (0.75), Probe: 15% (0.85)
     const slippageMultiplier = 
-      preset.label === "Whale" || preset.label === "Kill Shot" ? 0.85 : 0.95;
+      preset.label === "Whale" || preset.label === "Kill Shot" ? 0.75 : 0.85;
     const minOutFloat = expectedOutFloat * slippageMultiplier;
     // We safely parse back to BigInt avoiding fractional decimals
     const minOut = parseUnits(minOutFloat.toFixed(18), 18);
@@ -155,9 +188,9 @@ export function useAttackPresets(
       abi: OmniverseRouterAbi,
       functionName: "buyYes",
       args: [pool, conditionId, amountWad, minOut],
-      ...GAS_CONFIG,
+      gas: 500000n,
     });
   };
 
-  return { presets: PRESETS, txState, execute };
+  return { presets: PRESETS, txState, execute, mintWeth, wethBalance };
 }

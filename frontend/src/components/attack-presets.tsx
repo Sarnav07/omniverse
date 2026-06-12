@@ -81,7 +81,7 @@ function PresetButton({
 
 export function AttackPresets({ pool, conditionId, yesPrice, onConfirmed, disabled, router }: AttackPresetsProps) {
   const routerAddress = router ?? CONTRACT_ADDRESSES.OmniverseRouter;
-  const { presets, txState, execute } = useAttackPresets(
+  const { presets, txState, execute, mintWeth, wethBalance } = useAttackPresets(
     pool,
     conditionId,
     yesPrice,
@@ -90,10 +90,25 @@ export function AttackPresets({ pool, conditionId, yesPrice, onConfirmed, disabl
   );
 
   const isFrozenError = txState.phase === "failed" && txState.error?.includes("frozen");
+  const isInsufficientBalance = txState.phase === "failed" && txState.error?.includes("Insufficient WETH");
   const isPending = txState.phase === "wallet" || txState.phase === "pending";
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between rounded border border-white/10 bg-white/5 px-4 py-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-white/50">Your WETH Balance:</span>
+          <span className="font-mono text-sm text-white">{(Number(wethBalance) / 1e18).toFixed(2)}</span>
+        </div>
+        <button
+          onClick={mintWeth}
+          disabled={isPending}
+          className="rounded bg-emerald-500/20 px-3 py-1 text-xs text-emerald-300 transition-all hover:bg-emerald-500/30 disabled:opacity-50"
+        >
+          Mint 10k Test WETH
+        </button>
+      </div>
+
       <div className="grid grid-cols-3 gap-4">
         {presets.map((preset) => (
           <PresetButton

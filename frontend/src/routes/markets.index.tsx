@@ -31,7 +31,6 @@ const MARKETS_QUERY = `
         totalVolumeUsdc
         resolved
         createdAt
-        conditionId
       }
     }
   }
@@ -93,6 +92,18 @@ function MarketsPage() {
   const { data, fetching, error } = result;
   const items = data?.markets?.items || [];
 
+  console.log("Markets query result:", { 
+    hasData: !!data, 
+    data,
+    itemsCount: items.length, 
+    fetching, 
+    errorMessage: error?.message,
+    graphQLErrors: error?.graphQLErrors?.map(e => e.message)
+  });
+  if (items.length > 0) {
+    console.log("First item:", items[0]);
+  }
+
   // Batch read reserves for all pools
   const reservesContracts = useMemo(() => {
     return items.flatMap((item: any) => {
@@ -121,12 +132,11 @@ function MarketsPage() {
   });
 
   // Query trades for all markets
-  const [tradesResults] = useQuery({
-    query: `
+  const tradesQuery = items.length > 0 ? `
       query GetAllTrades {
         ${items.map((item: any, idx: number) => `
           trades${idx}: trades(
-            where: { conditionId: "${item.conditionId}", poolType: "WETH" }
+            where: { conditionId: "${item.id}", poolType: "WETH" }
             orderBy: "timestamp"
             orderDirection: "asc"
             limit: 20
@@ -137,7 +147,12 @@ function MarketsPage() {
           }
         `).join('\n')}
       }
-    `,
+    ` : `query { __typename }`;
+
+  console.log("Generated trades query:", tradesQuery);
+
+  const [tradesResults] = useQuery({
+    query: tradesQuery,
     pause: items.length === 0,
     requestPolicy: "cache-and-network",
   });
@@ -150,11 +165,11 @@ function MarketsPage() {
       const volWeth = Number(item.totalVolumeWeth) / 1e18;
       const volUsdc = Number(item.totalVolumeUsdc) / 1e18;
       const vol = volWeth + volUsdc;
-      
+
       // Calculate TVL from pool reserves
       let tvl = 0;
       let reserveIdx = 0;
-      
+
       // Count how many pools came before this item
       for (let i = 0; i < idx; i++) {
         if (items[i].poolWeth) reserveIdx++;
@@ -211,7 +226,7 @@ function MarketsPage() {
         apr: "—",
         curve,
         trend: curve.length > 1 && curve[curve.length - 1] >= curve[0] ? "up" as const : "down" as const,
-        conditionId: item.conditionId,
+        conditionId: item.id,
         poolWeth: item.poolWeth,
       };
     });
@@ -249,7 +264,7 @@ function MarketsPage() {
 
         <CategoryFilters activeCategory={activeCategory} onChange={setActiveCategory} />
 
-        <HeaderStatsBar 
+        <HeaderStatsBar
           tvl={headerTvl}
           volume={headerVol}
           activeMarkets={fetching ? "..." : filteredMarkets.length.toString()}

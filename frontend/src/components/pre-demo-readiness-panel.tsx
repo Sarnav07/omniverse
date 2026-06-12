@@ -24,7 +24,7 @@ function StatusIcon({ status }: { status: ReadinessCheck["status"] }) {
 export function PreDemoReadinessPanel({ manifest, pool, presentMode }: PreDemoReadinessPanelProps) {
   const { checks, allPass } = usePreDemoReadiness(manifest, pool);
 
-  if (presentMode) return null;
+  if (presentMode || allPass) return null;
 
   return (
     <div className={`mb-6 rounded-lg border p-4 ${allPass ? "border-white/10 bg-white/5" : "border-red-500/20 bg-red-500/5"}`}>

@@ -81,49 +81,67 @@ export const Route = createFileRoute("/markets/$id")({
 function TerminalPage() {
   const { id } = Route.useParams();
   const search = useSearch({ strict: false }) as { present?: string };
-  const presentMode = search?.present === "true";
+  const presentMode = search?.present === "true" || (typeof window !== 'undefined' && window.location.search.includes("present=true"));
   const { data: manifest } = useDemoManifest();
   const { data: blockNumber } = useLiveBlockNumber();
 
   const [result] = useQuery({
     query: MARKET_BY_ID_QUERY,
-    variables: { id },
+    variables: { id: id.toLowerCase() },
+    requestPolicy: "cache-and-network",
   });
   const { data, fetching } = result;
 
   const MARKET = useMemo(() => {
     const item = data?.market;
-    if (!item)
+    // If we have Ponder data, use it
+    if (item) {
+      const yesPrice = Number(item.lastPriceWeth) / 1e18;
+      const volWeth = Number(item.totalVolumeWeth) / 1e18;
+      const volUsdc = Number(item.totalVolumeUsdc) / 1e18;
+      const vol = volWeth + volUsdc;
       return {
-        poolWeth: "0x0000000000000000000000000000000000000000" as `0x${string}`,
-        poolUsdc: "0x0000000000000000000000000000000000000000" as `0x${string}`,
-        lending: CONTRACT_ADDRESSES.MultiverseLending as `0x${string}`,
-        symbol: "...",
-        question: "Loading...",
-        category: "...",
-        yes: 0.5,
-        tvl: "$0.00",
-        volume24: "$0.00",
-        expiry: "...",
+        poolWeth: (item.poolWeth ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
+        poolUsdc: (item.poolUsdc ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
+        lending: (item.lending ?? CONTRACT_ADDRESSES.MultiverseLending) as `0x${string}`,
+        lastPriceWeth: item.lastPriceWeth,
+        symbol: item.symbol,
+        question: item.question,
+        category: item.category,
+        yes: yesPrice > 0 ? yesPrice : 0.5,
+        tvl: "---",
+        volume24: vol > 0 ? `$${vol.toFixed(1)}` : "$0.00",
+        expiry: "2026·12·31",
       };
-    const yesPrice = Number(item.lastPriceWeth) / 1e18;
-    const volWeth = Number(item.totalVolumeWeth) / 1e18;
-    const volUsdc = Number(item.totalVolumeUsdc) / 1e18;
-    const vol = volWeth + volUsdc;
+    }
+    // If no Ponder data but have manifest, use that instead of showing loading
+    if (manifest)
+      return {
+        poolWeth: (manifest.poolWeth ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
+        poolUsdc: (manifest.poolUsdc ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
+        lending: (manifest.lending ?? CONTRACT_ADDRESSES.MultiverseLending) as `0x${string}`,
+        symbol: manifest.symbol,
+        question: manifest.question,
+        category: "demo",
+        yes: 0.5,
+        tvl: "---",
+        volume24: "$0.00",
+        expiry: "2026·12·31",
+      };
+    // Only show loading if we're still fetching and have no fallback
     return {
-      poolWeth: (item.poolWeth ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
-      poolUsdc: (item.poolUsdc ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
-      lending: (item.lending ?? CONTRACT_ADDRESSES.MultiverseLending) as `0x${string}`,
-      lastPriceWeth: item.lastPriceWeth,
-      symbol: item.symbol,
-      question: item.question,
-      category: item.category,
-      yes: yesPrice > 0 ? yesPrice : 0.5,
-      tvl: "---",
-      volume24: vol > 0 ? `$${vol.toFixed(1)}` : "$0.00",
-      expiry: "2026·12·31",
+      poolWeth: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+      poolUsdc: "0x0000000000000000000000000000000000000000" as `0x${string}`,
+      lending: CONTRACT_ADDRESSES.MultiverseLending as `0x${string}`,
+      symbol: "...",
+      question: fetching ? "Loading..." : "Market not found",
+      category: "...",
+      yes: 0.5,
+      tvl: "$0.00",
+      volume24: "$0.00",
+      expiry: "...",
     };
-  }, [data]);
+  }, [data, manifest]);
 
   const isDemoMarket =
     !!manifest &&
@@ -247,8 +265,8 @@ function TerminalPage() {
           </div>
         </header>
 
-        {/* ── Pre-Demo Readiness (demo market only, hidden in present mode) ── */}
-        {isDemoMarket && !presentMode && (
+        {/* ── Pre-Demo Readiness (demo market only, hidden in present mode or after trades) ── */}
+        {isDemoMarket && !presentMode && demoTrades.length === 0 && (
           <div className="shrink-0">
             <PreDemoReadinessPanel manifest={manifest} pool={livePool} presentMode={presentMode} />
           </div>
