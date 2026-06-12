@@ -9,16 +9,15 @@ import {
   useSearch,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Provider as UrqlProvider } from "urql";
 import { Toaster } from "sonner";
-
-import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
-
 import "@rainbow-me/rainbowkit/styles.css";
 import { RainbowKitProvider, getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { arbitrumSepolia } from "wagmi/chains";
-import { Provider as UrqlProvider } from "urql";
+
+import appCss from "../styles.css?url";
+import { reportLovableError } from "../lib/lovable-error-reporting";
 import { urqlClient } from "../lib/urql";
 
 function NotFoundComponent() {
@@ -86,23 +85,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "OMNIVERSE — Thermal Void Terminal" },
-      { name: "description", content: "Zero-liquidation DeFi execution terminal." },
-      { name: "author", content: "OMNIVERSE Labs" },
-      { property: "og:title", content: "OMNIVERSE" },
-      { property: "og:description", content: "Zero-liquidation DeFi execution terminal." },
+      { name: "theme-color", content: "#08080A" },
+      { title: "Omniverse" },
+      { name: "description", content: "Bounded liquidity for prediction markets." },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
-      { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;500;600&family=Geist+Mono:wght@300;400;500&family=Outfit:wght@200;300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap",
       },
+      { rel: "stylesheet", href: appCss },
     ],
   }),
   shellComponent: RootShell,

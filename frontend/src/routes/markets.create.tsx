@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useWriteContract, useWaitForTransactionReceipt, useAccount } from "wagmi";
 import { parseUnits, isAddress } from "viem";
 import { toast } from "sonner";
-import { NavBar } from "@/components/nav-bar";
+import { Nav } from "@/components/marketing/Nav";
 import { SpotlightCard } from "@/components/spotlight-card";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
 import MarketFactoryAbi from "@/abis/MarketFactory.abi.json";
@@ -108,7 +108,7 @@ function CreateMarketPage() {
     <div className="relative min-h-screen w-full overflow-x-hidden bg-abyss text-foreground pb-32">
       <div className="noise-overlay" />
       <div className="border-b border-white/[0.05]">
-        <NavBar />
+        <Nav appMode />
       </div>
 
       <section className="relative z-10 mx-auto mt-20 w-full max-w-[1600px] px-8">

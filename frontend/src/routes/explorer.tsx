@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { NavBar } from "@/components/nav-bar";
+import { Nav } from "@/components/marketing/Nav";
 import { useMemo, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
@@ -589,5 +589,5 @@ export const Route = createFileRoute("/explorer")({
       },
     ],
   }),
-  component: () => (<div className="relative min-h-screen w-full overflow-x-hidden bg-[#0A0A0B]"><div className="border-b border-white/[0.05]"><NavBar hideWallet /></div><ExplorerPage /></div>),
+  component: () => (<div className="relative min-h-screen w-full overflow-x-hidden bg-[#0A0A0B]"><div className="border-b border-white/[0.05]"><Nav appMode /></div><ExplorerPage /></div>),
 });

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { NavBar } from "@/components/nav-bar";
+import { Nav } from "@/components/marketing/Nav";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
@@ -390,5 +390,5 @@ export const Route = createFileRoute("/simulate")({
       },
     ],
   }),
-  component: () => (<div className="relative min-h-screen w-full overflow-x-hidden bg-[#0A0A0B]"><div className="border-b border-white/[0.05]"><NavBar hideWallet /></div><WrappedSimulatePage /></div>),
+  component: () => (<div className="relative min-h-screen w-full overflow-x-hidden bg-[#0A0A0B]"><div className="border-b border-white/[0.05]"><Nav appMode /></div><WrappedSimulatePage /></div>),
 });

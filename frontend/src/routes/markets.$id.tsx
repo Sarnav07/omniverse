@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { NavBar } from "@/components/nav-bar";
+import { Nav } from "@/components/marketing/Nav";
 import ExecutionTerminal from "@/components/execution-terminal";
 import {
   useWriteContract,
@@ -175,7 +175,7 @@ function TerminalPage() {
 
       {/* Global nav — bordered, full width */}
       <div className="shrink-0 border-b border-white/[0.05]">
-        <NavBar />
+        <Nav appMode />
       </div>
 
       {isDemoMarket && (

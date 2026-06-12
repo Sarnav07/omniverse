@@ -1,74 +1,174 @@
-import { arbiscanTxUrl } from "@/lib/formatters";
-import { DemoTrade } from "@/lib/dashboardData";
+import React, { useRef } from "react";
+import { motion } from "motion/react";
 
-export function AttackTranscript({ trades, isLoading, source }: { trades: DemoTrade[], isLoading: boolean, source: string }) {
+export type DemoTrade = {
+  id: string;
+  txHash: string;
+  blockNumber: string;
+  side: number;
+  sideLabel?: "YES" | "NO";
+  size: string;
+  priceAfter?: string;
+  trader?: string;
+  timestamp?: string;
+  saved?: number;
+};
+
+export type AttackTranscriptProps = {
+  trades: DemoTrade[];
+  isLoading: boolean;
+  source?: string;
+};
+
+export function AttackTranscript({ trades, isLoading, source }: AttackTranscriptProps) {
+  if (isLoading) return <ActivityLoadingState />;
+  if (trades.length === 0) return <EmptyActivityState />;
   return (
-    <div className="flex h-full flex-col bg-card-bg">
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="tabular grid grid-cols-12 border-b border-white/[0.04] px-6 pb-2 pt-4 text-[10px] font-medium uppercase tracking-widest text-text-secondary">
-          <span className="col-span-2">Side</span>
-          <span className="col-span-2">Asset</span>
-          <span className="col-span-3 pr-6 text-right">Amount</span>
-          <span className="col-span-3 pl-6">Status</span>
-          <span className="col-span-2 text-right">Block</span>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto px-2 pb-2">
-          {isLoading ? (
-            <div className="space-y-2 px-4 py-2">
-              <div className="h-6 w-full animate-pulse rounded bg-white/5" />
-              <div className="h-6 w-full animate-pulse rounded bg-white/5" />
-              <div className="h-6 w-full animate-pulse rounded bg-white/5" />
-            </div>
-          ) : trades.length > 0 ? (
-            trades.map((t) => {
-              const isYes = t.sideLabel === "YES" || t.side === 0;
-              const sideClass = isYes 
-                ? "bg-accent-green/10 text-accent-green border-accent-green/20" 
-                : "bg-red-500/10 text-red-500 border-red-500/20";
-              const sideText = isYes ? "Buy" : "Sell";
-
-              return (
-                <div 
-                  key={t.id} 
-                  className="group tabular grid grid-cols-12 items-center rounded-lg px-4 py-2.5 text-[12px] transition-colors hover:bg-white/[0.03]"
-                >
-                  <span className="col-span-2">
-                    <span className={`inline-flex items-center justify-center rounded border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider ${sideClass}`}>
-                      {sideText}
-                    </span>
-                  </span>
-                  <span className="col-span-2 flex items-center gap-1.5 font-medium text-white">
-                    <div className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white/20 bg-white/10 p-0.5">
-                      <div className="h-full w-full rounded-full bg-white" />
-                    </div>
-                    WETH
-                  </span>
-                  <span className="col-span-3 pr-6 text-right font-mono text-white/90">
-                    {(Number(t.size) / 1e18).toFixed(4)}
-                  </span>
-                  <span className="col-span-3 flex items-center gap-2 pl-6">
-                    <span className="relative flex h-[4px] w-[4px]">
-                      <span className="absolute inset-0 animate-ping rounded-full bg-accent-green" />
-                      <span className="relative h-full w-full rounded-full bg-accent-green" style={{ filter: "drop-shadow(0 0 4px var(--accent-green))" }} />
-                    </span>
-                    <span className="text-[11px] text-text-secondary">Filled</span>
-                  </span>
-                  <span className="col-span-2 text-right text-[10px] text-text-secondary">
-                    <a href={arbiscanTxUrl(t.txHash)} target="_blank" rel="noreferrer" className="hover:text-white transition-colors">
-                      {t.blockNumber}
-                    </a>
-                  </span>
-                </div>
-              );
-            })
-          ) : (
-            <div className="py-8 text-center text-[12px] text-text-secondary border border-white/[0.04] border-dashed rounded-lg mx-4 mt-4">
-              Awaiting intent resolution...
-            </div>
-          )}
-        </div>
+    <div className="flex flex-col w-full h-full min-h-0">
+      <ActivityTableHeader />
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        {trades.map((t) => (
+          <ActivityRow key={t.id} trade={t} />
+        ))}
       </div>
+    </div>
+  );
+}
+
+export function ActivityTableHeader() {
+  return (
+    <div className="grid grid-cols-[50px_1fr_1fr_60px_60px] gap-4 px-6 py-3 border-b border-white/5">
+      {["Side", "Asset", "Status", "Size", "Block"].map((c, i) => (
+        <span
+          key={c}
+          className={`text-[9px] text-[#8B8D98] uppercase tracking-widest ${
+            i >= 3 ? "text-right" : ""
+          }`}
+        >
+          {c}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export type ActivityRowProps = {
+  trade: DemoTrade;
+};
+
+export function ActivityRow({ trade }: ActivityRowProps) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const sizeNum = Number(trade.size) / 1e18; // assuming it might be wei. If not, it will be tiny or huge.
+  const displaySize = isNaN(sizeNum) ? parseFloat(trade.size) : (sizeNum > 1e-6 && sizeNum < 1e12 ? sizeNum : parseFloat(trade.size));
+  const validSize = isNaN(displaySize) ? 0 : displaySize;
+
+  return (
+    <motion.div
+      ref={rowRef}
+      initial={{ opacity: 0, x: -6, backgroundColor: "rgba(16,185,129,0.06)" }}
+      animate={{ opacity: 1, x: 0, backgroundColor: "rgba(255,255,255,0)" }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="grid grid-cols-[50px_1fr_1fr_60px_60px] gap-4 px-6 py-3 items-center border-b border-white/[0.02] hover:bg-white/[0.02] transition-colors cursor-pointer"
+    >
+      <SideBadge side={trade.sideLabel || "YES"} />
+      <AssetCell symbol="WETH" />
+      <StatusCell status="resolved" />
+      <span
+        className="text-xs font-mono text-white text-right"
+        style={{ fontVariantNumeric: "tabular-nums" }}
+      >
+        {validSize.toFixed(2)}
+      </span>
+      <span
+        className="text-[10px] font-mono text-[#8B8D98] text-right"
+        style={{ fontVariantNumeric: "tabular-nums" }}
+      >
+        #{trade.blockNumber.slice(-5)}
+      </span>
+    </motion.div>
+  );
+}
+
+export type SideBadgeProps = {
+  side: "YES" | "NO";
+};
+
+export function SideBadge({ side }: SideBadgeProps) {
+  const cls =
+    side === "YES"
+      ? "bg-[#10B981]/10 text-[#10B981]"
+      : "bg-[#EF4444]/10 text-[#EF4444]";
+  return (
+    <span
+      className={`text-[9px] font-bold tracking-widest uppercase px-2 py-1 rounded w-fit flex items-center justify-center ${cls}`}
+    >
+      {side}
+    </span>
+  );
+}
+
+export type AssetCellProps = {
+  symbol: string;
+};
+
+export function AssetCell({ symbol }: AssetCellProps) {
+  const dot =
+    symbol === "WETH"
+      ? "bg-purple-500/20 border-purple-500/50"
+      : "bg-blue-500/20 border-blue-500/50";
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`w-3 h-3 rounded-full border ${dot}`} />
+      <span className="text-[10px] text-[#8B8D98] uppercase tracking-widest">{symbol}</span>
+    </div>
+  );
+}
+
+export type StatusCellProps = {
+  status: string;
+  active?: boolean;
+};
+
+export function StatusCell({ status }: StatusCellProps) {
+  const color = status === "pending" ? "#F59E0B" : "#10B981";
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        className="w-1 h-1 rounded-full"
+        style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
+      />
+      <span className="text-[10px] text-[#8B8D98] capitalize">{status}</span>
+    </div>
+  );
+}
+
+export function EmptyActivityState() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center p-6">
+      <div className="w-full h-full border border-dashed border-white/10 rounded-xl flex items-center justify-center bg-white/[0.01]">
+        <span className="text-xs font-mono text-[#8B8D98] tracking-widest uppercase">
+          awaiting intent resolution...
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function ActivityLoadingState({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="flex flex-col w-full">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-[50px_1fr_1fr_60px_60px] gap-4 px-6 py-4 border-b border-white/5"
+        >
+          <div className="h-3 bg-white/5 rounded animate-pulse w-full" />
+          <div className="h-3 bg-white/5 rounded animate-pulse w-3/4" />
+          <div className="h-3 bg-white/5 rounded animate-pulse w-2/3" />
+          <div className="h-3 bg-white/5 rounded animate-pulse w-full" />
+          <div className="h-3 bg-white/5 rounded animate-pulse w-2/3" />
+        </div>
+      ))}
     </div>
   );
 }

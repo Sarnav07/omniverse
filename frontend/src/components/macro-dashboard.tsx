@@ -1,12 +1,11 @@
 import { useMemo } from "react";
-import { motion } from "motion/react";
 
-interface MacroDashboardProps {
+export type MacroDashboardProps = {
   savedTotal: number;
   shielded: number;
-  lambdaWad: bigint | undefined;
+  lambdaWad?: bigint;
   price: number;
-}
+};
 
 export function MacroDashboard({ savedTotal, shielded, lambdaWad, price }: MacroDashboardProps) {
   const savedDisplay = useMemo(() => {
@@ -18,71 +17,123 @@ export function MacroDashboard({ savedTotal, shielded, lambdaWad, price }: Macro
 
   const lamAt = lambdaWad ? Number(lambdaWad) / 1e18 : 1;
 
+  const cards: MacroCardProps[] = [
+    {
+      label: "CUMULATIVE SAVED",
+      value: `$${savedDisplay}`,
+      delta: "+184k in 24h",
+      deltaPositive: true,
+      sparkline: true,
+      seed: [12, 14, 13, 16, 18, 17, 21, 24, 22, 26, 28, 31],
+    },
+    {
+      label: "LP SHIELD STATUS",
+      value: `${(shielded * 100).toFixed(1)}%`,
+      delta: "Insulated",
+      deltaPositive: null,
+      sparkline: false,
+    },
+    {
+      label: "CURRENT λ*",
+      value: lamAt.toFixed(3),
+      delta: "Dynamic Defense",
+      deltaPositive: null,
+      sparkline: false,
+    },
+    {
+      label: "MARKET PROBABILITY",
+      value: `${(price * 100).toFixed(1)}%`,
+      delta: "Live Activity",
+      deltaPositive: null,
+      sparkline: false,
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-4 gap-4 mb-6">
-      <MacroCard 
-        label="CUMULATIVE SAVED" 
-        value={`$${savedDisplay}`} 
-        delta="+184k in 24h" 
-        deltaPositive 
-        sparkline 
-      />
-      <MacroCard 
-        label="LP SHIELD STATUS" 
-        value={`${(shielded * 100).toFixed(1)}%`} 
-        delta="Insulated" 
-      />
-      <MacroCard 
-        label="CURRENT λ*" 
-        value={lamAt.toFixed(3)} 
-        delta="Dynamic Defense" 
-      />
-      <MacroCard 
-        label="MARKET PROBABILITY" 
-        value={`${(price * 100).toFixed(1)}%`} 
-        delta="Live Activity" 
-      />
+    <section className="grid grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+      {cards.map((c) => (
+        <MacroCard key={c.label} {...c} />
+      ))}
+    </section>
+  );
+}
+
+export type MacroCardProps = {
+  label: string;
+  value: string;
+  delta: string | null;
+  deltaPositive?: boolean | null;
+  sparkline?: boolean;
+  seed?: number[];
+};
+
+export function MacroCard({ label, value, delta, deltaPositive, sparkline, seed }: MacroCardProps) {
+  const deltaColor =
+    deltaPositive === true ? "#10B981" : deltaPositive === false ? "#EF4444" : "#8B8D98";
+  return (
+    <div className="relative flex flex-col justify-between p-6 bg-[#0E0E11] border border-white/5 rounded-2xl overflow-hidden group hover:border-white/10 transition-colors min-h-[180px] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]">
+      <span className="text-[10px] text-[#8B8D98] tracking-widest uppercase relative z-10">
+        {label}
+      </span>
+      <div
+        className="text-3xl font-mono text-white tracking-tight mt-4 relative z-10"
+        style={{ fontVariantNumeric: "tabular-nums" }}
+      >
+        {value}
+      </div>
+      <div
+        className="text-xs font-mono mt-2 z-10 relative"
+        style={{ fontVariantNumeric: "tabular-nums", color: deltaColor }}
+      >
+        {delta}
+      </div>
+      {sparkline && seed && <Sparkline data={seed} positive={deltaPositive !== false} />}
     </div>
   );
 }
 
-function MacroCard({ label, value, delta, deltaPositive = false, sparkline = false }: { label: string; value: string; delta: string; deltaPositive?: boolean; sparkline?: boolean }) {
+export type SparklineProps = {
+  data: number[];
+  positive: boolean;
+};
+
+export function Sparkline({ data, positive }: SparklineProps) {
+  const w = 280;
+  const h = 60;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const step = w / (data.length - 1);
+  const pts = data.map((v, i) => [i * step, h - ((v - min) / range) * (h - 4) - 2] as const);
+  const line = pts.reduce((acc, [x, y], i) => {
+    if (i === 0) return `M ${x} ${y}`;
+    const [px, py] = pts[i - 1];
+    const cx = (px + x) / 2;
+    return `${acc} Q ${cx} ${py} ${x} ${y}`;
+  }, "");
+  const area = `${line} L ${w} ${h} L 0 ${h} Z`;
+  const color = positive ? "#10B981" : "#EF4444";
+  const gid = `spk-${Math.random().toString(36).slice(2, 8)}`;
   return (
-    <div className="relative overflow-hidden rounded-[24px] border border-white/[0.03] bg-gradient-to-br from-white/[0.015] to-transparent p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] backdrop-blur-2xl">
-      <div className="mb-3 text-[11px] font-medium uppercase tracking-widest text-text-secondary">
-        {label}
-      </div>
-      <div className="mb-2 tabular text-[32px] font-medium leading-none tracking-tight text-white">
-        {value}
-      </div>
-      <div className={`tabular text-[12px] font-mono ${deltaPositive ? "text-accent-green" : "text-text-secondary"}`}>
-        {delta}
-      </div>
-      
-      {sparkline && (
-        <div className="absolute bottom-0 right-0 h-1/2 w-2/3 opacity-40 pointer-events-none">
-          <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="h-full w-full">
-            <defs>
-              <linearGradient id="sparkGradient" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="var(--accent-green)" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="var(--accent-green)" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path 
-              d="M 0 40 L 0 25 Q 10 30 20 20 T 40 15 T 60 22 T 80 5 L 100 0 L 100 40 Z" 
-              fill="url(#sparkGradient)" 
-            />
-            <path 
-              d="M 0 25 Q 10 30 20 20 T 40 15 T 60 22 T 80 5 L 100 0" 
-              fill="none" 
-              stroke="var(--accent-green)" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-            />
-          </svg>
-        </div>
-      )}
-    </div>
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      className="absolute bottom-0 left-0 w-full h-1/2 opacity-60 group-hover:opacity-100 transition-opacity"
+    >
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gid})`} />
+      <path
+        d={line}
+        stroke={color}
+        strokeWidth={1.5}
+        fill="none"
+        style={{ vectorEffect: "non-scaling-stroke" }}
+      />
+    </svg>
   );
 }
