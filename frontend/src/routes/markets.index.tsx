@@ -12,6 +12,8 @@ import { useQuery } from "urql";
 import { useReadContracts } from "wagmi";
 import PmAmmPoolAbi from "@/abis/PmAmmPool.abi.json";
 import { useDemoTrades } from "@/hooks/useDemoTrades";
+import { useDemoManifest } from "@/hooks/useDemoManifest";
+import { usePoolPrice } from "@/hooks/useLiveDemoReads";
 
 const MARKETS_QUERY = `
   query {
@@ -80,6 +82,9 @@ const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
 function MarketsPage() {
   const [activeCategory, setActiveCategory] = useState("all");
 
+  const { data: manifest } = useDemoManifest();
+  const { price: wethUsdPriceWad } = usePoolPrice(manifest?.poolUsdc);
+
   const [result] = useQuery({
     query: MARKETS_QUERY,
     requestPolicy: "cache-and-network",
@@ -138,7 +143,7 @@ function MarketsPage() {
   });
 
   const filteredMarkets = useMemo(() => {
-    const wethPrice = 3000; // Fixed $3000 WETH price
+    const wethPrice = wethUsdPriceWad ? Number(wethUsdPriceWad) / 1e18 : 3000;
 
     const combined = items.map((item: any, idx: number) => {
       const yesPrice = Number(item.lastPriceWeth) / 1e18;
@@ -215,7 +220,7 @@ function MarketsPage() {
 
     if (activeCategory === "all") return displayList;
     return displayList.filter((m: any) => m.category.toLowerCase() === activeCategory);
-  }, [activeCategory, data, items, reservesData, reservesLoading, tradesResults]);
+  }, [activeCategory, data, items, reservesData, reservesLoading, tradesResults, wethUsdPriceWad]);
 
   const { headerTvl, headerVol } = useMemo(() => {
     let t = 0;
