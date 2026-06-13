@@ -34,17 +34,19 @@ function PresetButton({
 }) {
   const [hovered, setHovered] = useState(false);
   const amountWad = parseUnits(preset.amount, 18);
-  const minOutFloat = (Number(preset.amount) / yesPrice) * 0.95;
-  const minOut = parseUnits(minOutFloat.toFixed(18), 18);
+  // Match the real trade in useAttackPresets: minOut=0 (intentional high-slippage
+  // attack trade). A tight minOut makes eth_estimateGas revert and hides the estimate.
+  const minOut = 0n;
 
   // Attempt to estimate gas when hovered. useEstimateGas takes a raw {to, data} tx,
-  // so encode the buyYes call rather than passing abi/functionName. Guard the encode so
-  // invalid/loading addresses don't throw during render.
+  // so encode the buyNo call rather than passing abi/functionName. Must match the
+  // actual trade side in useAttackPresets (buyNo drives the displayed price up).
+  // Guard the encode so invalid/loading addresses don't throw during render.
   let callData: `0x${string}` | undefined;
   try {
     callData = encodeFunctionData({
       abi: OmniverseRouterAbi,
-      functionName: "buyYes",
+      functionName: "buyNo",
       args: [pool, conditionId, amountWad, minOut],
     });
   } catch {

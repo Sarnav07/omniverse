@@ -3,10 +3,18 @@ import { useState, useEffect } from "react";
 import OmniverseRouterAbi from "@/abis/OmniverseRouter.abi.json";
 import Erc20Abi from "@/abis/ERC20.abi.json";
 import { CONTRACT_ADDRESSES } from "@/config/contracts";
-import { parseUnits } from "viem";
+import { parseUnits, parseGwei } from "viem";
 
 const MAX_UINT256 =
   115792089237316195423570985008687907853269984665640564039457584007913129639935n;
+
+// Arbitrum Sepolia's gas oracle is unreliable in MetaMask — without an explicit
+// fee cap it estimates absurd fees (e.g. thousands of ETH). Pin the same cap the
+// execution terminal uses so every preset tx shows a realistic (~sub-cent) fee.
+const GAS_CONFIG = {
+  maxPriorityFeePerGas: parseGwei("0.02"),
+  maxFeePerGas: parseGwei("0.2"),
+} as const;
 
 export type TxPhase = "idle" | "wallet" | "pending" | "confirmed" | "failed";
 
@@ -141,6 +149,7 @@ export function useAttackPresets(
       ],
       functionName: "mint",
       args: [walletAddress, mintAmount],
+      ...GAS_CONFIG,
     });
   };
 
@@ -165,30 +174,30 @@ export function useAttackPresets(
         abi: Erc20Abi,
         functionName: "approve",
         args: [routerAddress, MAX_UINT256],
+        ...GAS_CONFIG,
       });
       return;
     }
 
-    // Slippage calc
-    // expectedOut = (amountWad * 1e18) / yesPriceWad
-    // yesPriceWad is yesPrice * 1e18, so expectedOut = amountWad / yesPrice
-    const amountFloat = Number(preset.amount);
-    const expectedOutFloat = amountFloat / yesPrice;
+    // minOut = 0: these presets are intentional, market-MOVING "attack" trades on a
+    // deliberately shallow pool — large per-trade slippage is the whole point of the
+    // demo. A tight minOut (the old 15-25% band) reverts here because the price moves
+    // far more than that in a single trade, and a reverting tx makes MetaMask show an
+    // absurd fallback gas fee. Slippage protection is not meaningful for a scripted
+    // testnet demo, so accept any output.
+    const minOut = 0n;
 
-    // Wider slippage for rapid sequential trades (price shifts between presets)
-    // Whale and Kill Shot: 25% (0.75), Probe: 15% (0.85)
-    const slippageMultiplier = 
-      preset.label === "Whale" || preset.label === "Kill Shot" ? 0.75 : 0.85;
-    const minOutFloat = expectedOutFloat * slippageMultiplier;
-    // We safely parse back to BigInt avoiding fractional decimals
-    const minOut = parseUnits(minOutFloat.toFixed(18), 18);
-
+    // buyNo drives the pool's currentPrice (the displayed market probability) UP:
+    // it grows the YES reserve and shrinks NO, raising z=(y-x)/ell and thus Phi(z).
+    // buyYes does the opposite (it lowers the displayed probability), so the attack
+    // narrative ("drive the price up the W-curve") uses buyNo.
     writeContract({
       address: routerAddress,
       abi: OmniverseRouterAbi,
-      functionName: "buyYes",
+      functionName: "buyNo",
       args: [pool, conditionId, amountWad, minOut],
       gas: 500000n,
+      ...GAS_CONFIG,
     });
   };
 

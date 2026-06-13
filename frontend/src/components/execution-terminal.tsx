@@ -395,7 +395,11 @@ function SwapTab({
       });
       return;
     }
-    const minOut = parseUnits((expectedOut * 0.95).toFixed(18), 18);
+    // minOut = 0: the demo pool is deliberately shallow so trades move the price a lot
+    // (that's the point of the "attack"). A 5% slippage cap reverts here, and a reverting
+    // tx makes MetaMask show an absurd fallback gas fee. Slippage protection is not
+    // meaningful for a scripted testnet demo, so accept any output.
+    const minOut = 0n;
     writeAction({
       address: routerAddress,
       abi: OmniverseRouterAbi,
@@ -460,7 +464,7 @@ function SwapTab({
       />
       <MetaRow
         items={[
-          { label: "Max Slippage", value: "5.0%" },
+          { label: "Max Slippage", value: "Unlimited" },
           { label: "Pool", value: "WETH" },
           { label: "Gas", value: "0.2 gwei" },
         ]}

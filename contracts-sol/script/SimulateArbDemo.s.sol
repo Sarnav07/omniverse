@@ -42,7 +42,10 @@ contract SimulateArbDemo is Script {
         string memory question = string.concat("Will AI surpass human intelligence by 2030? (Dynamic Lambda Live Demo) #", runId);
         string memory symbol = "AI2030-DYN";
         uint256 expiry = block.timestamp + 30 days;
-        uint256 l0 = 500_000e18;
+        // L0 sized so the demo's 2k/4k/6k preset trades visibly move the price.
+        // Active liquidity ell ~= lambda*(0.5)*L0 ~= 0.43*25k ~= 10.7k, so ~12k of
+        // attack volume walks P across the W-curve toward ~0.9.
+        uint256 l0 = 25_000e18;
         uint256 gammaPrime = 2e18;
         
         (PmAmmPool wethPool, PmAmmPool usdcPool) = factory.createEvent(
@@ -54,11 +57,15 @@ contract SimulateArbDemo is Script {
         uint256[] memory partition = CtfPositionLib.binaryPartition();
         ctf.splitPosition(address(weth), bytes32(0), conditionId, partition, 2_000_000e18);
 
-        // 4. Provide large initial liquidity.
+        // 4. Provide initial liquidity ON the pm-AMM invariant surface. At P=0.5 the
+        // on-curve symmetric reserves are x=y=phi(0)*L0 = 0.39894*L0. Seeding x=y=L0
+        // (the old behaviour) sits ~2.5x off the curve, so the first trade snaps the
+        // price discontinuously. 9974e18 = round(0.39894 * 25_000e18).
+        uint256 seedReserve = 9974e18;
         ctf.setApprovalForAll(address(wethPool), true);
-        wethPool.addLiquidity(500_000e18, 500_000e18, 0);
-        
-        console.log("Initialized dynamic market with 500k/500k WETH liquidity.");
+        wethPool.addLiquidity(seedReserve, seedReserve, 0);
+
+        console.log("Initialized dynamic market on-invariant (P=0.5) with ~9974/9974 WETH liquidity.");
 
         // 5. Optional lending seed. If ORACLE_ADDRESS is unset, lendingAddress
         // remains zero and the dashboard will show the lending panel as unseeded.
@@ -121,10 +128,10 @@ contract SimulateArbDemo is Script {
             '  "demoAccount": "', vm.toString(deployer), '",\n',
             '  "weth": "', vm.toString(address(weth)), '",\n',
             '  "usdc": "', vm.toString(address(usdc)), '",\n',
-            '  "l0": "500000000000000000000000",\n',
+            '  "l0": "25000000000000000000000",\n',
             '  "gammaPrime": "2000000000000000000",\n',
-            '  "initialLiquidityYes": "500000000000000000000000",\n',
-            '  "initialLiquidityNo": "500000000000000000000000",\n',
+            '  "initialLiquidityYes": "9974000000000000000000",\n',
+            '  "initialLiquidityNo": "9974000000000000000000",\n',
             '  "lending": "', vm.toString(lendingAddress), '",\n',
             '  "lendingSeed": "', vm.toString(lendingSeed), '",\n',
             '  "lendingCollateral": "', vm.toString(lendingCollateral), '",\n',
