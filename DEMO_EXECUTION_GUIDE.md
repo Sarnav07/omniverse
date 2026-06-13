@@ -1,436 +1,213 @@
 # Demo Execution Guide — "Attack the Pool"
 
-## Understanding the Demo Endpoint
-
-**URL**: `http://localhost:8080/markets/{conditionId}`
-
-The `/markets/demo` route **doesn't exist** as a hardcoded path. Instead, the demo activates when you navigate to `/markets/{conditionId}` where `conditionId` dynamically matches the value in your freshly generated `demo-manifest.json`.
-
-### How Demo Mode Detection Works
-
-```typescript
-// From markets.$id.tsx
-const isDemoMarket =
-  !!manifest &&
-  (id.toLowerCase() === manifest.conditionId.toLowerCase() ||
-   poolWeth.toLowerCase() === manifest.poolWeth.toLowerCase() ||
-   poolUsdc.toLowerCase() === manifest.poolUsdc.toLowerCase());
-```
-
-**Demo Market Example** (Values change every time you run `fresh-demo.sh`):
-- Condition ID: *(See `demo-manifest.json`)*
-- Question: "Will AI surpass human intelligence by 2030? (Dynamic Lambda Live Demo) #..."
-- Symbol: `AI2030-DYN`
-- Pool (WETH): *(See `poolWeth` in `demo-manifest.json`)*
-
-When `isDemoMarket = true`, the app shows:
-- **AttackModeStrip** — Live metrics ticker at top
-- **AttackPresets** — One-click trade buttons (Probe/Whale/Kill Shot)
-- **PreDemoReadinessPanel** — Pre-flight checklist
-- **BorrowDemoTab** — Pre-filled lending demo
+A complete, self-serve runbook for the OMNIVERSE live demo on Arbitrum Sepolia.
+Follow it top to bottom. The **Troubleshooting** section at the end covers every
+issue we actually hit — read it if anything looks wrong.
 
 ---
 
-## Prerequisites
+## 0. What the demo shows
 
-### 1. Initialize Fresh Demo Environment
-Before running the presentation, always spin up a pristine market to ensure the dynamic lambda curve and liquidity stats are reset to their baseline.
+A pm-AMM (Gaussian-invariant) prediction market. You play an **attacker** who pushes
+the market probability toward an extreme. As the price climbs, the on-chain math
+recomputes **λ\*** (optimal activeness) and shifts reserves from *active* to *passive*
+to shield LPs. Everything is real:
+- Trades execute on **Arbitrum Sepolia** (chainId `421614`).
+- A **Ponder indexer** picks up each trade and serves it over GraphQL.
+- The **frontend** reads price/λ\* live from the chain and the trade history from the indexer.
+
+**Headline moment:** the market probability climbs `0.50 → ~0.63 → ~0.76 → ~0.91`
+across three trades, while λ\* and the LP-shield update live.
+
+---
+
+## 1. One-time setup (do this once)
+
+### 1a. Environment / RPC
+The deploy and indexer need an **archive** RPC (the public Arbitrum Sepolia RPC is
+non-archive and breaks `forge` deploys). An Alchemy key is already wired into:
+- `contracts-sol/.env` → `ARB_SEPOLIA_RPC`
+- `.env` → `PONDER_RPC_URL`
+- `indexer/.env` → `PONDER_RPC_URL_421614`
+
+If you ever swap RPCs, update **all three** to the same archive URL.
+
+### 1b. Dependencies (only if not already installed)
 ```bash
-# From the root directory, run the initialization script
-./fresh-demo.sh
-
-# This script will:
-# 1. Deploy new contracts with fresh parameters
-# 2. Mint 10,000,000 Mock WETH to the Deployer
-# 3. Synchronize the demo-manifest.json
-# 4. Wipe and restart the Ponder indexer cache
+cd /home/pratham/Sarnav/omniverse/indexer  && bun install
+cd /home/pratham/Sarnav/omniverse/frontend && bun install
 ```
 
-### 2. Wallet Setup
-- **Network**: Arbitrum Sepolia (Chain ID: 421614)
-- **Required Balance**: ≥12,000 Mock WETH (to cover all 3 demo trades)
-- **Get Testnet WETH**: 
-  - The `fresh-demo.sh` script automatically mints **10,000,000 Mock WETH** to the `DEPLOYER_PRIVATE_KEY` specified in your `contracts-sol/.env`.
-  - To access these funds, simply **import the DEPLOYER_PRIVATE_KEY into MetaMask**. You do not need to bridge or wrap any real Sepolia ETH (other than a tiny amount for gas).
+### 1c. MetaMask — the demo wallet
+The funded demo account is the deployer:
+- **Address:** `0x3a57622F51356fB925081A6D048BAA3eC35D9bAe` (ends in `…9bAe`)
+- Holds **100M+ mock WETH** (for trading) and **~0.2 native ETH** (for gas).
 
-### 3. Deployment Check
+In MetaMask:
+1. **Add the network** (if missing): Networks → Add network →
+   - Name: `Arbitrum Sepolia` · Chain ID: `421614` · Symbol: `ETH`
+   - RPC: `https://sepolia-rollup.arbitrum.io/rpc` · Explorer: `https://sepolia.arbiscan.io`
+2. **Import the deployer account:** account menu → *Add account or hardware wallet* →
+   *Import account* → paste the key in `contracts-sol/.env` (`DEPLOYER_PRIVATE_KEY`).
+   Confirm the imported address ends in **`…9bAe`**.
+3. **Turn off the security scanner** (avoids false-positive "blocked" alerts on the
+   local testnet contracts): Settings → *Security & privacy* → toggle **Security alerts /
+   Blockaid OFF**. (Re-enable after the demo if you like.)
+
+> ⚠️ The 100M is **mock WETH** (an ERC-20), *not* native gas ETH. Gas is paid from the
+> ~0.2 native ETH. If you see "insufficient funds," you're on the **wrong MetaMask account**
+> — switch to `…9bAe`.
+
+---
+
+## 2. Spin up a fresh market
+
+This deploys a pristine market that starts at exactly **P = 0.50** and resets the indexer.
+
 ```bash
-# Verify demo manifest is accessible
-curl http://localhost:8080/demo-manifest.json
-
-# Should return JSON with conditionId, poolWeth, etc.
+cd /home/pratham/Sarnav/omniverse
+DEMO_OVERWRITE=1 ./fresh-demo.sh
 ```
+It: redeploys contracts (~1 min, small gas), mints mock WETH, seeds liquidity **on the
+pm-AMM invariant** (so 0.50 is real, no first-trade snap), rewrites
+`frontend/public/demo-manifest.json`, and clears the Ponder cache.
 
-### 3. Ponder Indexer Running
+Wait for `ONCHAIN EXECUTION COMPLETE & SUCCESSFUL` and `DEMO SETUP COMPLETE`.
+
+---
+
+## 3. Start the two services
+
+Open **two terminals**:
+
 ```bash
-# Check indexer status
-curl http://localhost:42069/graphql -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ markets(limit: 1) { items { symbol } } }"}'
+# Terminal 1 — indexer (GraphQL on :42069)
+cd /home/pratham/Sarnav/omniverse/indexer && bun run dev
+# wait for the progress bar to reach 100% and "Server live at http://localhost:42069"
 
-# Should return market data
+# Terminal 2 — frontend
+cd /home/pratham/Sarnav/omniverse/frontend && bunx vite dev --port 5174 --host
+# look at the terminal: it prints  ➜  Local:  http://localhost:5174/
 ```
 
----
-
-## Demo Execution — 6 Acts
-
-### **Act 1: Navigate to Demo Market** (30 seconds)
-
-**ACTION**:
-1. Open browser to `http://localhost:8080/markets`
-2. Find the newly created market with symbol `AI2030-DYN`
-3. Click the market card
-
-**EXPECTED**:
-- URL becomes `/markets/{your_dynamic_condition_id}`
-- **AttackModeStrip** appears at top showing:
-  - Live P(YES), λ*, active%, passive%, ell, L_t
-  - Math kernel badge: "Stylus kernel" (green if matches manifest)
-  - Pool address link to Arbiscan
-- **PreDemoReadinessPanel** shows 8 checks
-
-**VERIFY**:
-```
-✓ Demo manifest — AI2030-DYN
-✓ Network — Arbitrum Sepolia
-✓ Wallet — 0x...
-✓ WETH balance — 12,000+ Mock WETH
-⚠ WETH allowance — Approve Router for max [APPROVE MAX button]
-✓ Pool state — P=0.50
-✓ Ponder indexer — Market indexed
-✓ Ponder START_BLOCK — Pass
-```
-
-**ACTION IF ALLOWANCE WARNING**:
-- Click "APPROVE MAX" button
-- MetaMask opens → Confirm approval
-- Wait for confirmation
-- Check refreshes to ✓ WETH allowance
+> **Port note:** plain `bun run dev` serves on **:8080** in this environment (a sandbox
+> config forces it). We use an explicit `--port 5174` because a *fresh* port guarantees the
+> browser can't serve stale cached code. Either works — just use the URL the terminal prints.
 
 ---
 
-### **Act 2: Execute Probe Trade** (1 minute)
+## 4. Forward the ports (remote VS Code only)
 
-**ACTION**:
-1. Scroll to Execution Terminal
-2. Ensure **Swap** tab is active
-3. Click **"PROBE · 2k"** preset button
+If you're on a **remote** VS Code session (browser on your laptop, code on a VM), both
+the frontend port **and** the indexer port must be forwarded:
 
-**EXPECTED**:
-- Amount field auto-fills: `2000` WETH
-- Receive estimate shows: ~4000 YES shares (depends on current price)
-- Button shows: "Buy YES"
+1. VS Code → **PORTS** tab (bottom panel, next to TERMINAL).
+2. Make sure **5174** (or 8080) **and `42069`** are both listed. If not: *Forward a Port* →
+   type the number → Enter.
+3. **Both are required:** the frontend port serves the UI; `42069` serves the trade history.
+   If `42069` isn't forwarded, the page loads but the "Recent Activity" panel stays empty.
 
-**ACTION**:
-4. Click **"BUY YES"**
-5. MetaMask opens → Review transaction → Confirm
-6. Wait for "Confirmed ✓" message
-
-**VERIFY**:
-- Toast notification: "Transaction confirmed"
-- Arbiscan link appears below button
-- **AttackModeStrip updates**:
-  - P(YES) increases (e.g., 0.50 → 0.55)
-  - λ* decreases slightly
-  - Active% may change
-- Latest tx hash appears in strip (clickable Arbiscan link)
-
-**WHAT'S HAPPENING ON-CHAIN**:
-```
-Router.buyYes(pool, conditionId, 2000e18, minOut)
-  → Pool.buyYes(noIn=2000e18, minOut)
-  → OmniverseMath.solveSwap() [Stylus WASM]
-  → emit OmniverseTrade(marketId, trader, side=0, size, priceWad, lambdaWad, ...)
-```
+Quick check (open in the browser): `http://localhost:42069/graphql` should show Ponder's
+GraphQL playground. If it can't connect, `42069` isn't forwarded.
 
 ---
 
-### **Act 3: Execute Whale Trade** (1 minute)
+## 5. Run the demo
 
-**ACTION**:
-1. Click **"WHALE · 4k"** preset button
-2. Amount auto-fills: `4000` WETH
-3. Click **"BUY YES"**
-4. Confirm in MetaMask
-5. Wait for confirmation
+1. **Open** the frontend URL (e.g. `http://localhost:5174/markets`).
+2. **Pick the right market card.** The indexer lists *every* market the factory ever made,
+   so you may see duplicates. Use the **`AI2030-DYN`** card showing **YES 0.50 / Volume $0.00**
+   (the pristine one from step 2). Ignore older cards with non-zero volume.
+3. **Connect** MetaMask. Confirm it's on **Arbitrum Sepolia** and the **`…9bAe`** account.
+4. In the **Swap** box of the Execution Terminal:
+   - Click the **"No"** toggle (top of the box). *(Buy **NO** raises the displayed market
+     probability — that's the "attack drives it up the curve" story. Buy **YES** lowers it.)*
+   - Enter **`2000`** → click **Buy NO** → confirm in MetaMask (fee ≈ **$0.02**).
+   - First trade on a new market: MetaMask may first ask for a **one-time WETH approval** to
+     the router — confirm it, then click **Buy NO** again to trade.
+   - Repeat with **`4000`**, then **`6000`**.
 
-**EXPECTED**:
-- P(YES) jumps further (e.g., 0.55 → 0.75)
-- λ* drops more significantly
-- Passive% increases (LPs shield more reserves)
-- **2nd tx hash appears in AttackModeStrip**
+   | Trade | Market probability |
+   |-------|--------------------|
+   | start | 0.50 |
+   | Buy NO 2000 | ~0.63 |
+   | Buy NO 4000 | ~0.76 |
+   | Buy NO 6000 | ~0.91 |
 
-**TIMING**: Each trade takes ~10-15 seconds (Arbitrum Sepolia block time)
+   After each trade the top strip updates: probability climbs, λ\* moves, passive %
+   (LP shield) rises.
+5. **Proof dashboard:** open `/demo`. The **Recent Activity (Indexed)** panel lists your
+   trades (each row → Arbiscan), the W-curve dot sits at the current probability, and the
+   LP-shield bar shows the shielded %.
+6. **Presentation mode:** append **`?present=true`** to any URL to hide debug panels.
 
----
-
-### **Act 4: Execute Kill Shot Trade** (1 minute)
-
-**ACTION**:
-1. Click **"KILL SHOT · 6k"** preset button
-2. Amount auto-fills: `6000` WETH
-3. Click **"BUY YES"**
-4. Confirm in MetaMask
-5. Wait for confirmation
-
-**EXPECTED**:
-- P(YES) reaches ~0.90-0.95
-- Passive% > 80% (most liquidity now shielded)
-- Active reserves (ell) significantly reduced
-- **3rd tx hash in AttackModeStrip**
-
-**TOTAL COST**: 12,000 WETH spent
+### Optional
+- **Borrow:** market page → Borrow tab (pre-filled 100 WETH / 1000 USDC).
+- **Resolution sim:** `/simulate` (client-side only, no transactions).
 
 ---
 
-### **Act 5: Proof Dashboard** (2 minutes)
+## 6. Quick sanity checks (from a terminal)
 
-**ACTION**:
-1. Navigate to `/demo` route
-2. Observe the proof panel
+```bash
+# indexer answering, market indexed?
+curl -s localhost:42069/graphql -X POST -H 'content-type: application/json' \
+  -d '{"query":"{ markets(limit:1){ items{ symbol } } }"}'
 
-**EXPECTED**:
-- **Attack Transcript** shows 3 rows:
-  ```
-  Block: 275880XXX | Tx: 0xabc...def | 2,000 WETH | P(YES): 0.55 | λ*: 0.XXX
-  Block: 275880XXX | Tx: 0x123...456 | 4,000 WETH | P(YES): 0.75 | λ*: 0.XXX
-  Block: 275880XXX | Tx: 0x789...012 | 6,000 WETH | P(YES): 0.93 | λ*: 0.XXX
-  ```
-  Each tx hash is clickable → opens Arbiscan
-  
-- **W-Curve Live**:
-  - SVG curve shows λ*(p) function
-  - Animated dot at current P(YES) position (~0.93)
-  - Current λ* value in corner
+# trades grow as you trade (side 2 = Buy NO)?
+curl -s localhost:42069/graphql -X POST -H 'content-type: application/json' \
+  -d '{"query":"{ trades(limit:5){ items{ side priceAfter } } }"}'
 
-- **LP Shield Panel**:
-  - Stacked bar: Active (white, bright) | Passive (white, dim)
-  - Label: "82% shielded" (or whatever passive% is)
-
-- **Macro Dashboard**:
-  - Live lambda: matches contract read
-  - Shielded %: from reserves
-  - Price: live from contract
-
-**VERIFY DATA SOURCES**:
-- All trade tx hashes: `DataSourceBadge source="indexed"` (from Ponder)
-- Current price: `DataSourceBadge source="live"` (from wagmi)
-- Lambda: `DataSourceBadge source="live"`
-
-**ACTION**:
-3. Click any tx hash in transcript
-4. Arbiscan opens showing the real transaction
-
----
-
-### **Act 6: Borrow Flow** (2 minutes)
-
-**ACTION**:
-1. Navigate back to `/markets/{conditionId}`
-2. Click **"Borrow"** tab in Execution Terminal
-
-**EXPECTED**:
-- Collateral input pre-filled: `100` WETH (from manifest `lendingCollateral`)
-- Borrow input pre-filled: `1000` USDC (from manifest `lendingDebt`)
-- LTV bar shows: 1000/100 = 10% (conservative)
-- Health factor formula explanation
-
-**ACTION**:
-3. Click **"Approve WETH"** (if needed)
-4. MetaMask opens → Confirm approval
-5. Click **"Execute Borrow"**
-6. MetaMask opens → Confirm borrow transaction
-7. Wait for confirmation
-
-**VERIFY**:
-8. Click **"Manage"** tab
-9. Observe live reads:
-   - Collateral: 100.00 WETH (green, from `collateralOf()`)
-   - Debt: 1000 USDC (white, from `debtOf()`)
-   - Health: ∞ or very high (green, from `healthFactor()`)
-
-**WHAT'S HAPPENING**:
-```
-Router.executeBorrow(lending, conditionId, 100e18, 1000e18)
-  → MultiverseLending.deposit(100e18 WETH)
-  → Lending splits WETH into YES/NO shares via CTF
-  → Lending.borrow(1000e18 USDC)
-  → User receives 1000 USDC, position tracked on-chain
+# frontend serving the current manifest?
+curl -s localhost:5174/demo-manifest.json | head
 ```
 
----
-
-### **Act 7 (Optional): Resolution Simulation** (1 minute)
-
-**ACTION**:
-1. Navigate to `/simulate`
-
-**EXPECTED**:
-- **SimulationBanner** at top:
-  ```
-  🟠 SIMULATION · Client-side only · No on-chain transactions
-  ```
-  "Resolving the market live would destroy the demo pool. This shows the mathematical outcome."
-
-- Two side-by-side panels:
-  - **Traditional Lending** (TradFi-style):
-    - Starts: 5000 collateral, 4000 debt, 1.25 health
-    - After "crash": Health drops, liquidation triggers, position zeroed
-  
-  - **Omniverse (Multiverse Lending)**:
-    - Starts: 5000 collateral, 5000 debt (0% LTV thanks to conditional splits)
-    - After "crash": Market resolves, position settles to zero automatically, no liquidation
-
-**NOTE**: This is **pure client-side** — no on-chain transactions occur. It's an educational visualization.
+To stop the services: `pkill -f "ponder"` and `pkill -f "vite"`.
 
 ---
 
-## Presentation Mode
+## 7. Troubleshooting (every issue we actually hit)
 
-To hide debug panels for screen sharing:
+**MetaMask "Insufficient funds."** You're on the wrong account. Switch to **`…9bAe`**
+(the imported deployer). The 100M is mock WETH, not gas — gas comes from native ETH.
 
-**URL**: Add `?present=true` to any route
-- Example: `http://localhost:8080/markets/{conditionId}?present=true`
+**Confirm button is greyed out / "Review alert" won't click.** MetaMask's Blockaid
+scanner false-flagged the unknown testnet contract. Settings → *Security & privacy* →
+turn **Security alerts OFF**, reopen the popup, confirm.
 
-**HIDES**:
-- PreDemoReadinessPanel
-- DataSourceBadge debug labels (except critical ones)
+**Absurd gas fee (e.g. thousands of ETH).** Means MetaMask thinks the tx will revert and
+shows a garbage fallback. Causes & fixes:
+- You're running **stale cached JS** (old code with tight slippage). Hard-reload:
+  **`Cmd+Shift+R`** on Mac (not `Ctrl`). If that fails, **quit the browser** (`Cmd+Q`) and
+  reopen, or use a fresh port (`--port 5174`).
+- The code is already fixed: preset/swap trades use `minOut=0` (these are intentional
+  market-moving trades) and pin `maxFeePerGas` to `0.2 gwei`.
 
-**KEEPS**:
-- AttackModeStrip
-- Execution Terminal
-- SimulationBanner (always visible)
+**Connect button does nothing.** Open the page in a **real browser with the MetaMask
+extension** (not VS Code's Simple Browser). `window.ethereum` must exist on the page.
 
----
+**Probability goes the wrong way.** **Buy NO** raises the displayed probability; **Buy YES**
+lowers it (it's how this pool's reserves map to price). Use Buy NO for the upward climb.
 
-## Troubleshooting
+**"Recent Activity / Live Flow" stays empty on `/demo`.** The indexer port `42069`
+isn't reachable from the browser — forward it in VS Code (step 4). Verify with
+`http://localhost:42069/graphql`.
 
-### ❌ "Pool is frozen"
-**Cause**: Too close to expiry (within `FREEZE_WINDOW` = 30 minutes)  
-**Fix**: Deploy new pool with later expiry via `run-demo-sepolia.sh`
+**Two/many market cards.** The indexer lists all factory markets. Use the pristine
+`AI2030-DYN` card (YES 0.50 / Volume $0.00) from your latest `fresh-demo.sh`.
 
-### ❌ "Price moved before your trade landed"
-**Cause**: Someone else traded between your tx submission and confirmation  
-**Fix**: Reduce trade size or increase slippage tolerance (currently 5%)
+**`forge`/deploy fails with "call to non-contract address" or "missing trie node".** The
+RPC is non-archive or a lagged node. `run-demo-sepolia.sh` already pins
+`--fork-block-number`; make sure all three env files point at the **Alchemy archive** URL.
 
-### ❌ AttackModeStrip not showing
-**Cause**: `isDemoMarket = false` — conditionId doesn't match manifest  
-**Fix**: Check `/demo-manifest.json` and navigate to correct conditionId
-
-### ❌ Attack Transcript empty
-**Cause**: Ponder indexer lagging or no trades yet  
-**Fix**: Wait 5-10 seconds, Ponder polls every block. Check indexer logs.
-
-### ❌ MetaMask shows "Unable to estimate gas"
-**Cause**: Transaction will revert (frozen pool, insufficient allowance)  
-**Fix**: Check readiness panel, approve WETH, verify pool not frozen
-
-### ❌ All metrics show "⋯" (skeleton)
-**Cause**: RPC slow or rate limited  
-**Fix**: Wait for `refetchInterval: 2000` retry, check RPC endpoint
+**Indexer scanning from genesis (~100h).** `START_BLOCK` wasn't set. `fresh-demo.sh`
+writes `indexer/.env.local` with `START_BLOCK = createdBlock − 10`; re-run it.
 
 ---
 
-## Technical Flow Summary
+## 8. Live contract reference
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  USER ACTION                                            │
-└────────────────┬────────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────────┐
-│  FRONTEND (React + wagmi)                               │
-│  • AttackPresets.execute(preset)                        │
-│  • useAttackPresets() computes minOut                   │
-│  • TxState: idle → wallet → pending → confirmed        │
-└────────────────┬────────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────────┐
-│  METAMASK (User confirms)                               │
-└────────────────┬────────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────────┐
-│  ARBITRUM SEPOLIA CONTRACTS                             │
-│  1. Router.buyYes(pool, conditionId, amount, minOut)    │
-│  2. Pool.buyYes(noIn, minOut)                           │
-│  3. OmniverseMath.solveSwap() [Stylus WASM]            │
-│  4. emit OmniverseTrade(...)                            │
-└────────────────┬────────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────────┐
-│  PONDER INDEXER                                         │
-│  • Listens for OmniverseTrade event                     │
-│  • Indexes: txHash, block, side, size, priceAfter      │
-│  • Exposes via GraphQL                                  │
-└────────────────┬────────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────────┐
-│  FRONTEND (Update)                                      │
-│  • useDemoTrades() refetches via urql                   │
-│  • usePoolPrice() polls contract (2s interval)          │
-│  • UI updates: AttackModeStrip, AttackTranscript, etc. │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## Quick Start Checklist
-
-```
-[ ] Initialize: Ran `./fresh-demo.sh` to generate pristine market
-[ ] Network: Arbitrum Sepolia (421614)
-[ ] Wallet: Connected with Deployer key (≥12,000 Mock WETH)
-[ ] Manifest: http://localhost:8080/demo-manifest.json loads
-[ ] Indexer: Ponder running on :42069
-[ ] Navigate to: `/markets/{conditionId}` (Get this from the manifest or click the market in the UI)
-[ ] Verify: AttackModeStrip visible at top
-[ ] Readiness: All 8 checks pass (approve WETH if needed)
-[ ] Execute: Probe → Whale → Kill Shot
-[ ] Verify: /demo shows 3 real tx hashes
-[ ] Bonus: Execute borrow, check Manage tab
-```
-
----
-
-## Files Involved
-
-**Frontend**:
-- `frontend/src/routes/markets.$id.tsx` — Main demo terminal
-- `frontend/src/routes/demo.tsx` — Proof dashboard
-- `frontend/src/components/execution-terminal.tsx` — Swap/Borrow/Manage tabs
-- `frontend/src/components/attack-presets.tsx` — Preset buttons
-- `frontend/src/components/attack-transcript.tsx` — Trade list
-- `frontend/src/components/pre-demo-readiness-panel.tsx` — Checklist
-- `frontend/src/hooks/useDemoManifest.ts` — Loads manifest
-- `frontend/src/hooks/useDemoTrades.ts` — Queries Ponder
-- `frontend/public/demo-manifest.json` — Configuration
-
-**Contracts** (Arbitrum Sepolia):
-- `OmniverseRouter` @ `0xF0AF8C84655a3E25Cf26Cb88E70E765C157515B2`
-- `PmAmmPool (WETH)` @ `0x0B722fcd25d0908E33ca2452654698976e7a85eD`
-- `MultiverseLending` @ `0x63878d16bAe4DBb7712Af8387FaC206Aa7C3145E`
-- `OmniverseMath (Stylus)` @ `0x3F280606ceA810947e43e5DDB7FD2b5A18301dBa`
-
-**Indexer**:
-- Ponder: `http://localhost:42069/graphql`
-- Schema: Markets, Trades, PoolState
-
----
-
-## Success Criteria
-
-**Demo is successful if**:
-✓ All 3 trades execute and confirm on-chain  
-✓ AttackModeStrip shows live updates within 2 seconds  
-✓ Attack Transcript displays 3 real tx hashes  
-✓ Each tx hash opens correct Arbiscan transaction  
-✓ W-curve dot animates to ~P(YES)=0.93  
-✓ LP Shield shows >80% passive  
-✓ Borrow executes and Manage tab shows live health factor  
-✓ Zero client-side mocked data (all from contracts/indexer)
+Addresses change on every `fresh-demo.sh` run — the **source of truth** is always
+`frontend/public/demo-manifest.json` (`poolWeth`, `router`, `conditionId`, etc.).
+The on-chain math kernels (Rust/Stylus + Solidity mirror) are audited in
+`docs/MATH_AUDIT.md`.

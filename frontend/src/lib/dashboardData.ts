@@ -59,8 +59,12 @@ export function assembleDashboardData(
     reserveSource = "live";
   }
 
+  // The attack can drive the price either way: buyYes (side 0) lowers the displayed
+  // probability, buyNo (side 2) raises it. The live demo uses buyNo, so include both
+  // buy directions here — filtering to side 0 only (the old buyYes demo) hid every
+  // buyNo trade and left the transcript empty.
   const attackTrades = indexedTrades
-    .filter((t) => t.side === 0)
+    .filter((t) => t.side === 0 || t.side === 2)
     .sort((a, b) => Number(a.size) - Number(b.size))
     .slice(0, 3);
 
