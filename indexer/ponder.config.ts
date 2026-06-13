@@ -12,22 +12,34 @@ import { MultiverseLendingAbi } from "./abis/MultiverseLending";
 // frontend reads. Sourcing addresses + start block from here keeps the indexer pinned to
 // the *current* deployment. Hardcoding a stale factory or a start block far below the
 // deploy is what made the indexer scan ~1.8M empty blocks (~100h) on the public RPC.
-const manifest = JSON.parse(
-  readFileSync(join(process.cwd(), "../contracts-sol/deployments/demo-manifest.json"), "utf8"),
-);
+// In Docker the manifest is copied alongside the indexer; on a PaaS (Railway/Render)
+// where contracts-sol/ isn't shipped, the file may be absent — in that case every
+// address + START_BLOCK MUST be provided via env vars below. MANIFEST_PATH lets a
+// deploy override the location.
+const manifestPath =
+  process.env.MANIFEST_PATH ??
+  join(process.cwd(), "../contracts-sol/deployments/demo-manifest.json");
+let manifest: Record<string, unknown> = {};
+try {
+  manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+} catch {
+  console.warn(
+    `[ponder.config] No manifest at ${manifestPath}; relying on FACTORY_ADDRESS / RESOLVER_ADDRESS / LENDING_ADDRESS / START_BLOCK env vars.`,
+  );
+}
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 // An env override only wins when it is actually set to something real. A copied
 // .env.example (zero addresses, START_BLOCK=0) must NOT drag us back to genesis.
-const addr = (envVal: string | undefined, fallback: string) =>
-  envVal && envVal !== ZERO ? envVal : fallback;
+const addr = (envVal: string | undefined, fallback: unknown): string =>
+  envVal && envVal !== ZERO ? envVal : (fallback as string | undefined) ?? ZERO;
 
 const FACTORY_ADDRESS = addr(process.env.FACTORY_ADDRESS, manifest.factory) as `0x${string}`;
 const RESOLVER_ADDRESS = addr(process.env.RESOLVER_ADDRESS, manifest.resolver) as `0x${string}`;
 const LENDING_ADDRESS = addr(process.env.LENDING_ADDRESS, manifest.lending) as `0x${string}`;
 
 const envStart = Number(process.env.START_BLOCK ?? 0);
-const START_BLOCK = envStart > 0 ? envStart : Number(manifest.createdBlock);
+const START_BLOCK = envStart > 0 ? envStart : Number(manifest.createdBlock ?? 0);
 
 export default createConfig({
   networks: {

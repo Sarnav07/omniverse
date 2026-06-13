@@ -1,0 +1,59 @@
+# OMNIVERSE — full demo stack (contracts are already live on Arbitrum Sepolia).
+# Brings up: Postgres + Ponder indexer (GraphQL :42069) + TanStack Start frontend (:3000).
+#
+#   cp .env.docker.example .env        # then fill in RPC + WalletConnect + public URLs
+#   docker compose up --build
+#
+# Local: open http://localhost:3000. For a PUBLIC deploy put both services behind HTTPS
+# (a reverse proxy / the platform's domains) and set the *.URL vars to those public hosts.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: omniverse
+      POSTGRES_PASSWORD: omniverse
+      POSTGRES_DB: omniverse_indexer
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omniverse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  indexer:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://omniverse:omniverse@postgres:5432/omniverse_indexer
+      PONDER_RPC_URL_421614: ${PONDER_RPC_URL_421614:-https://sepolia-rollup.arbitrum.io/rpc}
+      # Comma-separated allowlist of frontend origins, or * for the public demo.
+      PONDER_CORS_ORIGIN: ${PONDER_CORS_ORIGIN:-*}
+    ports:
+      - "42069:42069"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Baked at build time. VITE_PONDER_GRAPHQL_URL must be the indexer URL the
+        # VISITOR'S BROWSER can reach (public host for a deploy; localhost for local).
+        VITE_PONDER_GRAPHQL_URL: ${VITE_PONDER_GRAPHQL_URL:-http://localhost:42069}
+        VITE_WALLETCONNECT_PROJECT_ID: ${VITE_WALLETCONNECT_PROJECT_ID:-}
+        VITE_RPC_URL: ${VITE_RPC_URL:-https://sepolia-rollup.arbitrum.io/rpc}
+    restart: unless-stopped
+    depends_on:
+      - indexer
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

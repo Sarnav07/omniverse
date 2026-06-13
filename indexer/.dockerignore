@@ -1,0 +1,8 @@
+node_modules
+.ponder
+generated
+.env
+.env.*
+*.log
+Dockerfile
+.dockerignore
