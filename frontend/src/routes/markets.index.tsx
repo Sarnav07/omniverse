@@ -81,12 +81,19 @@ const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
 function MarketsPage() {
   const [activeCategory, setActiveCategory] = useState("all");
 
+  // Queries must only run client-side. During SSR the fetch to the local
+  // Ponder indexer never resolves (no ssrExchange), which causes an infinite
+  // render loop on the server and the client never receives data.
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => { setIsClient(true); }, []);
+
   const { data: manifest } = useDemoManifest();
   const { price: wethUsdPriceWad } = usePoolPrice(manifest?.poolUsdc);
 
   const [result] = useQuery({
     query: MARKETS_QUERY,
     requestPolicy: "cache-and-network",
+    pause: !isClient,
   });
 
   const { data, fetching, error } = result;
@@ -153,7 +160,7 @@ function MarketsPage() {
 
   const [tradesResults] = useQuery({
     query: tradesQuery,
-    pause: items.length === 0,
+    pause: !isClient || items.length === 0,
     requestPolicy: "cache-and-network",
   });
 

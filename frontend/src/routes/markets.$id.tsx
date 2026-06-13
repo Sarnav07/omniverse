@@ -85,10 +85,15 @@ function TerminalPage() {
   const { data: manifest } = useDemoManifest();
   const { data: blockNumber } = useLiveBlockNumber();
 
+  // Only run GraphQL queries client-side (SSR has no ssrExchange, causing infinite loops)
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => { setIsClient(true); }, []);
+
   const [result] = useQuery({
     query: MARKET_BY_ID_QUERY,
     variables: { id: id.toLowerCase() },
     requestPolicy: "cache-and-network",
+    pause: !isClient,
   });
   const { data, fetching } = result;
 

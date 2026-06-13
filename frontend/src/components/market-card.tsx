@@ -24,43 +24,45 @@ export type MarketCardProps = {
 export function MarketCard({ market }: MarketCardProps) {
   const trendUp = market.trend === "up";
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className="group relative flex flex-col bg-[#0E0E11] border border-white/5 rounded-2xl overflow-hidden transition-all duration-500 hover:border-white/20 hover:bg-[#121216] hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(0,0,0,0.5)] cursor-pointer"
-    >
-      <div className="p-5 flex flex-col flex-1">
-        <div className="flex justify-between items-start">
-          <span className="px-2.5 py-1 text-[9px] font-medium tracking-widest uppercase rounded-full bg-white/[0.04] border border-white/10 text-[#8B8D98]">
-            {market.category}
-          </span>
-          <ArrowUpRight
-            size={14}
-            className={trendUp ? "text-[#10B981]" : "text-[#EF4444] rotate-90"}
-          />
+    <Link to={`/markets/${market.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        className="group relative flex flex-col bg-[#0E0E11] border border-white/5 rounded-2xl overflow-hidden transition-all duration-500 hover:border-white/20 hover:bg-[#121216] hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(0,0,0,0.5)] cursor-pointer h-full"
+      >
+        <div className="p-5 flex flex-col flex-1">
+          <div className="flex justify-between items-start">
+            <span className="px-2.5 py-1 text-[9px] font-medium tracking-widest uppercase rounded-full bg-white/[0.04] border border-white/10 text-[#8B8D98]">
+              {market.category}
+            </span>
+            <ArrowUpRight
+              size={14}
+              className={trendUp ? "text-[#10B981]" : "text-[#EF4444] rotate-90"}
+            />
+          </div>
+
+          <h3 className="text-lg font-medium text-white leading-tight mt-4 mb-2 pr-4 tracking-[-0.01em]">
+            {market.question}
+          </h3>
+
+          <MiniSpline points={market.curve} />
+
+          <div className="grid grid-cols-3 gap-4 mb-5">
+            <MetricCell label="Volume" value={market.volume} />
+            <MetricCell label="Liquidity" value={market.tvl} />
+            <MetricCell label="Expiry" value={market.expiry || "Continuous"} />
+          </div>
+
+          <Probability side="yes" value={market.yes} favored={market.yes >= 0.5} />
         </div>
 
-        <h3 className="text-lg font-medium text-white leading-tight mt-4 mb-2 pr-4 tracking-[-0.01em]">
-          {market.question}
-        </h3>
-
-        <MiniSpline points={market.curve} />
-
-        <div className="grid grid-cols-3 gap-4 mb-5">
-          <MetricCell label="Volume" value={market.volume} />
-          <MetricCell label="Liquidity" value={market.tvl} />
-          <MetricCell label="Expiry" value={market.expiry || "Continuous"} />
-        </div>
-
-        <Probability side="yes" value={market.yes} favored={market.yes >= 0.5} />
-      </div>
-
-      {market.routes ? <SolverMeshStatus routesActive={market.routes} /> : null}
-      <MarketCardCTA />
-    </motion.div>
+        {market.routes ? <SolverMeshStatus routesActive={market.routes} /> : null}
+        <MarketCardCTA to={`/markets/${market.id}`} />
+      </motion.div>
+    </Link>
   );
 }
 
