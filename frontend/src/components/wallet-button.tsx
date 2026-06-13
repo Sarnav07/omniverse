@@ -1,15 +1,28 @@
 import { useAccount, useConnect, useDisconnect } from "wagmi";
-import { injected } from "wagmi/connectors";
 import { toast } from "sonner";
 
 export function WalletButton() {
   const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
+  const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
 
   const handleConnect = () => {
+    // Use the connector registered in the WagmiProvider config — not a freshly
+    // created injected() instance, which is not wired to the config's emitter and
+    // can make connect() silently no-op (the MetaMask popup never fires).
+    const injectedConnector =
+      connectors.find((c) => c.id === "injected" || c.type === "injected") ??
+      connectors[0];
+
+    if (!injectedConnector || typeof window === "undefined" || !(window as unknown as { ethereum?: unknown }).ethereum) {
+      toast.error(
+        "No browser wallet detected. Install MetaMask and open this page in that browser."
+      );
+      return;
+    }
+
     connect(
-      { connector: injected() },
+      { connector: injectedConnector },
       {
         onError: (error) => {
           toast.error(error.message || "Failed to connect wallet");
@@ -22,9 +35,10 @@ export function WalletButton() {
     return (
       <button
         onClick={handleConnect}
-        className="bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] hover:border-white/20 text-xs font-medium tracking-widest uppercase px-4 py-2 rounded-full transition-all flex items-center gap-2 outline-none focus-visible:border-white/30 text-white"
+        disabled={isPending}
+        className="bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] hover:border-white/20 text-xs font-medium tracking-widest uppercase px-4 py-2 rounded-full transition-all flex items-center gap-2 outline-none focus-visible:border-white/30 text-white disabled:opacity-60"
       >
-        <span>Connect</span>
+        <span>{isPending ? "Connecting…" : "Connect"}</span>
       </button>
     );
   }

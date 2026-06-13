@@ -30,7 +30,12 @@ fi
 
 cd contracts-sol
 echo "Creating dynamic demo market and seeding initial state..."
-forge script script/SimulateArbDemo.s.sol --rpc-url $ARB_SEPOLIA_RPC --broadcast --retries 5 --timeout 120 --slow
+# Pin the fork to the current head. forge's default "latest" resolution can land on a
+# lagged node behind a load balancer and fork from a block before the factory existed,
+# reverting with "call to non-contract address". Pinning the block forces a consistent fork.
+FORK_BLOCK=$(cast block-number --rpc-url $ARB_SEPOLIA_RPC)
+echo "Pinning fork to block $FORK_BLOCK"
+forge script script/SimulateArbDemo.s.sol --rpc-url $ARB_SEPOLIA_RPC --fork-block-number $FORK_BLOCK --broadcast --retries 5 --timeout 120 --slow
 
 cd ..
 mkdir -p frontend/public
