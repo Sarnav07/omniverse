@@ -457,6 +457,15 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
     const xRel = (e.clientX - rect.left) / rect.width;
     const xSvg = xRel * W;
     const p = Math.max(0, Math.min(1, (xSvg - 40) / (W - 80)));
+    
+    // Real W-shape: λ*(P) has local maxima at P≈0.16 and P≈0.84, minimum at P=0.5
+    const lambdaStarApprox = (prob: number): number => {
+      if (prob <= 0.0001 || prob >= 0.9999) return 0.05;
+      const w1 = Math.exp(-Math.pow((prob - 0.16) / 0.12, 2));
+      const w2 = Math.exp(-Math.pow((prob - 0.84) / 0.12, 2));
+      return 0.05 + 0.45 * (w1 + w2);
+    };
+    
     const sigma = 0.14;
     const g = Math.exp(-Math.pow(p - mu, 2) / (2 * sigma * sigma));
     const baseY = H - 60;
@@ -466,7 +475,7 @@ function ProbabilityCanvas({ mu }: { mu: number }) {
       y: baseY - g * (baseY - peakY),
       p,
       depth: Math.round(g * 24_800_000 + 480_000),
-      lambda: 0.42 + g * 0.36,
+      lambda: lambdaStarApprox(p),
     });
   }
 

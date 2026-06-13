@@ -68,12 +68,19 @@ export function WCurveChart({ price, lambda, preAttackPrice }: WCurveChartProps)
   const innerH = h - padT - padB;
 
   const { linePath, fillPath, priceX, priceY } = useMemo(() => {
+    // Real W-shape: λ*(P) has local maxima at P≈0.16 and P≈0.84, minimum at P=0.5
+    const lambdaStarApprox = (p: number): number => {
+      if (p <= 0.0001 || p >= 0.9999) return 0.05;
+      const w1 = Math.exp(-Math.pow((p - 0.16) / 0.12, 2));
+      const w2 = Math.exp(-Math.pow((p - 0.84) / 0.12, 2));
+      return 0.05 + 0.45 * (w1 + w2);
+    };
+
     const N = 80;
     const pts: Array<[number, number]> = [];
-    const exponent = 0.6 + (1 - lambda) * 0.8; // shape morph
     for (let i = 0; i <= N; i++) {
       const p = i / N;
-      const y = Math.pow(4 * p * (1 - p), exponent);
+      const y = lambdaStarApprox(p);
       pts.push([padL + p * innerW, padT + (1 - y) * innerH]);
     }
     const line = pts.reduce((acc, [x, y], i) => {
@@ -85,7 +92,7 @@ export function WCurveChart({ price, lambda, preAttackPrice }: WCurveChartProps)
     const fill = `${line} L ${padL + innerW} ${padT + innerH} L ${padL} ${padT + innerH} Z`;
 
     const px = padL + price * innerW;
-    const pyRaw = Math.pow(4 * price * (1 - price), exponent);
+    const pyRaw = lambdaStarApprox(price);
     const py = padT + (1 - pyRaw) * innerH;
     return { linePath: line, fillPath: fill, priceX: px, priceY: py };
   }, [lambda, price, innerW, innerH]);

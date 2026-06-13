@@ -30,11 +30,14 @@ const IW = W - PADL - PADR;
 const IH = H - PADT - PADB;
 
 function lambdaStar(P: number, gamma: number, attacked: boolean) {
-  // Bounded in (0,1) via tanh — symmetric around P = 0.5
-  const base = 0.5 + 0.5 * Math.tanh(gamma * (P - 0.5));
+  // Real W-shape: λ*(P) has local maxima at P≈0.16 and P≈0.84, minimum at P=0.5
+  if (P <= 0.0001 || P >= 0.9999) return 0.05;
+  const w1 = Math.exp(-Math.pow((P - 0.16) / 0.12, 2));
+  const w2 = Math.exp(-Math.pow((P - 0.84) / 0.12, 2));
+  const base = 0.05 + 0.45 * (w1 + w2);
   // Defense regime dampens activeness around the contested midline
-  const penalty = attacked ? 0.18 * Math.exp(-Math.pow((P - 0.5) * 4, 2)) : 0;
-  return Math.max(0, Math.min(1, base - penalty));
+  const penalty = attacked ? 0.12 * Math.exp(-Math.pow((P - 0.5) * 4, 2)) : 0;
+  return Math.max(0.05, Math.min(1, base - penalty));
 }
 
 const xToPx = (P: number) => PADL + P * IW;

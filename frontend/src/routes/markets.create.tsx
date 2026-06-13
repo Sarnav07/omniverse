@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { useWriteContract, useWaitForTransactionReceipt, useAccount } from "wagmi";
+import { useWriteContract, useWaitForTransactionReceipt, useAccount, useEstimateFeesPerGas } from "wagmi";
 import { parseUnits, isAddress } from "viem";
 import { toast } from "sonner";
 import { Nav } from "@/components/marketing/Nav";
@@ -24,6 +24,7 @@ export const Route = createFileRoute("/markets/create")({
 function CreateMarketPage() {
   const router = useRouter();
   const { isConnected, address: user } = useAccount();
+  const { data: feeData } = useEstimateFeesPerGas();
 
   // Basic Form States
   const [question, setQuestion] = useState("");
@@ -95,10 +96,20 @@ function CreateMarketPage() {
           parsedGammaPrime,
           useDynamicLambda,
         ],
+        ...(feeData?.maxFeePerGas && { maxFeePerGas: (feeData.maxFeePerGas * 150n) / 100n }),
+        ...(feeData?.maxPriorityFeePerGas && { maxPriorityFeePerGas: (feeData.maxPriorityFeePerGas * 150n) / 100n }),
       },
       {
-        onError: (err) => {
-          toast.error(`Deployment failed: ${err.message}`, { id: "create-market" });
+        onError: (err: any) => {
+          let msg = err.shortMessage || err.message || "Unknown error occurred";
+          if (msg.includes("User denied transaction")) {
+            msg = "Transaction was rejected in your wallet.";
+          } else if (msg.includes("AlreadyExists") || msg.includes("reverted")) {
+            msg = "Transaction reverted. Market may already exist or parameters are invalid.";
+          } else {
+            msg = msg.split('\n')[0];
+          }
+          toast.error(`Deployment failed: ${msg}`, { id: "create-market" });
         },
       },
     );
