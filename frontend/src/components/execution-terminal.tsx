@@ -575,6 +575,25 @@ function BorrowTab({
     { type: "function", name: "debtOf", inputs: [{ name: "", type: "address" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
   ] as const;
 
+  const oracleAbi = [
+    { type: "function", name: "priceWad", inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" },
+  ] as const;
+
+  // Read oracle address from lending, then read price
+  const { data: oracleAddr } = useReadContract({
+    address: lendingAddr,
+    abi: [{ type: "function", name: "ethUsd", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" }] as const,
+    functionName: "ethUsd",
+  });
+
+  const { data: priceWadRaw } = useReadContract({
+    address: (oracleAddr as `0x${string}` | undefined) ?? ZERO,
+    abi: oracleAbi,
+    functionName: "priceWad",
+    query: { enabled: !!oracleAddr, refetchInterval: 10_000 },
+  });
+  const ethPrice = priceWadRaw ? Number(priceWadRaw as bigint) / 1e18 : 2000; // fallback $2000
+
   const { data: reserveRaw } = useReadContract({
     address: lendingAddr, abi: lendingAbi, functionName: "reserveYesUsdc",
     query: { refetchInterval: 5_000 },
@@ -593,11 +612,47 @@ function BorrowTab({
   });
   const userDebt = (userDebtRaw as bigint | undefined) ?? 0n;
 
+  // Read pool gap for adjusted LTV calculation
+  const poolAddr = (manifest?.poolWeth ?? ZERO) as `0x${string}`;
+  const { data: gapRaw } = useReadContract({
+    address: poolAddr,
+    abi: [{ type: "function", name: "gap", inputs: [], outputs: [{ type: "int256" }], stateMutability: "view" }] as const,
+    functionName: "gap",
+    query: { enabled: poolAddr !== ZERO, refetchInterval: 10_000 },
+  });
+
+  // Compute adjusted LTV: LTV_BASE * (1 - H * min(|g|, G_CAP) / G_CAP)
+  const LTV_BASE = 0.80;
+  const H = 0.50;
+  const G_CAP = 1.0;
+  const absGap = gapRaw ? Math.abs(Number(gapRaw as bigint) / 1e18) : 0;
+  const adjLtv = LTV_BASE * (1 - H * Math.min(absGap, G_CAP) / G_CAP);
+  // Use 90% of adjLtv as safe default to avoid edge-case reverts
+  const safeLtv = adjLtv * 0.90;
+
+  const reserveNum = Number(formatUnits(reserve, 18));
+  const setCollateralLinked = (val: string) => {
+    setCollateral(val);
+    const c = parseFloat(val);
+    if (c > 0 && ethPrice > 0) {
+      const maxBorrow = c * ethPrice * safeLtv;
+      // Cap to available reserve
+      const cappedBorrow = reserveNum > 0 ? Math.min(maxBorrow, reserveNum) : maxBorrow;
+      setBorrow(cappedBorrow > 0 ? cappedBorrow.toFixed(0) : "");
+    } else {
+      setBorrow("");
+    }
+  };
+
   const wethCollateral = toWad(collateral);
   const usdcBorrow = toWad(borrow);
-  const ltv = parseFloat(collateral) > 0 ? (parseFloat(borrow) / parseFloat(collateral)) * 100 : 0;
+  const borrowNum = parseFloat(borrow) || 0;
+  const exceedsReserve = reserveNum > 0 && borrowNum > reserveNum;
+  const ltv = parseFloat(collateral) > 0 && ethPrice > 0
+    ? (parseFloat(borrow) / (parseFloat(collateral) * ethPrice)) * 100
+    : 0;
 
-  const ready = !!address && wethCollateral > 0n && usdcBorrow > 0n;
+  const ready = !!address && wethCollateral > 0n && usdcBorrow > 0n && !exceedsReserve;
   const needsApprove = allowance < wethCollateral;
   const pending = txState.phase === "wallet" || txState.phase === "pending";
   const btnState: ButtonState = pending ? "executing" : needsApprove ? "approve" : "ready";
@@ -632,8 +687,19 @@ function BorrowTab({
         assetClass="bg-indigo-500/10 text-indigo-300"
         balance={`${Number(formatUnits(balance, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
         value={collateral}
-        onChange={setCollateral}
+        onChange={setCollateralLinked}
       />
+
+      {/* LINKED indicator */}
+      <div className="flex items-center justify-center -my-1 relative">
+        <div className="absolute inset-0 flex justify-center">
+          <div className="w-px border-l border-dashed border-emerald-500/40 h-full" />
+        </div>
+        <span className="relative z-10 rounded-full border border-emerald-500/30 bg-[#0E0E11] px-3 py-0.5 text-[9px] font-medium uppercase tracking-[0.2em] text-emerald-400">
+          Linked
+        </span>
+      </div>
+
       <AmountInput
         label="Borrow Against"
         asset="USDC"
@@ -667,8 +733,8 @@ function BorrowTab({
       <MetaRow
         items={[
           { label: "Health", value: "∞ (no liquidation)" },
-          { label: "Reserve", value: `${Number(formatUnits(reserve, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} USDC` },
-          { label: "Gas", value: "0.2 gwei" },
+          { label: "ETH/USD", value: `$${ethPrice.toLocaleString()}` },
+          { label: "Max LTV", value: `${(adjLtv * 100).toFixed(1)}%` },
         ]}
       />
 
