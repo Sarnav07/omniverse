@@ -1,31 +1,48 @@
-# OMNIVERSE
+<div align="center">
 
-**Next-Generation Prediction Markets with Zero-Liquidation Lending on Arbitrum Stylus**
+<img src="assets/banner.svg" alt="OMNIVERSE — Zero-Liquidation Prediction Markets on Arbitrum Stylus" width="100%" />
+
+### Next-Generation Prediction Markets with Zero-Liquidation Lending on Arbitrum Stylus
 
 *Trade probability curves with mathematical precision. Borrow without liquidation risk. Protect LPs from wipeout.*
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Arbitrum](https://img.shields.io/badge/Arbitrum-Stylus-blue)](https://arbitrum.io/)
-[![Solidity](https://img.shields.io/badge/Solidity-^0.8.24-lightgrey)](https://soliditylang.org/)
-[![Rust](https://img.shields.io/badge/Rust-WASM-orange)](https://www.rust-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-10B981?style=flat-square)](https://opensource.org/licenses/MIT)
+[![Arbitrum Stylus](https://img.shields.io/badge/Built_on-Arbitrum_Stylus-12AAFF?style=flat-square&logo=arbitrum&logoColor=white)](https://arbitrum.io/stylus)
+[![Solidity](https://img.shields.io/badge/Solidity-^0.8.24-8B8D98?style=flat-square&logo=solidity&logoColor=white)](https://soliditylang.org/)
+[![Rust](https://img.shields.io/badge/Rust-WASM-EF4444?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Live Demo](https://img.shields.io/badge/Live-Demo-34D399?style=flat-square)](https://omniverse-99so.vercel.app/)
+
+</div>
 
 ---
 
 ## 📋 Table of Contents
 
-1. [Overview](#-overview)
-2. [Live Demo & Deployed Contracts](#-live-demo--deployed-contracts)
-3. [Architecture](#-architecture)
-4. [The Mathematics: Gaussian λ* and PA-AMM](#-the-mathematics-gaussian-λ-and-pa-amm)
-   - [The Core pm-AMM Invariant](#21-the-core-pm-amm-invariant)
-   - [The LP Wipeout Problem](#22-the-lp-wipeout-problem)
-   - [Gaussian λ*: Optimal Activeness](#23-gaussian-λ-optimal-activeness)
-   - [Dynamic Liquidity Decay](#24-dynamic-liquidity-decay)
-5. [Contract Interactions](#-contract-interactions)
-6. [Technology Stack](#-technology-stack)
-7. [Local Development & Deployment](#-local-development--deployment)
-8. [Repository Structure](#-repository-structure)
-9. [License](#-license)
+1. [Description](#-description)
+2. [Overview](#-overview)
+3. [Live Demo & Deployed Contracts](#-live-demo--deployed-contracts)
+4. [Progress During the Hackathon](#-progress-during-the-hackathon)
+5. [Architecture](#-architecture)
+6. [The Mathematics: Gaussian λ* and PA-AMM](#-the-mathematics-gaussian-λ-and-pa-amm)
+7. [Contract Interactions](#-contract-interactions)
+8. [Technology Stack](#-technology-stack)
+9. [Local Development & Deployment](#-local-development--deployment)
+10. [Repository Structure](#-repository-structure)
+11. [License](#-license)
+
+---
+
+## 📝 Description
+
+Omniverse is a prediction-market protocol on Arbitrum. You trade YES/NO shares on a question (for example, "Will AI surpass human intelligence by 2030?"), and the price of a share is just the market's current guess at the probability. Buy NO and the implied probability climbs; buy YES and it drops.
+
+Two ideas make it different from a normal prediction market.
+
+The first is that liquidity providers don't get wiped out. In most prediction-market AMMs, the moment an event resolves, faster traders buy up the winning side before the pool can react, and whoever supplied the liquidity is left holding the worthless token. Omniverse keeps part of every LP's money out of reach of trades, and the closer a market gets to a near-certain outcome, the more it sets aside. The rule that decides how much to shield is a Gaussian λ* curve, and it runs on-chain.
+
+The second is borrowing without liquidation risk. If your collateral and your loan are tied to the same outcome, they move together. If the bet goes against you, both sides fall to zero at the same time instead of triggering a margin call. There is no price at which you get liquidated for being wrong about the event itself.
+
+The expensive part of all this is the math: the Gaussian CDF, its inverse, and the solver that prices each swap. We run it in a Rust program compiled to WASM and deployed through Arbitrum Stylus, which is far cheaper than doing the same arithmetic in Solidity.
 
 ---
 
@@ -36,7 +53,7 @@
 ### 1. **LP Wipeout Prevention**
 Standard prediction market AMMs expose liquidity providers to catastrophic losses when events resolve. When a market settles (one token goes to $0), arbitrageurs drain the valuable tokens in a single block, leaving LPs with worthless inventory. **Omniverse solves this using a novel Partially Active AMM (PA-AMM) with Gaussian λ* (Lambda Star)**, which dynamically shields liquidity as markets approach resolution.
 
-### 4. **Liquidation-Free Lending**
+### 2. **Liquidation-Free Lending**
 Omniverse introduces **Multiverse Lending**, a revolutionary money market where users can borrow against prediction market positions **without liquidation risk**. By matching collateral and debt to the same outcome (e.g., `YES-ETH` collateral with `YES-USDC` debt), both sides of the position evaporate simultaneously if the event resolves unfavorably. No margin calls. No cascading liquidations. No bad debt.
 
 ### 3. **Cheap On-Chain Math**
@@ -87,6 +104,22 @@ Computing Gaussian probability functions (CDF/PDF) in Solidity is prohibitively 
 | **Demo Market (WETH)** | [`0xE9624bB8fA25eEaAEfba796fB09C2677AE8CaA01`](https://sepolia.arbiscan.io/address/0xE9624bB8fA25eEaAEfba796fB09C2677AE8CaA01) | Live prediction market pool |
 
 **Indexer GraphQL API:** [https://thorough-peace-production-f623.up.railway.app/graphql](https://thorough-peace-production-f623.up.railway.app/graphql)
+
+---
+
+## 🛠️ Progress During the Hackathon
+
+We started with the pm-AMM paper and one question: could the λ* shielding math actually run on-chain cheaply enough to be worth it? Most of the work went into answering that.
+
+The math kernel was the risky part, so we did it first. The Gaussian functions (φ, Φ, the inverse CDF), the λ* activeness formula, and a Newton-Raphson swap solver are all written in Rust and deployed to Arbitrum Sepolia through Stylus. Everything runs on 18-decimal fixed-point integers because Stylus won't accept floating point. It's live, and the rest of the system calls into it.
+
+On top of the kernel we built the Solidity layer: a market factory, the pool that holds reserves and asks the kernel for prices, the ERC-1155 YES/NO tokens, the lending market, and a resolver. They're deployed and wired together; the addresses are in the table above.
+
+For the app, a Ponder indexer watches the contracts and serves trades and market state over GraphQL (hosted on Railway), and a React frontend lets you connect a wallet and trade against a real market. As the price walks up the curve, you can watch the shielded share of LP capital grow in real time, which is the part we most wanted to show.
+
+To make that legible in a demo, we seeded a market on Sepolia that starts at exactly 50/50 and ran three escalating buy orders against it. The probability climbs from 0.50 toward about 0.90, and the passive (protected) reserves climb with it. That is the whole thesis of the protocol, happening on a public testnet.
+
+A few things are still rough, and we would rather say so. The resolver is owner-controlled instead of a real oracle. The gas numbers in this README come from local benchmarks, not a formal audit. And the lending health-factor logic only covers the single-collateral case for now. Those are the next things on the list.
 
 ---
 
@@ -256,6 +289,8 @@ flowchart TD
 ```
 
 ---
+
+## 🔢 The Mathematics: Gaussian λ* and PA-AMM
 
 Omniverse extends the foundational **pm-AMM (Prediction Market Automated Market Maker)** research by incorporating a novel **Partially Active AMM (PA-AMM)** model with **Gaussian λ*** (Lambda Star). This section provides a rigorous mathematical exposition of the protocol's core innovations.
 
@@ -474,21 +509,6 @@ This enables complex on-chain probability pricing at a fraction of the cost, mak
 
 **The result:** A mathematically robust, LP-protective, and capital-efficient prediction market AMM that solves the three core problems plaguing existing platforms.
 
-
-
----
-
-    
-    style B fill:#bbdefb,stroke:#1976d2,stroke-width:2px,color:#000
-    style D fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
-    style E fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
-    style F fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
-    style X fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
-    style Y fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
-```
-
-
-
 ---
 
 ## 🔗 Contract Interactions
@@ -497,7 +517,7 @@ This section provides detailed function signatures and interaction patterns for 
 
 ---
 
-### 4.1 OmniverseMath (Stylus Math Kernel)
+### 5.1 OmniverseMath (Stylus Math Kernel)
 
 **Deployment Address:** `0x78e5e65dBE6e9bE10e7BcED0f127fB21247f7c14` (Arbitrum Sepolia)
 
@@ -529,7 +549,7 @@ function poolValue(int256 z) external pure returns (uint256);
 
 ---
 
-### 4.2 PmAmmPool (Core AMM)
+### 5.2 PmAmmPool (Core AMM)
 
 ```solidity
 // Execute a swap: trade token0 for token1 (or vice versa)
@@ -564,7 +584,7 @@ function getEffectiveLiquidity() external view returns (uint256);
 
 ---
 
-### 4.3 ConditionalTokens (ERC-1155 Outcome Tokens)
+### 5.3 ConditionalTokens (ERC-1155 Outcome Tokens)
 
 ```solidity
 // Split collateral into YES + NO tokens
@@ -596,7 +616,7 @@ function balanceOf(address account, uint256 id)
 
 ---
 
-### 4.4 MultiverseLending (Zero-Liquidation Borrowing)
+### 5.4 MultiverseLending (Zero-Liquidation Borrowing)
 
 ```solidity
 // Deposit collateral and borrow same-outcome debt
@@ -643,8 +663,8 @@ function liquidate(uint256 positionId) external;
 | **Build Tool** | Vite 7 |
 | **Styling** | Tailwind CSS 4, shadcn/ui components |
 | **Web3 Integration** | wagmi v3, viem 2, RainbowKit |
-| **Charts** | Recharts, D3.js |
-| **State Management** | TanStack Query, Zustand |
+| **Charts** | Recharts, custom SVG (W-curve, probability canvas) |
+| **State Management** | TanStack Query, TanStack Store |
 
 ### **Indexer & Backend**
 
@@ -689,7 +709,7 @@ Ensure you have the following tools installed:
 #### **Clone the Repository**
 
 ```bash
-git clone https://github.com/yourusername/omniverse.git
+git clone https://github.com/vihaan1016/omniverse.git
 cd omniverse
 ```
 
@@ -911,10 +931,10 @@ omniverse/
 │
 ├── frontend/                        # React 19 Frontend (TanStack Start)
 │   ├── src/
-│   │   ├── app/                     # App router pages
+│   │   ├── routes/                  # File-based routes (TanStack Router)
 │   │   ├── components/              # React components
 │   │   ├── hooks/                   # Custom React hooks
-│   │   ├── lib/                     # Utilities and helpers
+│   │   ├── lib/                     # Utilities and helpers (urql, formatters)
 │   │   └── ...
 │   ├── public/
 │   │   └── demo-manifest.json       # Frontend copy of deployment
@@ -923,15 +943,17 @@ omniverse/
 │
 ├── indexer/                         # Ponder GraphQL Indexer
 │   ├── src/
-│   │   ├── index.ts                 # Event handlers
-│   │   └── ...
-│   ├── ponder.config.ts             # Network and contract config
+│   │   ├── MarketFactory.ts         # Indexes market creation events
+│   │   ├── PmAmmPool.ts             # Indexes swaps / liquidity / λ* updates
+│   │   ├── MultiverseLending.ts     # Indexes borrow / repay events
+│   │   ├── Resolver.ts              # Indexes resolution events
+│   │   └── api/                     # Hono + GraphQL server (CORS)
+│   ├── ponder.config.ts             # Network and contract config (reads manifest)
 │   ├── ponder.schema.ts             # GraphQL schema definition
 │   └── package.json
 │
-├── scripts/                         # Deployment and utility scripts
-│   ├── fresh-demo.sh                # Deploy new demo market
-│   └── ...
+├── fresh-demo.sh                    # Deploy a fresh demo market + reset indexer
+├── run-demo-sepolia.sh              # Run the scripted attack demo on Sepolia
 │
 ├── CONTEXT.md                       # Detailed technical context
 ├── DEMO_EXECUTION_GUIDE.md          # Step-by-step demo instructions
@@ -950,7 +972,7 @@ This project is licensed under the **MIT License**.
 ```
 MIT License
 
-Copyright (c) 2025 Omniverse Protocol
+Copyright (c) 2026 Omniverse Protocol
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -988,10 +1010,10 @@ SOFTWARE.
 - **Paradigm pm-AMM Paper:** [https://www.paradigm.xyz/2024/11/pm-amm](https://www.paradigm.xyz/2024/11/pm-amm)
 - **Arbitrum Stylus Docs:** [https://docs.arbitrum.io/stylus](https://docs.arbitrum.io/stylus)
 - **Gnosis Conditional Tokens:** [https://docs.gnosis.io/conditionaltokens](https://docs.gnosis.io/conditionaltokens)
-- **Project Repository:** [https://github.com/yourusername/omniverse](https://github.com/yourusername/omniverse)
+- **Project Repository:** [https://github.com/vihaan1016/omniverse](https://github.com/vihaan1016/omniverse)
 
 ---
 
 **Built with ❤️ for the future of prediction markets**
 
-© 2025 Omniverse Protocol. All rights reserved.
+© 2026 Omniverse Protocol. All rights reserved.

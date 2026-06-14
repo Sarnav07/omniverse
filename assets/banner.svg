@@ -1,0 +1,62 @@
+<svg width="1280" height="400" viewBox="0 0 1280 400" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="OMNIVERSE — Zero-Liquidation Prediction Markets on Arbitrum Stylus">
+  <defs>
+    <!-- emerald -> cyan wordmark gradient -->
+    <linearGradient id="wordmark" x1="380" y1="150" x2="1180" y2="250" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="0.55" stop-color="#10B981"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <!-- ring gradient -->
+    <linearGradient id="ring" x1="120" y1="90" x2="340" y2="310" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#10B981" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#10B981" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.2"/>
+    </filter>
+  </defs>
+
+  <!-- card -->
+  <rect x="8" y="8" width="1264" height="384" rx="28" fill="#050507"/>
+  <rect x="8.5" y="8.5" width="1263" height="383" rx="27.5" fill="none" stroke="#10B981" stroke-opacity="0.22" stroke-width="1"/>
+  <!-- faint grid baseline, evokes a market chart -->
+  <line x1="56" y1="312" x2="1224" y2="312" stroke="#16161A" stroke-width="1.5"/>
+
+  <!-- ===== logo emblem: the lambda* W-curve inside a ring ===== -->
+  <g transform="translate(212 200)">
+    <circle cx="0" cy="0" r="150" fill="url(#glow)"/>
+    <!-- broken ring -->
+    <circle cx="0" cy="0" r="104" fill="none" stroke="url(#ring)" stroke-width="9" stroke-linecap="round"
+            stroke-dasharray="470 46" transform="rotate(-58)"/>
+    <!-- axis -->
+    <line x1="-86" y1="58" x2="86" y2="58" stroke="#2A2A30" stroke-width="3" stroke-linecap="round"/>
+    <!-- W-curve glow underlay -->
+    <path d="M -86 52 C -70 50 -64 -34 -40 -42 C -18 -50 -10 22 0 24 C 10 22 18 -50 40 -42 C 64 -34 70 50 86 52"
+          fill="none" stroke="#10B981" stroke-opacity="0.55" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft)"/>
+    <!-- W-curve main stroke (emerald peaks) -->
+    <path d="M -86 52 C -70 50 -64 -34 -40 -42 C -18 -50 -10 22 0 24 C 10 22 18 -50 40 -42 C 64 -34 70 50 86 52"
+          fill="none" stroke="url(#ring)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- collapsing tails in crimson (P -> 0 and P -> 1) -->
+    <circle cx="-86" cy="52" r="6.5" fill="#EF4444"/>
+    <circle cx="86"  cy="52" r="6.5" fill="#EF4444"/>
+    <!-- peak markers -->
+    <circle cx="-40" cy="-42" r="5" fill="#34D399"/>
+    <circle cx="40"  cy="-42" r="5" fill="#34D399"/>
+  </g>
+
+  <!-- ===== wordmark ===== -->
+  <text x="392" y="196" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="118" font-weight="800"
+        letter-spacing="2" fill="url(#wordmark)">OMNIVERSE</text>
+
+  <!-- accent rule + kicker -->
+  <rect x="396" y="232" width="118" height="4" rx="2" fill="#10B981"/>
+  <rect x="520" y="232" width="40" height="4" rx="2" fill="#EF4444"/>
+  <text x="396" y="286" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="27" font-weight="600"
+        letter-spacing="5.5" fill="#C7F9E9">ZERO-LIQUIDATION PREDICTION MARKETS</text>
+  <text x="398" y="332" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="20" font-weight="500"
+        letter-spacing="3.5" fill="#8B8D98">GAUSSIAN pm-AMM · ON-CHAIN MATH · ARBITRUM STYLUS</text>
+</svg>
