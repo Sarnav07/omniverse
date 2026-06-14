@@ -322,70 +322,108 @@ Omniverse is built on a **hybrid Rust/Solidity architecture** that separates pur
 
 #### **3.3.1 Swapping (Trading)**
 
-```
-User → PmAmmPool.swap()
-  ├─► Read current reserves (x, y)
-  ├─► Call OmniverseMath.lambdaStarGaussian(γ', P) → λ*
-  ├─► Partition reserves: x_active = λ* · x, y_active = λ* · y
-  ├─► Call OmniverseMath.solveSwap(x1, y0, L_t) → y1
-  ├─► Execute swap against active reserves
-  ├─► Transfer tokens to/from user
-  └─► Emit Swap event
+```mermaid
+flowchart TD
+    A[User calls PmAmmPool.swap] --> B[Read current reserves x, y]
+    B --> C[Call OmniverseMath.lambdaStarGaussian γ', P]
+    C --> D[Receive λ* optimal activeness]
+    D --> E[Partition reserves:<br/>x_active = λ* · x<br/>y_active = λ* · y]
+    E --> F[Call OmniverseMath.solveSwap x1, y0, L_t]
+    F --> G[Receive y1 from Newton-Raphson solver]
+    G --> H[Execute swap against active reserves only]
+    H --> I[Transfer tokens to/from user]
+    I --> J[Emit Swap event]
+    
+    style D fill:#e1f5ff
+    style E fill:#fff4e1
+    style H fill:#e8f5e8
 ```
 
 **Key Insight:** Only the active fraction λ* of reserves participates in the trade, automatically shielding LP capital at extreme probabilities.
 
+---
+
 #### **3.3.2 Adding Liquidity**
 
+```mermaid
+flowchart TD
+    A[User calls PmAmmPool.addLiquidity] --> B[Calculate current pool value<br/>V = vz · L]
+    B --> C[Determine required YES/NO<br/>token deposits for balanced addition]
+    C --> D[Transfer tokens from user to pool]
+    D --> E[Mint LP shares proportional<br/>to value added]
+    E --> F[Update reserves x, y<br/>and liquidity L]
+    F --> G[Emit LiquidityAdded event]
+    
+    style B fill:#e1f5ff
+    style E fill:#e8f5e8
 ```
-User → PmAmmPool.addLiquidity(amount)
-  ├─► Calculate current pool value V = v(z) · L
-  ├─► Determine required YES/NO token deposits for balanced addition
-  ├─► Transfer tokens from user to pool
-  ├─► Mint LP shares proportional to value added
-  ├─► Update reserves (x, y) and liquidity L
-  └─► Emit LiquidityAdded event
-```
+
+---
 
 #### **3.3.3 Minting Outcome Tokens**
 
-```
-User → ConditionalTokens.split(collateral_amount)
-  ├─► Transfer collateral (e.g., WETH) to escrow
-  ├─► Mint YES tokens (ERC-1155 ID = conditionId_0)
-  ├─► Mint NO tokens (ERC-1155 ID = conditionId_1)
-  ├─► Transfer equal amounts of YES and NO to user
-  └─► Emit PositionSplit event
+```mermaid
+flowchart TD
+    A[User calls ConditionalTokens.split] --> B[Transfer collateral<br/>e.g., WETH to escrow]
+    B --> C[Mint YES tokens<br/>ERC-1155 ID = conditionId_0]
+    C --> D[Mint NO tokens<br/>ERC-1155 ID = conditionId_1]
+    D --> E[Transfer equal amounts of<br/>YES and NO to user]
+    E --> F[Emit PositionSplit event]
+    
+    style B fill:#fff4e1
+    style C fill:#e8f5e8
+    style D fill:#e8f5e8
 ```
 
 **1:1 Backing:** 1 unit of collateral always mints 1 YES + 1 NO token, maintaining full collateralization.
 
+---
+
 #### **3.3.4 Borrowing (Multiverse Lending)**
 
-```
-User → MultiverseLending.borrow(collateral_token, debt_token, amount)
-  ├─► Verify both tokens map to same outcome (e.g., both YES)
-  ├─► Calculate Health Factor: HF = collateral_value / debt_value
-  ├─► Require HF > MIN_HEALTH_FACTOR (e.g., 1.5)
-  ├─► Transfer collateral tokens to lending vault
-  ├─► Mint and transfer debt tokens to user
-  ├─► Record position in user's account
-  └─► Emit Borrow event
+```mermaid
+flowchart TD
+    A[User calls MultiverseLending.borrow] --> B{Verify both tokens map<br/>to same outcome?}
+    B -->|Yes| C[Calculate Health Factor<br/>HF = collateral_value / debt_value]
+    B -->|No| X[❌ Revert: Outcome mismatch]
+    C --> D{HF > MIN_HEALTH_FACTOR?}
+    D -->|Yes| E[Transfer collateral tokens<br/>to lending vault]
+    D -->|No| Y[❌ Revert: Insufficient collateral]
+    E --> F[Mint and transfer debt tokens<br/>to user]
+    F --> G[Record position in user's account]
+    G --> H[Emit Borrow event]
+    
+    style B fill:#e1f5ff
+    style C fill:#fff4e1
+    style E fill:#e8f5e8
+    style X fill:#ffe1e1
+    style Y fill:#ffe1e1
 ```
 
 **Liquidation-Free Property:** If the outcome resolves unfavorably (e.g., NO wins when user borrowed against YES), both collateral and debt simultaneously drop to zero. Net position = 0. No liquidation needed.
 
+---
+
 #### **3.3.5 Market Resolution**
 
-```
-Resolver → Resolver.resolve(marketId, outcome)
-  ├─► Verify caller authority (owner or oracle)
-  ├─► Verify expiration time has passed
-  ├─► Record outcome (YES = true, NO = false)
-  ├─► Freeze all trading (set L_t = 0)
-  ├─► Enable redemption in ConditionalTokens
-  ├─► Emit MarketResolved event
-  └─► Trigger lending position cleanup
+```mermaid
+flowchart TD
+    A[Resolver calls resolve marketId, outcome] --> B{Verify caller<br/>authority?}
+    B -->|Authorized| C{Expiration time<br/>passed?}
+    B -->|Unauthorized| X[❌ Revert: Not authorized]
+    C -->|Yes| D[Record outcome<br/>YES = true, NO = false]
+    C -->|No| Y[❌ Revert: Market not expired]
+    D --> E[Freeze all trading<br/>set L_t = 0]
+    E --> F[Enable redemption in<br/>ConditionalTokens]
+    F --> G[Emit MarketResolved event]
+    G --> H[Trigger lending position cleanup]
+    
+    style B fill:#e1f5ff
+    style D fill:#fff4e1
+    style E fill:#ffe1e1
+    style F fill:#e8f5e8
+    style X fill:#ffe1e1
+    style Y fill:#ffe1e1
 ```
 
 
