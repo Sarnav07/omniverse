@@ -97,7 +97,33 @@ function MarketsPage() {
   });
 
   const { data, fetching, error } = result;
-  const items = data?.markets?.items || [];
+  
+  const items = useMemo(() => {
+    const fetchedItems = data?.markets?.items || [];
+    if (!manifest) return fetchedItems;
+    
+    const hasDemo = fetchedItems.some((m: any) => m.id.toLowerCase() === manifest.conditionId.toLowerCase());
+    if (!hasDemo) {
+      return [
+        {
+          id: manifest.conditionId,
+          questionId: "0",
+          question: manifest.question || "Will AI surpass human intelligence by 2030? (Dynamic Lambda Live Demo)",
+          symbol: manifest.symbol || "AI2030-DYN",
+          category: "technology",
+          poolWeth: manifest.poolWeth,
+          poolUsdc: manifest.poolUsdc,
+          lastPriceWeth: "500000000000000000",
+          totalVolumeWeth: "0",
+          totalVolumeUsdc: "0",
+          resolved: false,
+          createdAt: Math.floor(Date.now() / 1000).toString(),
+        },
+        ...fetchedItems
+      ];
+    }
+    return fetchedItems;
+  }, [data?.markets?.items, manifest]);
 
   console.log("Markets query result:", { 
     hasData: !!data, 
