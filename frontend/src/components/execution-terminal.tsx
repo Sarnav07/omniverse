@@ -627,8 +627,8 @@ function BorrowTab({
   const G_CAP = 1.0;
   const absGap = gapRaw ? Math.abs(Number(gapRaw as bigint) / 1e18) : 0;
   const adjLtv = LTV_BASE * (1 - H * Math.min(absGap, G_CAP) / G_CAP);
-  // Use 90% of adjLtv as safe default to avoid edge-case reverts
-  const safeLtv = adjLtv * 0.90;
+  // Use 70% as the target LTV for auto-fill (under the adj ceiling)
+  const safeLtv = 0.70;
 
   const reserveNum = Number(formatUnits(reserve, 18));
   const setCollateralLinked = (val: string) => {
