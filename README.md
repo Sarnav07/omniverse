@@ -334,9 +334,9 @@ flowchart TD
     H --> I[Transfer tokens to/from user]
     I --> J[Emit Swap event]
     
-    style D fill:#e1f5ff
-    style E fill:#fff4e1
-    style H fill:#e8f5e8
+    style D fill:#bbdefb,stroke:#1976d2,stroke-width:2px,color:#000
+    style E fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
+    style H fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
 ```
 
 **Key Insight:** Only the active fraction λ* of reserves participates in the trade, automatically shielding LP capital at extreme probabilities.
@@ -354,8 +354,8 @@ flowchart TD
     E --> F[Update reserves x, y<br/>and liquidity L]
     F --> G[Emit LiquidityAdded event]
     
-    style B fill:#e1f5ff
-    style E fill:#e8f5e8
+    style B fill:#bbdefb,stroke:#1976d2,stroke-width:2px,color:#000
+    style E fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
 ```
 
 ---
@@ -370,9 +370,9 @@ flowchart TD
     D --> E[Transfer equal amounts of<br/>YES and NO to user]
     E --> F[Emit PositionSplit event]
     
-    style B fill:#fff4e1
-    style C fill:#e8f5e8
-    style D fill:#e8f5e8
+    style B fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
+    style C fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
+    style D fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
 ```
 
 **1:1 Backing:** 1 unit of collateral always mints 1 YES + 1 NO token, maintaining full collateralization.
@@ -393,11 +393,11 @@ flowchart TD
     F --> G[Record position in user's account]
     G --> H[Emit Borrow event]
     
-    style B fill:#e1f5ff
-    style C fill:#fff4e1
-    style E fill:#e8f5e8
-    style X fill:#ffe1e1
-    style Y fill:#ffe1e1
+    style B fill:#bbdefb,stroke:#1976d2,stroke-width:2px,color:#000
+    style C fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
+    style E fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
+    style X fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
+    style Y fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
 ```
 
 **Liquidation-Free Property:** If the outcome resolves unfavorably (e.g., NO wins when user borrowed against YES), both collateral and debt simultaneously drop to zero. Net position = 0. No liquidation needed.
@@ -418,12 +418,12 @@ flowchart TD
     F --> G[Emit MarketResolved event]
     G --> H[Trigger lending position cleanup]
     
-    style B fill:#e1f5ff
-    style D fill:#fff4e1
-    style E fill:#ffe1e1
-    style F fill:#e8f5e8
-    style X fill:#ffe1e1
-    style Y fill:#ffe1e1
+    style B fill:#bbdefb,stroke:#1976d2,stroke-width:2px,color:#000
+    style D fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#000
+    style E fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
+    style F fill:#c8e6c9,stroke:#388e3c,stroke-width:2px,color:#000
+    style X fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
+    style Y fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
 ```
 
 
