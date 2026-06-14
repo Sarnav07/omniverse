@@ -45,7 +45,7 @@ export function Nav({ appMode = false }: { appMode?: boolean }) {
             </Link>
           ))}
           <a
-            href="https://arxiv.org/html/2602.09887"
+            href="/gaussian_lambda_star.pdf"
             target="_blank"
             rel="noreferrer"
             className="text-white/55 transition-colors duration-300 hover:text-white"
