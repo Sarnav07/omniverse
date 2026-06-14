@@ -627,8 +627,8 @@ function BorrowTab({
   const G_CAP = 1.0;
   const absGap = gapRaw ? Math.abs(Number(gapRaw as bigint) / 1e18) : 0;
   const adjLtv = LTV_BASE * (1 - H * Math.min(absGap, G_CAP) / G_CAP);
-  // Use 70% as the target LTV for auto-fill (under the adj ceiling)
-  const safeLtv = 0.70;
+  // 95% of adjusted LTV — safe margin under the on-chain ceiling
+  const safeLtv = adjLtv * 0.95;
 
   const reserveNum = Number(formatUnits(reserve, 18));
   const setCollateralLinked = (val: string) => {
@@ -734,7 +734,7 @@ function BorrowTab({
         items={[
           { label: "Health", value: "∞ (no liquidation)" },
           { label: "ETH/USD", value: `$${ethPrice.toLocaleString()}` },
-          { label: "Max LTV", value: `${(adjLtv * 100).toFixed(1)}%` },
+          { label: "Max LTV", value: "80.0%" },
         ]}
       />
 
