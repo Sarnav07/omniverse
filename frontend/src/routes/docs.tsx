@@ -7,6 +7,8 @@ import {
   useTransform,
   type MotionValue,
 } from "motion/react";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 /* ════════════════════════════════════════════════════════════════════════
    OMNIVERSE — Protocol Docs
@@ -281,11 +283,11 @@ function ScrollStory() {
 
           {/* lending overlay (ch 06) — collateral & debt collapse together */}
           <motion.g style={{ opacity: lendO }}>
-            <motion.rect x={xToPx(0.34) - 70} width={56} height={collapseH} y={collapseY} rx={3} fill="rgba(16,185,129,0.22)" stroke={EM} strokeWidth={1} />
-            <motion.rect x={xToPx(0.34) + 14} width={56} height={collapseH} y={collapseY} rx={3} fill="rgba(239,68,68,0.20)" stroke={CR} strokeWidth={1} />
-            <text x={xToPx(0.34) - 42} y={BASE_Y + 20} textAnchor="middle" fontSize={10} fontFamily="'Geist Mono', monospace" fill={EM}>YES-collateral</text>
-            <text x={xToPx(0.34) + 42} y={BASE_Y + 20} textAnchor="middle" fontSize={10} fontFamily="'Geist Mono', monospace" fill={CR}>YES-debt</text>
-            <text x={xToPx(0.34)} y={TOP_Y + 30} textAnchor="middle" fontSize={12} fontFamily="'Geist Mono', monospace" fill={CREAM}>both → 0 on resolution</text>
+            <motion.rect x={xToPx(0.55) - 70} width={56} height={collapseH} y={collapseY} rx={3} fill="rgba(16,185,129,0.22)" stroke={EM} strokeWidth={1} />
+            <motion.rect x={xToPx(0.55) + 14} width={56} height={collapseH} y={collapseY} rx={3} fill="rgba(239,68,68,0.20)" stroke={CR} strokeWidth={1} />
+            <text x={xToPx(0.55) - 42} y={BASE_Y + 40} textAnchor="middle" fontSize={10} fontFamily="'Geist Mono', monospace" fill={EM}>YES-collateral</text>
+            <text x={xToPx(0.55) + 42} y={BASE_Y + 40} textAnchor="middle" fontSize={10} fontFamily="'Geist Mono', monospace" fill={CR}>YES-debt</text>
+            <text x={xToPx(0.55)} y={TOP_Y + 30} textAnchor="middle" fontSize={12} fontFamily="'Geist Mono', monospace" fill={CREAM}>both → 0 on resolution</text>
           </motion.g>
         </svg>
 
@@ -505,7 +507,7 @@ const STAT_COLUMNS: { v: string; label: string }[][] = [
     { v: "AR(1)", label: "gap dynamics exact at all orders — variance ratio 1.001 ± 0.028" },
   ],
   [
-    { v: "~5K", label: "gas per block for the whole λ*(P) pipeline, in Rust/WASM" },
+    { v: "<$0.001", label: "cost per block for the whole λ*(P) pipeline, in Rust/WASM on Arbitrum" },
     { v: "0", label: "oracles, and 0 liquidations in outcome-matched lending" },
   ],
 ];
@@ -593,7 +595,7 @@ function Playground() {
         </div>
         <p className="font-mono text-xs text-center pt-1 text-[#8B8D98]">
           Push P toward the tails and watch the shield grow — the same λ* the Stylus kernel
-          computes on-chain in ~5,000 gas.
+          computes on-chain for less than $0.001.
         </p>
       </div>
     </Reveal>
@@ -602,10 +604,10 @@ function Playground() {
 
 /* ── the math (four plates) ─────────────────────────────────────────────── */
 const MATH_PLATES = [
-  { label: "The invariant", lines: ["(y−x)·Φ((y−x)/L)", "   + L·φ((y−x)/L) − y = 0", "P = Φ((y−x)/L)"], note: "A Gaussian constant-function market maker. The marginal price is the event probability — no off-chain math, no oracle." },
-  { label: "Optimal activeness", lines: ["λ*(P) = (1+√(1+2γ_G))", "        / (1+γ_G+√(1+2γ_G))", "z = Φ⁻¹(P)"], note: "Closed-form λ*. W-shaped in P: maximal near 0.5, collapsing toward 0 as the market approaches certainty." },
-  { label: "Why it diverges", lines: ["γ_G(P) = γ′ / (2·v(z)·φ(z))", "v(z) = φ(z) + z(2Φ(z)−1)"], note: "The cost weight is endogenously probability-dependent: as P→0 or 1, φ(z)→0 and γ_G→∞, so λ*→0." },
-  { label: "Three-layer defence", lines: ["ℓ_active(t,P) =", "   λ*(P)·L₀·√(T−t)"], note: "Time-decay × constant PA-AMM λ × Gaussian λ*(P). Each layer bounds a different timescale of LP loss." },
+  { label: "The invariant", latex: "(y-x)\\cdot\\Phi\\!\\left(\\frac{y-x}{L}\\right) + L\\cdot\\varphi\\!\\left(\\frac{y-x}{L}\\right) - y = 0", sub: "P = \\Phi\\!\\left(\\frac{y-x}{L}\\right)", note: "A Gaussian constant-function market maker. The marginal price is the event probability — no off-chain math, no oracle." },
+  { label: "Optimal activeness", latex: "\\lambda^*(P) = \\frac{1+\\sqrt{1+2\\gamma_G}}{1+\\gamma_G+\\sqrt{1+2\\gamma_G}}", sub: "z = \\Phi^{-1}(P)", note: "Closed-form λ*. W-shaped in P: maximal near 0.5, collapsing toward 0 as the market approaches certainty." },
+  { label: "Why it diverges", latex: "\\gamma_G(P) = \\frac{\\gamma'}{2\\cdot v(z)\\cdot\\varphi(z)}", sub: "v(z) = \\varphi(z) + z\\bigl(2\\Phi(z)-1\\bigr)", note: "The cost weight is endogenously probability-dependent: as P→0 or 1, φ(z)→0 and γ_G→∞, so λ*→0." },
+  { label: "Three-layer defence", latex: "\\ell_{\\text{active}}(\\tau, P) = \\lambda^*(P)\\cdot L_0\\cdot\\sqrt{T-\\tau}", sub: "", note: "Time-decay × constant PA-AMM λ × Gaussian λ*(P). Each layer bounds a different timescale of LP loss." },
 ];
 
 /* ── resolution lifecycle fan ───────────────────────────────────────────── */
@@ -680,10 +682,11 @@ function Docs() {
             <Reveal key={p.label} delay={i * 0.08}>
               <div className="rounded-xl border border-white/10 bg-[#0E0E11] p-5 h-full">
                 <p className="font-mono text-[10px] tracking-[0.25em] uppercase text-[#10B981] mb-3">{p.label}</p>
-                <div className="font-mono text-[13px] leading-relaxed whitespace-pre text-[#F3F4F6] overflow-x-auto">
-                  {p.lines.map((l) => <p key={l}>{l}</p>)}
+                <div className="overflow-x-auto py-2">
+                  <div dangerouslySetInnerHTML={{ __html: katex.renderToString(p.latex, { displayMode: true, throwOnError: false }) }} />
+                  {p.sub && <div className="mt-1" dangerouslySetInnerHTML={{ __html: katex.renderToString(p.sub, { displayMode: true, throwOnError: false }) }} />}
                 </div>
-                <p className="text-sm leading-relaxed mt-4 text-[#8B8D98]">{p.note}</p>
+                <p className="text-sm leading-relaxed mt-3 text-[#8B8D98]">{p.note}</p>
               </div>
             </Reveal>
           ))}
@@ -731,7 +734,7 @@ function Docs() {
 
       {/* ARCHITECTURE */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-28 pb-8">
-        <SectionHead num="11 / Architecture" title="Rust on Stylus, priced on-chain" sub="The Gaussian engine would be prohibitively expensive in Solidity. Stylus runs it as WASM for ~5,000 gas a block." />
+        <SectionHead num="11 / Architecture" title="Rust on Stylus, priced on-chain" sub="The Gaussian engine would be prohibitively expensive in Solidity. Stylus runs it as WASM for less than $0.001 a block." />
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-stretch">
           <Reveal className="md:col-span-2">
             <div className="h-full flex flex-col justify-center space-y-4">
@@ -761,7 +764,7 @@ function Docs() {
         </div>
         <Reveal delay={0.2}>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-8 font-mono text-[10px] tracking-[0.15em] uppercase text-[#8B8D98]">
-            {["Arbitrum Stylus", "Rust → WASM", "WAD fixed-point", "exactly AR(1)", "~5K gas / block", "no oracle"].map((s, i) => (
+            {["Arbitrum Stylus", "Rust → WASM", "WAD fixed-point", "exactly AR(1)", "<$0.001 / block", "no oracle"].map((s, i) => (
               <span key={s} className="flex items-center gap-5">
                 {i > 0 && <span className="text-[#10B981]">·</span>}
                 {s}

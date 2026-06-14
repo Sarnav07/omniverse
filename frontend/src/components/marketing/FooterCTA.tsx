@@ -43,7 +43,7 @@ export function FooterCTA() {
         <span>© 2026 Omniverse Labs</span>
         <span className="flex items-center gap-2">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#10B981] pulse-live" />
-          Mainnet · Arbitrum
+          Arbitrum Sepolia
         </span>
       </div>
     </section>
