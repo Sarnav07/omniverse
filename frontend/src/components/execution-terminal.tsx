@@ -46,6 +46,13 @@ const GAS_CONFIG = {
   maxFeePerGas: parseGwei("0.2"),
 } as const;
 
+// executeBorrow chains 6+ internal calls — needs higher gas ceiling
+const BORROW_GAS_CONFIG = {
+  gas: 3_000_000n,
+  maxPriorityFeePerGas: parseGwei("0.02"),
+  maxFeePerGas: parseGwei("0.2"),
+} as const;
+
 const TABS: { key: TabKey; label: string }[] = [
   { key: "swap", label: "Swap" },
   { key: "borrow", label: "Borrow" },
@@ -559,6 +566,33 @@ function BorrowTab({
     );
   }
 
+  const lendingAddr = manifest.lending as `0x${string}`;
+
+  // Read borrowable reserve + user position from lending contract
+  const lendingAbi = [
+    { type: "function", name: "reserveYesUsdc", inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" },
+    { type: "function", name: "collateralOf", inputs: [{ name: "", type: "address" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
+    { type: "function", name: "debtOf", inputs: [{ name: "", type: "address" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
+  ] as const;
+
+  const { data: reserveRaw } = useReadContract({
+    address: lendingAddr, abi: lendingAbi, functionName: "reserveYesUsdc",
+    query: { refetchInterval: 5_000 },
+  });
+  const reserve = (reserveRaw as bigint | undefined) ?? 0n;
+
+  const { data: userCollateralRaw } = useReadContract({
+    address: lendingAddr, abi: lendingAbi, functionName: "collateralOf",
+    args: [address ?? ZERO], query: { enabled: !!address, refetchInterval: 5_000 },
+  });
+  const userCollateral = (userCollateralRaw as bigint | undefined) ?? 0n;
+
+  const { data: userDebtRaw } = useReadContract({
+    address: lendingAddr, abi: lendingAbi, functionName: "debtOf",
+    args: [address ?? ZERO], query: { enabled: !!address, refetchInterval: 5_000 },
+  });
+  const userDebt = (userDebtRaw as bigint | undefined) ?? 0n;
+
   const wethCollateral = toWad(collateral);
   const usdcBorrow = toWad(borrow);
   const ltv = parseFloat(collateral) > 0 ? (parseFloat(borrow) / parseFloat(collateral)) * 100 : 0;
@@ -586,7 +620,7 @@ function BorrowTab({
       abi: OmniverseRouterAbi,
       functionName: "executeBorrow",
       args: [manifest.lending, manifest.conditionId, wethCollateral, usdcBorrow],
-      ...GAS_CONFIG,
+      ...BORROW_GAS_CONFIG,
     });
   };
 
@@ -604,7 +638,7 @@ function BorrowTab({
         label="Borrow Against"
         asset="USDC"
         assetClass="bg-sky-500/10 text-sky-300"
-        balance="—"
+        balance={`${Number(formatUnits(reserve, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} avail`}
         value={borrow}
         onChange={setBorrow}
       />
@@ -632,11 +666,26 @@ function BorrowTab({
 
       <MetaRow
         items={[
-          { label: "Health", value: "∞" },
-          { label: "Liquidation", value: "None" },
+          { label: "Health", value: "∞ (no liquidation)" },
+          { label: "Reserve", value: `${Number(formatUnits(reserve, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })} USDC` },
           { label: "Gas", value: "0.2 gwei" },
         ]}
       />
+
+      {/* Existing position */}
+      {(userCollateral > 0n || userDebt > 0n) && (
+        <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-1">
+          <span className="text-[9px] text-[#8B8D98] uppercase tracking-widest">Your Position</span>
+          <div className="flex justify-between text-[11px] font-mono">
+            <span className="text-white/60">Collateral</span>
+            <span className="text-white">{Number(formatUnits(userCollateral, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })} WETH</span>
+          </div>
+          <div className="flex justify-between text-[11px] font-mono">
+            <span className="text-white/60">Debt</span>
+            <span className="text-white">{Number(formatUnits(userDebt, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC</span>
+          </div>
+        </div>
+      )}
 
       <ExecuteButton
         state={btnState}
