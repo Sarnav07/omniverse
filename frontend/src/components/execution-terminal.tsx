@@ -49,9 +49,6 @@ const GAS_CONFIG = {
 const TABS: { key: TabKey; label: string }[] = [
   { key: "swap", label: "Swap" },
   { key: "borrow", label: "Borrow" },
-  { key: "manage", label: "Manage" },
-  { key: "provide", label: "Provide" },
-  { key: "redeem", label: "Redeem" },
 ];
 
 const sanitize = (v: string) => v.replace(/[^0-9.]/g, "");
@@ -347,6 +344,45 @@ const SWAP_PRESETS = [
   { label: "Kill Shot", amount: "6000" },
 ];
 
+/* ---------------- Testnet Faucet Button ---------------- */
+const FAUCET_AMOUNT = parseUnits("12000", 18); // 12,000 test WETH
+
+function FaucetButton({ token, recipient }: { token: `0x${string}`; recipient: `0x${string}` }) {
+  const { writeContract, isPending, data: hash } = useWriteContract();
+  const { isLoading: confirming, isSuccess } = useWaitForTransactionReceipt({ hash, query: { enabled: !!hash } });
+  const busy = isPending || (!!hash && confirming);
+
+  return (
+    <>
+    <button
+      onClick={() => {
+        if (busy) return;
+        writeContract({
+          address: token,
+          abi: [{ type: "function", name: "mint", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [], stateMutability: "nonpayable" }],
+          functionName: "mint",
+          args: [recipient, FAUCET_AMOUNT],
+          ...GAS_CONFIG,
+        });
+      }}
+      disabled={busy}
+      className={`w-full rounded-lg border py-2.5 text-xs font-medium tracking-widest uppercase transition-all ${
+        isSuccess
+          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+          : busy
+            ? "border-white/5 bg-white/[0.02] text-white/40 animate-pulse"
+            : "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 cursor-pointer"
+      }`}
+    >
+      {isSuccess ? "✓ 12,000 Test WETH Minted — click again for more" : busy ? "Minting…" : "🚰 Get 12,000 Test WETH"}
+    </button>
+    <p className="text-[10px] text-white/30 text-center">
+      Requires Arb Sepolia ETH for gas · <a href="https://faucets.chain.link/arbitrum-sepolia" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50 transition-colors">Get free ETH →</a>
+    </p>
+    </>
+  );
+}
+
 /* ---------------- SWAP (real buyYes / buyNo) ---------------- */
 function SwapTab({
   poolWeth,
@@ -444,6 +480,11 @@ function SwapTab({
         value={pay}
         onChange={setPay}
       />
+
+      {/* Testnet faucet — mint test WETH when balance is low */}
+      {address && balance < parseUnits("100", 18) && (
+        <FaucetButton token={CONTRACT_ADDRESSES.WETH} recipient={address} />
+      )}
 
       {/* Quick-fill attack presets */}
       <div className="flex gap-2">

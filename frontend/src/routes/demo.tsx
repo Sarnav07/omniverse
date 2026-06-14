@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -16,6 +16,9 @@ import { PageHeader } from "@/components/page-header";
 import { DashboardGrid } from "@/components/dashboard-grid";
 import { DepthChartPanel } from "@/components/depth-chart-panel";
 import { ActivityPanel } from "@/components/activity-panel";
+
+// Demo route is dev-only — redirect to /markets in production
+const isDev = import.meta.env.DEV;
 
 export const Route = createFileRoute("/demo")({
   head: () => ({
@@ -99,6 +102,11 @@ function useSimulatedFeed() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DemoPage() {
+  // Dev-only route — redirect to /markets in production
+  if (!isDev) {
+    return <Navigate to="/markets" />;
+  }
+
   // ── Live data hooks ──────────────────────────────────────────────────────
   const { data: manifest } = useDemoManifest();
   const { price: livePrice, source: priceSource } = usePoolPrice(manifest?.poolWeth);

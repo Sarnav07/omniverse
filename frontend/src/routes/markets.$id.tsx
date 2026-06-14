@@ -270,8 +270,8 @@ function TerminalPage() {
           </div>
         </header>
 
-        {/* ── Pre-Demo Readiness (demo market only, hidden in present mode or after trades) ── */}
-        {isDemoMarket && !presentMode && demoTrades.length === 0 && (
+        {/* ── Pre-Demo Readiness (only with ?debug=true) ── */}
+        {isDemoMarket && !presentMode && demoTrades.length === 0 && (typeof window !== 'undefined' && window.location.search.includes("debug=true")) && (
           <div className="shrink-0">
             <PreDemoReadinessPanel manifest={manifest} pool={livePool} presentMode={presentMode} />
           </div>

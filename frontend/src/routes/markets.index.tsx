@@ -199,8 +199,8 @@ function MarketsPage() {
       const volUsdc = Number(item.totalVolumeUsdc) / 1e18;
       const vol = volWeth + volUsdc;
 
-      // Calculate TVL from pool reserves
-      let tvl = 0;
+      // Calculate TVL from pool reserves (active + passive)
+      let tvlWeth = 0;
       let reserveIdx = 0;
 
       // Count how many pools came before this item
@@ -209,14 +209,16 @@ function MarketsPage() {
         if (items[i].poolUsdc) reserveIdx++;
       }
 
-      // Read WETH pool reserves
+      // Read WETH pool reserves — x and y are both denominated in WETH
       if (item.poolWeth && reservesData && reservesData[reserveIdx]) {
         const result = reservesData[reserveIdx];
         if (result.status === "success") {
           const reserves = result.result as [bigint, bigint, bigint, bigint, bigint, bigint, bigint];
           const xActive = Number(reserves[0]) / 1e18;
+          const xPassive = Number(reserves[1]) / 1e18;
           const yActive = Number(reserves[2]) / 1e18;
-          tvl += (xActive * wethPrice) + yActive;
+          const yPassive = Number(reserves[3]) / 1e18;
+          tvlWeth += xActive + xPassive + yActive + yPassive;
         }
         reserveIdx++;
       }
@@ -227,10 +229,14 @@ function MarketsPage() {
         if (result.status === "success") {
           const reserves = result.result as [bigint, bigint, bigint, bigint, bigint, bigint, bigint];
           const xActive = Number(reserves[0]) / 1e18;
+          const xPassive = Number(reserves[1]) / 1e18;
           const yActive = Number(reserves[2]) / 1e18;
-          tvl += xActive + yActive; // USDC pool is already in USD
+          const yPassive = Number(reserves[3]) / 1e18;
+          tvlWeth += (xActive + xPassive + yActive + yPassive) / wethPrice; // convert USDC to WETH-equivalent
         }
       }
+
+      const tvl = tvlWeth * wethPrice;
 
       // Build sparkline from trade history
       let curve: number[] = [];
