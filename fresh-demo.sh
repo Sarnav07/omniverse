@@ -66,8 +66,8 @@ ENV_FILE="indexer/.env.local"
 touch "$ENV_FILE"
 
 if grep -q "^START_BLOCK=" "$ENV_FILE"; then
-    # sed in-place replacement (works on linux)
-    sed -i "s/^START_BLOCK=.*/START_BLOCK=$START_BLOCK/" "$ENV_FILE"
+    # sed in-place replacement (macOS compatible)
+    sed -i '' "s/^START_BLOCK=.*/START_BLOCK=$START_BLOCK/" "$ENV_FILE"
 else
     echo "START_BLOCK=$START_BLOCK" >> "$ENV_FILE"
 fi

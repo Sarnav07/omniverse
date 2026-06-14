@@ -41,6 +41,7 @@ const MAX_UINT256 =
 
 // Every writeContract needs explicit gas or MetaMask estimation fails / shows absurd fees.
 const GAS_CONFIG = {
+  gas: 1_500_000n,
   maxPriorityFeePerGas: parseGwei("0.02"),
   maxFeePerGas: parseGwei("0.2"),
 } as const;

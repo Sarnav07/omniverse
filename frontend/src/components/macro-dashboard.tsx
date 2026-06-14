@@ -19,12 +19,12 @@ export function MacroDashboard({ savedTotal, shielded, lambdaWad, price }: Macro
 
   const cards: MacroCardProps[] = [
     {
-      label: "CUMULATIVE SAVED",
-      value: `$${savedDisplay}`,
-      delta: "+184k in 24h",
-      deltaPositive: true,
+      label: "CAPITAL SHIELDED",
+      value: `${savedDisplay} WETH`,
+      delta: "Passive Reserves",
+      deltaPositive: savedTotal > 0 ? true : null,
       sparkline: true,
-      seed: [12, 14, 13, 16, 18, 17, 21, 24, 22, 26, 28, 31],
+      seed: [4, 6, 5, 8, 10, 9, 13, 16, 14, 18, 22, 28],
     },
     {
       label: "LP SHIELD STATUS",

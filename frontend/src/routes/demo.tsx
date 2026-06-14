@@ -110,7 +110,12 @@ function DemoPage() {
     : null;
 
   // Fall back to simulated feed for panels that haven't been replaced yet
-  const { trades: simTrades, price: simPrice, savedTotal, shielded } = useSimulatedFeed();
+  const { trades: simTrades, price: simPrice, shielded } = useSimulatedFeed();
+
+  // Real on-chain "capital shielded" = passive reserves in WETH
+  const passiveReserves = reserves
+    ? Number(reserves.xPassive + reserves.yPassive) / 1e18
+    : 0;
   const liveYes = dashboard ? dashboard.priceFloat : simPrice;
 
   return (
@@ -133,7 +138,7 @@ function DemoPage() {
         />
 
         <MacroDashboard 
-          savedTotal={savedTotal}
+          savedTotal={passiveReserves}
           shielded={manifest && dashboard?.passivePct !== undefined ? dashboard.passivePct / 100 : shielded}
           lambdaWad={manifest ? dashboard?.lambdaWad : undefined}
           price={liveYes}

@@ -180,16 +180,16 @@ function LinkedVisual() {
 
 function StylusTable() {
   const rows = [
-    ["Solidity Gas", "~800k"],
-    ["WASM Gas", "~18.5k"],
-    ["Efficiency", "+97.7%"],
+    ["Gaussian CDF", "<$0.001"],
+    ["Invariant Solve", "<$0.003"],
+    ["Full Trade", "<$0.01"],
   ];
   return (
     <div className="w-full flex flex-col divide-y divide-white/5 font-mono text-xs">
       {rows.map(([k, v]) => (
         <div key={k} className="flex justify-between py-3">
           <span className="text-[#8B8D98]">{k}</span>
-          <span className="text-[#F3F4F6] tabular">{v}</span>
+          <span className="text-[#10B981] tabular">{v}</span>
         </div>
       ))}
     </div>
@@ -215,9 +215,9 @@ function LTVGauge() {
 
 function TelemetryStrip() {
   const stats = [
-    { v: "$2,481,742", k: "Cumulative Saved" },
-    { v: "61.0%", k: "LP Shield Status" },
-    { v: "218ms", k: "Avg Latency" },
+    { v: "19,948 WETH", k: "Capital Shielded" },
+    { v: "100%", k: "LP Shield Status" },
+    { v: "250ms", k: "Block Time" },
   ];
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">

@@ -9,5 +9,5 @@ export const CONTRACT_ADDRESSES = {
   Resolver: "0xb99d93a881f633F7426529A76CEAA5Ee0Fab7509" as `0x${string}`,
   MarketFactory: "0xc3DFbA9E807d3AF9d52Ded98277083B7211297d7" as `0x${string}`,
   MultiverseLending: "0x63878d16bAe4DBb7712Af8387FaC206Aa7C3145E" as `0x${string}`,
-  OmniverseRouter: "0xF0AF8C84655a3E25Cf26Cb88E70E765C157515B2" as `0x${string}`,
+  OmniverseRouter: "0x50365ed56d31A1dB54bad15eB5D8C8AF0a5AEE4D" as `0x${string}`,
 } as const;
