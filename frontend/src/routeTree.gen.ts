@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SimulateRouteImport } from './routes/simulate'
 import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as ExplorerRouteImport } from './routes/explorer'
+import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MarketsIndexRouteImport } from './routes/markets.index'
@@ -31,6 +32,11 @@ const MarketsRoute = MarketsRouteImport.update({
 const ExplorerRoute = ExplorerRouteImport.update({
   id: '/explorer',
   path: '/explorer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemoRoute = DemoRouteImport.update({
@@ -62,6 +68,7 @@ const MarketsIdRoute = MarketsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/docs': typeof DocsRoute
   '/explorer': typeof ExplorerRoute
   '/markets': typeof MarketsRouteWithChildren
   '/simulate': typeof SimulateRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/docs': typeof DocsRoute
   '/explorer': typeof ExplorerRoute
   '/simulate': typeof SimulateRoute
   '/markets/$id': typeof MarketsIdRoute
@@ -82,6 +90,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/docs': typeof DocsRoute
   '/explorer': typeof ExplorerRoute
   '/markets': typeof MarketsRouteWithChildren
   '/simulate': typeof SimulateRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/demo'
+    | '/docs'
     | '/explorer'
     | '/markets'
     | '/simulate'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/demo'
+    | '/docs'
     | '/explorer'
     | '/simulate'
     | '/markets/$id'
@@ -113,6 +124,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/demo'
+    | '/docs'
     | '/explorer'
     | '/markets'
     | '/simulate'
@@ -124,6 +136,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DemoRoute: typeof DemoRoute
+  DocsRoute: typeof DocsRoute
   ExplorerRoute: typeof ExplorerRoute
   MarketsRoute: typeof MarketsRouteWithChildren
   SimulateRoute: typeof SimulateRoute
@@ -150,6 +163,13 @@ declare module '@tanstack/react-router' {
       path: '/explorer'
       fullPath: '/explorer'
       preLoaderRoute: typeof ExplorerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demo': {
@@ -208,6 +228,7 @@ const MarketsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DemoRoute: DemoRoute,
+  DocsRoute: DocsRoute,
   ExplorerRoute: ExplorerRoute,
   MarketsRoute: MarketsRouteWithChildren,
   SimulateRoute: SimulateRoute,

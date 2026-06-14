@@ -44,13 +44,20 @@ export function Nav({ appMode = false }: { appMode?: boolean }) {
               {link.label}
             </Link>
           ))}
+          <Link
+            to="/docs"
+            className="text-white/55 transition-colors duration-300 hover:text-white"
+            activeProps={{ className: "text-white" }}
+          >
+            docs
+          </Link>
           <a
             href="/gaussian_lambda_star.pdf"
             target="_blank"
             rel="noreferrer"
             className="text-white/55 transition-colors duration-300 hover:text-white"
           >
-            docs ↗
+            paper ↗
           </a>
         </nav>
 
