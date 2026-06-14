@@ -42,19 +42,19 @@ flowchart TD
         RES[Resolver]
     end
 
-    Trader([Trader]) -->|swap| PA
-    PA -->|1. fetch optimal λ*| OM
-    PA -->|2. solve swap invariant| OM
-    PA <-->|transfer YES/NO| CT
+    Trader([Trader]) -->|"swap"| PA
+    PA -->|"1. fetch optimal λ*"| OM
+    PA -->|"2. solve swap invariant"| OM
+    PA <-->|"transfer YES / NO"| CT
 
-    LPer([Liquidity Provider]) -->|add/remove liquidity| PA
-    PA -->|pool value v(z)| OM
+    LPer([Liquidity Provider]) -->|"add / remove liquidity"| PA
+    PA -->|"pool value v(z)"| OM
 
-    Borrower([Borrower]) -->|deposit collateral, borrow debt| ML
-    ML <-->|verify identical outcome| CT
+    Borrower([Borrower]) -->|"deposit collateral, borrow debt"| ML
+    ML <-->|"verify identical outcome"| CT
 
-    MF -->|deploy clone| PA
-    MF -->|register| CT
+    MF -->|"deploy clone"| PA
+    MF -->|"register"| CT
 ```
 
 **Component responsibilities:**

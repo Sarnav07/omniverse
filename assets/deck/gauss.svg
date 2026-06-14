@@ -1,0 +1,33 @@
+<svg width="1000" height="520" viewBox="0 0 1000 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="70" y1="430" x2="950" y2="75" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34D399"/><stop offset="0.5" stop-color="#10B981"/><stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <linearGradient id="fill" x1="0" y1="75" x2="0" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#10B981" stop-opacity="0.26"/><stop offset="1" stop-color="#10B981" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+  <!-- axes -->
+  <line x1="70" y1="430" x2="950" y2="430" stroke="#2A2A30" stroke-width="2"/>
+  <line x1="70" y1="60" x2="70" y2="430" stroke="#2A2A30" stroke-width="2"/>
+  <!-- faint Gaussian bell (the density behind the price) -->
+  <path d="M 70 424 C 320 424, 430 150, 510 140 C 590 150, 700 424, 950 424"
+        fill="none" stroke="#10B981" stroke-opacity="0.22" stroke-width="5"/>
+  <!-- 50% gridline -->
+  <line x1="510" y1="78" x2="510" y2="430" stroke="#1E2228" stroke-width="2" stroke-dasharray="5 7"/>
+  <!-- Gaussian CDF S-curve: P = Phi(z) -->
+  <path d="M 70 416 C 250 412, 372 372, 510 252 C 648 132, 770 92, 950 88"
+        fill="none" stroke="#10B981" stroke-opacity="0.5" stroke-width="16" filter="url(#soft)"/>
+  <path d="M 70 416 C 250 412, 372 372, 510 252 C 648 132, 770 92, 950 88 L 950 430 L 70 430 Z" fill="url(#fill)"/>
+  <path d="M 70 416 C 250 412, 372 372, 510 252 C 648 132, 770 92, 950 88"
+        fill="none" stroke="url(#g)" stroke-width="9" stroke-linecap="round"/>
+  <!-- current price dot at z=0 -> P=0.5 -->
+  <circle cx="510" cy="252" r="11" fill="#34D399" stroke="#08080A" stroke-width="4"/>
+  <!-- labels -->
+  <text x="30" y="96"  fill="#8B8D98" font-family="Arial, sans-serif" font-size="26">1.0</text>
+  <text x="44" y="426" fill="#8B8D98" font-family="Arial, sans-serif" font-size="26">0</text>
+  <text x="20" y="250" fill="#8B8D98" font-family="Arial, sans-serif" font-size="26">P</text>
+  <text x="468" y="470" fill="#8B8D98" font-family="Arial, sans-serif" font-size="26">y = x</text>
+  <text x="858" y="470" fill="#8B8D98" font-family="Arial, sans-serif" font-size="26">y − x</text>
+</svg>
