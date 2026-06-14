@@ -324,6 +324,12 @@ $$P = \Phi\left(\frac{y - x}{L}\right)$$
 
 This elegant relationship directly maps the reserve imbalance to a probability via the Gaussian CDF, ensuring that $P \in [0, 1]$ and that the price moves according to the principles of Brownian motion and score dynamics.
 
+<div align="center">
+<img src="assets/deck/gauss.png" alt="Marginal price P = Φ((y−x)/L): the Gaussian CDF maps reserve imbalance to implied probability" width="620"/>
+<br/>
+<sub><i>The marginal price is the Gaussian CDF of the reserve gap. The dot sits at <code>y = x</code> → <code>P = 0.5</code>; the faint bell behind it is the PDF φ that the price integrates.</i></sub>
+</div>
+
 #### **Why Gaussian?**
 
 The Gaussian model is optimal for prediction markets where the outcome depends on whether an underlying **score** (e.g., vote margin, point spread, price level) crosses a threshold. The assumption that this score follows a **Brownian motion** leads naturally to the use of the normal distribution's CDF and PDF in the pricing mechanism.
@@ -415,9 +421,14 @@ The critical insight is that as $P \to 0$ or $P \to 1$:
 
 **Result:** At market extremes (e.g., $P = 0.99$), the protocol automatically hides $95\%$ or more of LP capital from arbitrageurs, preserving LP solvency.
 
-This creates a **W-shaped activeness surface** across the probability space, where liquidity is maximally active near $P = 0.5$ (maximum uncertainty) and minimally active near $P = 0$ or $P = 1$ (near-certainty).
+This creates a **W-shaped activeness surface** across the probability space: liquidity stays high through the interior, eases slightly at $P = 0.5$, and **collapses toward zero near $P = 0$ or $P = 1$** (near-certainty), where adverse selection is worst.
 
-
+<div align="center">
+<img src="assets/deck/fig_wshape.png" alt="W-shape of optimal activeness λ*(P) against true probability P" width="480"/>
+<img src="assets/deck/fig_vphi.png" alt="Product v(z)·φ(z) that drives the W-shape, against z = Φ⁻¹(P)" width="480"/>
+<br/>
+<sub><i><b>Left:</b> optimal activeness <code>λ*(P)</code> at γ′ = 2. Twin peaks (≈0.48) sit near P ≈ 0.16 / 0.84, with a shallow dip at 0.5 and a hard collapse to ~0.1 at the certainty tails — far below a naive constant λ = 0.5. <b>Right:</b> the term <code>v(z)·φ(z)</code> in the denominator of the risk weight γ_G; its twin humps at z ≈ ±1 and exponential tail decay are exactly what carve the W into λ*.</i></sub>
+</div>
 
 ---
 
@@ -451,6 +462,13 @@ The dynamic decay ensures that the **total expected Loss-vs-Rebalancing** over t
 $$\text{Expected Lifetime LVR} \approx \frac{L_0}{2}$$
 
 This transforms LP risk from an unbounded, unpredictable hazard into a **quantifiable, manageable cost**, allowing LPs to price their services through trading fees.
+
+<div align="center">
+<img src="assets/deck/fig_montecarlo.png" alt="Monte Carlo mean cumulative cost: λ*(P) optimal vs constant-λ and naive-dome strategies across P0" width="520"/>
+<img src="assets/deck/fig_ar1.png" alt="Simulated reserve-gap process and its stationary distribution matching AR(1) theory" width="440"/>
+<br/>
+<sub><i><b>Left:</b> 200-path Monte Carlo of mean cumulative cost. <code>λ*(P)</code> matches or beats every constant-λ baseline at all starting probabilities, and decisively beats the naive dome as the market gets extreme (P₀ = 0.05, 0.01). <b>Right:</b> the reserve-gap process is a stationary AR(1) — the simulated variance (1.47e-4) matches theory (1.43e-4) within ~2%, which is the assumption the whole λ* derivation rests on.</i></sub>
+</div>
 
 ---
 
