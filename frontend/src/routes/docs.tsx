@@ -283,11 +283,11 @@ function ScrollStory() {
 
           {/* lending overlay (ch 06) — collateral & debt collapse together */}
           <motion.g style={{ opacity: lendO }}>
-            <motion.rect x={xToPx(0.34) - 70} width={56} height={collapseH} y={collapseY} rx={3} fill="rgba(16,185,129,0.22)" stroke={EM} strokeWidth={1} />
-            <motion.rect x={xToPx(0.34) + 14} width={56} height={collapseH} y={collapseY} rx={3} fill="rgba(239,68,68,0.20)" stroke={CR} strokeWidth={1} />
-            <text x={xToPx(0.34) - 42} y={BASE_Y + 20} textAnchor="middle" fontSize={10} fontFamily="'Geist Mono', monospace" fill={EM}>YES-collateral</text>
-            <text x={xToPx(0.34) + 42} y={BASE_Y + 20} textAnchor="middle" fontSize={10} fontFamily="'Geist Mono', monospace" fill={CR}>YES-debt</text>
-            <text x={xToPx(0.34)} y={TOP_Y + 30} textAnchor="middle" fontSize={12} fontFamily="'Geist Mono', monospace" fill={CREAM}>both → 0 on resolution</text>
+            <motion.rect x={xToPx(0.55) - 70} width={56} height={collapseH} y={collapseY} rx={3} fill="rgba(16,185,129,0.22)" stroke={EM} strokeWidth={1} />
+            <motion.rect x={xToPx(0.55) + 14} width={56} height={collapseH} y={collapseY} rx={3} fill="rgba(239,68,68,0.20)" stroke={CR} strokeWidth={1} />
+            <text x={xToPx(0.55) - 42} y={BASE_Y + 40} textAnchor="middle" fontSize={10} fontFamily="'Geist Mono', monospace" fill={EM}>YES-collateral</text>
+            <text x={xToPx(0.55) + 42} y={BASE_Y + 40} textAnchor="middle" fontSize={10} fontFamily="'Geist Mono', monospace" fill={CR}>YES-debt</text>
+            <text x={xToPx(0.55)} y={TOP_Y + 30} textAnchor="middle" fontSize={12} fontFamily="'Geist Mono', monospace" fill={CREAM}>both → 0 on resolution</text>
           </motion.g>
         </svg>
 
